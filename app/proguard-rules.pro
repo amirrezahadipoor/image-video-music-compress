@@ -9,8 +9,11 @@
 -keep @androidx.room.Entity class *
 -dontwarn androidx.room.**
 
-# jump3r (pure-Java MP3 encoder). Internal classes are wired by name.
--keep class de.sciss.jump3r.** { *; }
+# jump3r (pure-Java MP3 encoder). We only use the low-level LAME port
+# (mp3.* and mpg.* packages); keeping everything would drag in the
+# javax.sound-dependent LameEncoder wrapper, which Android lacks.
+-keep class de.sciss.jump3r.mp3.** { *; }
+-keep class de.sciss.jump3r.mpg.** { *; }
 -dontwarn de.sciss.jump3r.**
 
 # jaudiotagger (offline metadata tagging)

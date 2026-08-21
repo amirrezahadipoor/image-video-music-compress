@@ -7,7 +7,7 @@ import de.sciss.jump3r.mp3.ID3Tag
 import de.sciss.jump3r.mp3.Lame
 import de.sciss.jump3r.mp3.LameGlobalFlags
 import de.sciss.jump3r.mp3.MPEGMode
-import de.sciss.jump3r.mp3.MPGLib
+import de.sciss.jump3r.mpg.MPGLib
 import de.sciss.jump3r.mp3.Presets
 import de.sciss.jump3r.mp3.Quantize
 import de.sciss.jump3r.mp3.QuantizePVT
@@ -117,11 +117,13 @@ class Mp3Writer(
         // Convert little-endian 16-bit PCM to LAME's 32-bit sample format.
         val sampleBuffer = IntArray(samples)
         var si = samples
-        var i = samples * 2
-        while ((i -= 2) >= 0) {
-            sampleBuffer[--si] =
+        var i = samples * 2 - 2
+        while (i >= 0) {
+            sampleBuffer[si - 1] =
                 ((pcm[offset + i].toInt() and 0xff) shl 16) or
                     ((pcm[offset + i + 1].toInt() and 0xff) shl 24)
+            si -= 1
+            i -= 2
         }
 
         var p = samples

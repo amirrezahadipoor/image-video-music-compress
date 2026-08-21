@@ -34,7 +34,11 @@ object AudioMetadataWriter {
         tags.comment?.let { tag.setField(FieldKey.COMMENT, it) }
         tags.artwork?.let { bytes ->
             runCatching { tag.deleteArtworkField() }
-            tag.setField(ArtworkFactory.createArtworkFromBytes(bytes))
+            val artwork = ArtworkFactory.getNew().apply {
+                setBinaryData(bytes)
+                setMimeType("image/jpeg")
+            }
+            tag.setField(artwork)
         }
         audioFile.commit()
     }

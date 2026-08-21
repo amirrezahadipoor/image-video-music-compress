@@ -27,8 +27,8 @@ object MediaInspector {
                 height = key(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0,
                 rotation = key(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0,
                 durationMs = key(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L,
-                videoBitrate = key(MediaMetadataRetriever.METADATA_KEY_VIDEO_BITRATE)?.toIntOrNull() ?: 0,
-                audioBitrate = key(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toIntOrNull() ?: 0,
+                videoBitrate = key(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toIntOrNull() ?: 0,
+                audioBitrate = 0,
                 hasVideo = hasVideo,
                 hasAudio = hasAudio,
                 audioSampleRate = key(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)?.toIntOrNull() ?: 0,
@@ -48,7 +48,8 @@ object MediaInspector {
         try {
             mmr.setDataSource(context, uri)
             fun key(k: Int): String? = runCatching { mmr.extractMetadata(k) }.getOrNull()
-            val artwork: Bitmap? = runCatching { mmr.embeddedPicture }.getOrNull()
+            // embeddedPicture returns the raw image bytes (JPEG/PNG).
+            val artwork: ByteArray? = runCatching { mmr.embeddedPicture }.getOrNull()
             return AudioTags(
                 title = key(MediaMetadataRetriever.METADATA_KEY_TITLE),
                 artist = key(MediaMetadataRetriever.METADATA_KEY_ARTIST),
@@ -57,12 +58,7 @@ object MediaInspector {
                 genre = key(MediaMetadataRetriever.METADATA_KEY_GENRE),
                 year = key(MediaMetadataRetriever.METADATA_KEY_YEAR),
                 track = key(MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER),
-                comment = key(MediaMetadataRetriever.METADATA_KEY_COMMENT),
-                artwork = artwork?.let { bmp ->
-                    val out = java.io.ByteArrayOutputStream()
-                    bmp.compress(Bitmap.CompressFormat.JPEG, 92, out)
-                    out.toByteArray()
-                }
+                artwork = artwork
             )
         } finally {
             runCatching { mmr.release() }

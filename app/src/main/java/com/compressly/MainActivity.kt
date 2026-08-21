@@ -17,7 +17,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import com.compressly.compressly.R
+import com.compressly.R
 import com.compressly.core.data.ThemeMode
 import com.compressly.core.service.CompressionJobService
 import com.compressly.core.util.CrashGuard

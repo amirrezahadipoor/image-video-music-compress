@@ -2,7 +2,6 @@ package com.compressly.core.engine.audio
 
 import android.content.Context
 import android.media.MediaCodec
-import android.media.MediaCodecInfo
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
@@ -80,8 +79,8 @@ object WaveformSampler {
                     if (outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                         pcmFloat = decoder.outputFormat.getInteger(
                             MediaFormat.KEY_PCM_ENCODING,
-                            MediaCodecInfo.CodecCapabilities.ENCODING_PCM_16BIT
-                        ) == MediaCodecInfo.CodecCapabilities.ENCODING_PCM_FLOAT
+                            android.media.AudioFormat.ENCODING_PCM_16BIT
+                        ) == android.media.AudioFormat.ENCODING_PCM_FLOAT
                     } else if (info.size > 0) {
                         val buf = decoder.getOutputBuffer(outIdx)!!
                         buf.position(info.offset)

@@ -19,7 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.compressly.compressly.R
+import com.compressly.R
 import com.compressly.core.ads.Ads
 
 /**

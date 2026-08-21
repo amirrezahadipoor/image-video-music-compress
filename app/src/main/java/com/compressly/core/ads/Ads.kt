@@ -1,5 +1,7 @@
 package com.compressly.core.ads
 
+import com.compressly.BuildConfig
+
 /**
  * Abstraction over the ad provider (Tapsell / تپسل for the Bazaar build).
  * The app itself stays fully offline-capable: when no provider is available
