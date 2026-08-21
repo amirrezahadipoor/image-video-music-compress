@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notification status icon: two chevrons pressing inward (compress glyph). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M5,4 L9,4 L9,6 L7,6 L7,8 L5,8 Z M15,4 L19,4 L19,8 L17,8 L17,6 L15,6 Z M7,16 L7,18 L9,18 L9,20 L5,20 L5,16 Z M17,16 L19,16 L19,20 L15,20 L15,18 L17,18 Z M4,11 L20,11 L20,13 L4,13 Z" />
+</vector>

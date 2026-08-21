@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Post-splash app theme. Compose drives the real look; this only avoids a flash. -->
+    <style name="Theme.Compressly" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background_light</item>
+    </style>
+
+    <!-- Android 12+ splash screen -->
+    <style name="Theme.Compressly.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.Compressly</item>
+    </style>
+</resources>
