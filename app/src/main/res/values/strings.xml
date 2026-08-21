@@ -295,4 +295,5 @@
     <!-- Crash recovery -->
     <string name="restart_after_error_title">ببخشید</string>
     <string name="restart_after_error_desc">برنامه پس از یک خطای غیرمنتظره راه‌اندازی مجدد شد. کارهای ناتمام به‌عنوان «ناقص» علامت خوردند و می‌توانید دوباره تلاش کنید.</string>
+    <string name="history_arrow">←</string>
 </resources>

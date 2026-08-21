@@ -233,7 +233,7 @@ private fun HistoryRow(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "  ->  ",
+                            text = stringResource(R.string.history_arrow),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.outline
                         )

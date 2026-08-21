@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,6 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.PhotoCamera
@@ -42,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -250,6 +253,23 @@ private fun HeroCard(totalSaved: Long) {
             .background(Brush.linearGradient(GradientHero))
             .padding(22.dp)
     ) {
+        // Soft decorative circles for depth.
+        Box(
+            modifier = Modifier
+                .size(130.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.06f))
+                .align(Alignment.TopEnd)
+                .offset(x = 44.dp, y = (-44).dp)
+        )
+        Box(
+            modifier = Modifier
+                .size(70.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.05f))
+                .align(Alignment.BottomStart)
+                .offset(x = (-24).dp, y = 24.dp)
+        )
         Column {
             Text(
                 text = stringResource(R.string.home_hero_title),
@@ -367,6 +387,7 @@ private fun ModuleCard(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(6.dp, RoundedCornerShape(22.dp), clip = false)
             .clip(RoundedCornerShape(22.dp))
             .background(Brush.linearGradient(gradient))
             .clickable(onClick = onClick)
@@ -401,10 +422,11 @@ private fun ModuleCard(
                 color = Color.White.copy(alpha = 0.85f)
             )
         }
-        Text(
-            text = stringResource(R.string.action_compress),
-            style = MaterialTheme.typography.labelLarge,
-            color = Color.White
+        Icon(
+            imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.9f),
+            modifier = Modifier.size(26.dp)
         )
     }
 }

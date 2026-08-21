@@ -56,7 +56,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.compressly.CompresslyApp
 import com.compressly.R
-import com.compressly.core.engine.model.AudioBitrateMode
 import com.compressly.core.engine.model.AudioFormat
 import com.compressly.core.engine.model.MediaType
 import com.compressly.core.engine.model.PhotoFormat
@@ -73,7 +72,6 @@ import com.compressly.ui.components.InfoRow
 import com.compressly.ui.components.PresetGauge
 import com.compressly.ui.components.SectionHeader
 import com.compressly.ui.components.ShimmerBox
-import com.compressly.ui.components.SelectableOptionList
 import com.compressly.ui.components.ToggleRow
 import com.compressly.ui.components.Waveform
 import com.compressly.ui.viewmodels.SettingsViewModel
@@ -391,10 +389,10 @@ private fun PhotoAdvanced(
     viewModel: SettingsViewModel
 ) {
     SectionHeader(stringResource(R.string.settings_output_format))
-    SelectableOptionList(
+    ChipSelector(
         options = listOf(PhotoFormat.SOURCE, PhotoFormat.JPEG, PhotoFormat.WEBP, PhotoFormat.PNG),
         selected = state.photo.outputFormat,
-        titleOf = { fmt ->
+        labelOf = { fmt ->
             stringResource(
                 when (fmt) {
                     PhotoFormat.SOURCE -> R.string.photo_keep_original_format
@@ -404,7 +402,6 @@ private fun PhotoAdvanced(
                 }
             )
         },
-        descriptionOf = { null },
         onSelect = viewModel::setPhotoFormat
     )
     Spacer(Modifier.height(16.dp))
@@ -423,10 +420,10 @@ private fun PhotoAdvanced(
     Spacer(Modifier.height(12.dp))
 
     SectionHeader(stringResource(R.string.photo_resize))
-    SelectableOptionList(
+    ChipSelector(
         options = listOf(PhotoResize.NONE, PhotoResize.R2560, PhotoResize.R1920, PhotoResize.R1280, PhotoResize.R1024, PhotoResize.CUSTOM),
         selected = state.photo.resize,
-        titleOf = { res ->
+        labelOf = { res ->
             when (res) {
                 PhotoResize.NONE -> stringResource(R.string.photo_resize_original)
                 PhotoResize.R2560 -> stringResource(R.string.photo_resize_2560)
@@ -436,7 +433,6 @@ private fun PhotoAdvanced(
                 PhotoResize.CUSTOM -> stringResource(R.string.photo_resize_custom)
             }
         },
-        descriptionOf = { null },
         onSelect = viewModel::setPhotoResize
     )
     if (state.photo.resize == PhotoResize.CUSTOM) {
@@ -464,16 +460,15 @@ private fun PhotoAdvanced(
     )
 }
 
-@Composable
 private fun VideoAdvanced(
     state: SettingsViewModel.UiState,
     viewModel: SettingsViewModel
 ) {
     SectionHeader(stringResource(R.string.video_resolution))
-    SelectableOptionList(
-        options = listOf(VideoResolution.ORIGINAL, VideoResolution.R1080, VideoResolution.R720, VideoResolution.R480, VideoResolution.CUSTOM),
+    ChipSelector(
+        options = listOf(VideoResolution.ORIGINAL, VideoResolution.R1080, VideoResolution.R720, VideoResolution.R480),
         selected = state.video.resolution,
-        titleOf = { res ->
+        labelOf = { res ->
             stringResource(
                 when (res) {
                     VideoResolution.ORIGINAL -> R.string.video_resolution_original
@@ -484,30 +479,8 @@ private fun VideoAdvanced(
                 }
             )
         },
-        descriptionOf = { null },
         onSelect = { res -> viewModel.setVideoSettings { it.copy(resolution = res) } }
     )
-    if (state.video.resolution == VideoResolution.CUSTOM) {
-        Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedTextField(
-                value = state.video.customWidth.toString(),
-                onValueChange = { w -> viewModel.setVideoSettings { it.copy(customWidth = w.toIntOrNull() ?: 1280) } },
-                label = { Text("W") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.weight(1f)
-            )
-            OutlinedTextField(
-                value = state.video.customHeight.toString(),
-                onValueChange = { h -> viewModel.setVideoSettings { it.copy(customHeight = h.toIntOrNull() ?: 720) } },
-                label = { Text("H") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
     Spacer(Modifier.height(14.dp))
 
     SectionHeader(stringResource(R.string.video_fps))
@@ -526,20 +499,26 @@ private fun VideoAdvanced(
     Spacer(Modifier.height(14.dp))
 
     SectionHeader(stringResource(R.string.video_codec))
-    SelectableOptionList(
+    ChipSelector(
         options = listOf(VideoCodec.H264, VideoCodec.H265),
         selected = state.video.codec,
-        titleOf = { codec ->
+        labelOf = { codec ->
             stringResource(if (codec == VideoCodec.H264) R.string.video_codec_h264 else R.string.video_codec_h265)
-        },
-        descriptionOf = { codec ->
-            if (codec == VideoCodec.H264) stringResource(R.string.video_codec_h264_desc)
-            else stringResource(R.string.video_codec_h265_desc)
         },
         onSelect = { codec -> viewModel.setVideoSettings { it.copy(codec = codec) } }
     )
+    Text(
+        text = if (state.video.codec == VideoCodec.H265) {
+            stringResource(R.string.video_codec_h265_desc)
+        } else {
+            stringResource(R.string.video_codec_h264_desc)
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 6.dp)
+    )
     if (!state.h265Available && state.video.codec == VideoCodec.H265) {
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
         Text(
             text = stringResource(R.string.video_codec_unavailable),
             style = MaterialTheme.typography.bodySmall,
@@ -549,10 +528,10 @@ private fun VideoAdvanced(
     Spacer(Modifier.height(14.dp))
 
     SectionHeader(stringResource(R.string.video_audio_track))
-    SelectableOptionList(
+    ChipSelector(
         options = listOf(VideoAudioMode.KEEP, VideoAudioMode.COMPRESS, VideoAudioMode.STRIP),
         selected = state.video.audioMode,
-        titleOf = { mode ->
+        labelOf = { mode ->
             stringResource(
                 when (mode) {
                     VideoAudioMode.KEEP -> R.string.video_audio_keep
@@ -561,7 +540,6 @@ private fun VideoAdvanced(
                 }
             )
         },
-        descriptionOf = { null },
         onSelect = { mode -> viewModel.setVideoSettings { it.copy(audioMode = mode) } }
     )
     Spacer(Modifier.height(14.dp))
@@ -569,7 +547,6 @@ private fun VideoAdvanced(
     TrimSection(state, viewModel)
 }
 
-@Composable
 private fun TrimSection(
     state: SettingsViewModel.UiState,
     viewModel: SettingsViewModel
@@ -626,13 +603,12 @@ private fun AudioAdvanced(
     }
 
     SectionHeader(stringResource(R.string.audio_output_format))
-    SelectableOptionList(
+    ChipSelector(
         options = listOf(AudioFormat.AAC, AudioFormat.MP3),
         selected = state.audio.format,
-        titleOf = { fmt ->
+        labelOf = { fmt ->
             stringResource(if (fmt == AudioFormat.AAC) R.string.audio_format_m4a else R.string.audio_format_mp3)
         },
-        descriptionOf = { null },
         onSelect = { fmt -> viewModel.setAudioSettings { it.copy(format = fmt) } }
     )
     Spacer(Modifier.height(14.dp))
@@ -656,18 +632,6 @@ private fun AudioAdvanced(
     )
     Spacer(Modifier.height(14.dp))
 
-    SectionHeader(stringResource(R.string.settings_quality))
-    SelectableOptionList(
-        options = listOf(AudioBitrateMode.CBR, AudioBitrateMode.VBR),
-        selected = state.audio.bitrateMode,
-        titleOf = { mode ->
-            stringResource(if (mode == AudioBitrateMode.VBR) R.string.audio_mode_vbr else R.string.audio_mode_cbr)
-        },
-        descriptionOf = { null },
-        onSelect = { mode -> viewModel.setAudioSettings { it.copy(bitrateMode = mode) } }
-    )
-    Spacer(Modifier.height(14.dp))
-
     ToggleRow(
         title = stringResource(R.string.settings_metadata),
         description = if (state.audio.preserveMetadata) {
@@ -679,3 +643,4 @@ private fun AudioAdvanced(
         onCheckedChange = { preserve -> viewModel.setAudioSettings { it.copy(preserveMetadata = preserve) } }
     )
 }
+

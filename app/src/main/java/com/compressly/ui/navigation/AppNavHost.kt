@@ -1,5 +1,10 @@
 package com.compressly.ui.navigation
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -21,7 +26,18 @@ import com.compressly.ui.screens.ResultScreen
  */
 @Composable
 fun AppNavHost(navController: NavHostController) {
-    NavHost(navController = navController, startDestination = Routes.HOME) {
+    NavHost(
+        navController = navController,
+        startDestination = Routes.HOME,
+        enterTransition = {
+            fadeIn(tween(220)) + slideInHorizontally(tween(280)) { it / 5 }
+        },
+        exitTransition = { fadeOut(tween(160)) },
+        popEnterTransition = { fadeIn(tween(220)) },
+        popExitTransition = {
+            fadeOut(tween(160)) + slideOutHorizontally(tween(280)) { it / 5 }
+        }
+    ) {
 
         composable(Routes.HOME) {
             HomeScreen(

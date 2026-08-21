@@ -26,6 +26,9 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -49,6 +52,10 @@ fun BeforeAfterSlider(
     val density = LocalDensity.current
     val onSurface = MaterialTheme.colorScheme.onSurface
 
+    // The comparison slider is always left-to-right (original on the left,
+    // compressed on the right) even in RTL/Persian, so the drag math stays
+    // intuitive and identical in both languages.
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
     BoxWithConstraints(
         modifier = modifier
             .pointerInput(Unit) {
@@ -125,6 +132,7 @@ fun BeforeAfterSlider(
 
         LabelChip(stringResource(R.string.result_before_size), Modifier.align(Alignment.TopStart))
         LabelChip(stringResource(R.string.result_after_size), Modifier.align(Alignment.TopEnd))
+    }
     }
 }
 

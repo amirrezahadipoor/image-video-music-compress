@@ -295,4 +295,5 @@
     <!-- Crash recovery -->
     <string name="restart_after_error_title">Sorry</string>
     <string name="restart_after_error_desc">The app restarted after an unexpected error. Unfinished jobs were marked as interrupted; you can simply try again.</string>
+    <string name="history_arrow">→</string>
 </resources>

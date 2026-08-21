@@ -26,9 +26,11 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Build universal release APKs (play + bazaar)
+      - name: Run unit tests (heavy loop) + build universal release APKs
         run: |
           ./gradlew \
+            :app:testPlayReleaseUnitTest \
+            :app:testBazaarReleaseUnitTest \
             :app:assemblePlayRelease \
             :app:assembleBazaarRelease \
             --no-daemon

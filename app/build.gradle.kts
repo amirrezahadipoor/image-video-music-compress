@@ -136,4 +136,5 @@ dependencies {
     implementation(libs.jaudiotagger)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }
