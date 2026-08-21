@@ -35,15 +35,34 @@ jobs:
             :app:assembleBazaarDebug \
             --no-daemon
 
-      - name: Sign release APKs (CI test keystore)
-        # Produces installable release builds for testing. For store publishing
-        # you MUST replace this with your own keystore (see README).
+      - name: Restore release keystore (from secrets, if configured)
+        env:
+          KS_BASE64: ${{ secrets.COMPRESSLY_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KS_BASE64" ]; then
+            echo "$KS_BASE64" | base64 -d > keystore.jks
+            echo "Keystore restored from secrets."
+          else
+            echo "No keystore secret set; will use a throwaway test key."
+          fi
+
+      - name: Sign release APKs
+        env:
+          KS_PASS: ${{ secrets.COMPRESSLY_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.COMPRESSLY_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.COMPRESSLY_KEY_PASSWORD }}
         run: |
           set -e
-          keytool -genkeypair -v -keystore keystore.jks -alias compressly \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass compressly2024 -keypass compressly2024 \
-            -dname "CN=Compressly, OU=Mobile, O=Compressly, L=Tehran, C=IR" >/dev/null 2>&1
+          # Use the stored keystore if available, otherwise generate a throwaway.
+          if [ ! -f keystore.jks ]; then
+            keytool -genkeypair -v -keystore keystore.jks -alias compressly \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass compressly2024 -keypass compressly2024 \
+              -dname "CN=Compressly, OU=Mobile, O=Compressly, L=Tehran, C=IR" >/dev/null 2>&1
+            KS_PASS="${KS_PASS:-compressly2024}"
+            KS_ALIAS="${KS_ALIAS:-compressly}"
+            KEY_PASS="${KEY_PASS:-compressly2024}"
+          fi
           APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)"
           if [ -z "$APKSIGNER" ]; then
             echo "::error::apksigner not found under \$ANDROID_HOME/build-tools"
@@ -55,8 +74,9 @@ jobs:
             if [ -f "$apk" ]; then
               out="${apk%-unsigned.apk}-signed.apk"
               "$APKSIGNER" sign \
-                --ks keystore.jks --ks-key-alias compressly \
-                --ks-pass pass:compressly2024 --key-pass pass:compressly2024 \
+                --ks keystore.jks --ks-key-alias "${KS_ALIAS:-compressly}" \
+                --ks-pass "pass:${KS_PASS:-compressly2024}" \
+                --key-pass "pass:${KEY_PASS:-compressly2024}" \
                 --out "$out" "$apk"
               echo "Signed: $out"
             fi
