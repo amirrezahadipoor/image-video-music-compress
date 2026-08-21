@@ -460,6 +460,7 @@ private fun PhotoAdvanced(
     )
 }
 
+@Composable
 private fun VideoAdvanced(
     state: SettingsViewModel.UiState,
     viewModel: SettingsViewModel
@@ -547,6 +548,7 @@ private fun VideoAdvanced(
     TrimSection(state, viewModel)
 }
 
+@Composable
 private fun TrimSection(
     state: SettingsViewModel.UiState,
     viewModel: SettingsViewModel
