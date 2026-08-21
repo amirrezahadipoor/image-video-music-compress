@@ -4,11 +4,11 @@ on:
   push:
     branches: [main]
   pull_request:
-  workflow_dispatch:        # allow manual runs from the Actions tab
+  workflow_dispatch:        # manual runs from the Actions tab
 
 jobs:
   build:
-    name: Build APK (play + bazaar)
+    name: Build APKs (play + bazaar)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,8 +26,41 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Build Play release + Bazaar debug APKs
-        run: ./gradlew :app:assemblePlayRelease :app:assembleBazaarDebug --stacktrace --no-daemon
+      - name: Build all variants
+        run: |
+          ./gradlew \
+            :app:assemblePlayRelease \
+            :app:assemblePlayDebug \
+            :app:assembleBazaarRelease \
+            :app:assembleBazaarDebug \
+            --no-daemon
+
+      - name: Sign release APKs (CI test keystore)
+        # Produces installable release builds for testing. For store publishing
+        # you MUST replace this with your own keystore (see README).
+        run: |
+          set -e
+          keytool -genkeypair -v -keystore keystore.jks -alias compressly \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass compressly2024 -keypass compressly2024 \
+            -dname "CN=Compressly, OU=Mobile, O=Compressly, L=Tehran, C=IR" >/dev/null 2>&1
+          APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)"
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error::apksigner not found under \$ANDROID_HOME/build-tools"
+            exit 1
+          fi
+          for apk in \
+            app/build/outputs/apk/play/release/app-play-release-unsigned.apk \
+            app/build/outputs/apk/bazaar/release/app-bazaar-release-unsigned.apk; do
+            if [ -f "$apk" ]; then
+              out="${apk%-unsigned.apk}-signed.apk"
+              "$APKSIGNER" sign \
+                --ks keystore.jks --ks-key-alias compressly \
+                --ks-pass pass:compressly2024 --key-pass pass:compressly2024 \
+                --out "$out" "$apk"
+              echo "Signed: $out"
+            fi
+          done
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
@@ -35,6 +68,8 @@ jobs:
           name: compressly-apks
           path: |
             app/build/outputs/apk/play/release/*.apk
+            app/build/outputs/apk/play/debug/*.apk
+            app/build/outputs/apk/bazaar/release/*.apk
             app/build/outputs/apk/bazaar/debug/*.apk
           if-no-files-found: error
           retention-days: 30
