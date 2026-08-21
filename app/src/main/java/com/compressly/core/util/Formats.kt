@@ -20,7 +20,7 @@ object Formats {
     }
 
     fun percent(reduction: Double): String =
-        String.format(Locale.US, "%.0f%%", (reduction * 100).coerceAtLeast(0.0))
+        String.format(Locale.US, "%.0f%%", (reduction * 100).coerceIn(0.0, 100.0))
 
     /** 0.0..1.0 fraction as a whole percent. */
     fun percentFraction(fraction: Float): String =

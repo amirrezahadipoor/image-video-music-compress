@@ -55,7 +55,7 @@ object SizeEstimator {
         }
         // Baseline estimate, then blend toward a sane JPEG real-world result.
         val raw = pixels * bytesPerPixel
-        val heuristic = if (format == "png") raw else raw.coerceAtLeast(pixels / 8.0)
+        val heuristic = if (format == "png") raw else raw.coerceAtLeast(pixels / 10.0)
         return (heuristic * 1.15).toLong().coerceAtLeast(1_000)
     }
 
@@ -90,7 +90,6 @@ object SizeEstimator {
     // ---- Videos ---------------------------------------------------------
 
     fun estimateVideo(info: MediaInfo, settings: VideoSettings, preset: CompressionPreset): Long {
-        val durationUs = info.durationMs * 1000L
         val targetVideoBitrate = targetVideoBitrate(info, settings, preset)
         val audioBitrate = when (settings.audioMode) {
             com.compressly.core.engine.model.VideoAudioMode.STRIP -> 0
@@ -99,8 +98,9 @@ object SizeEstimator {
             com.compressly.core.engine.model.VideoAudioMode.KEEP ->
                 info.audioBitrate.takeIf { it > 0 } ?: 128_000
         }
-        val durationAfterTrimUs = trimDurationUs(info.durationMs, settings)
-        val bytes = ((targetVideoBitrate + audioBitrate) * durationAfterTrimUs / 8L)
+        // bitrates are bits/second; duration in milliseconds -> bytes.
+        val durationMs = trimmedDurationMs(info.durationMs, settings)
+        val bytes = (targetVideoBitrate + audioBitrate).toLong() * durationMs / 8L / 1000L
         return bytes.coerceAtLeast(8_000)
     }
 
@@ -160,11 +160,11 @@ object SizeEstimator {
         return (pixels * perPixelBits * 30).toInt().coerceIn(1_000_000, 20_000_000)
     }
 
-    private fun trimDurationUs(durationMs: Long, settings: VideoSettings): Long {
-        if (!settings.trimEnabled || durationMs <= 0) return durationMs * 1000L
+    private fun trimmedDurationMs(durationMs: Long, settings: VideoSettings): Long {
+        if (!settings.trimEnabled || durationMs <= 0) return durationMs
         val start = settings.trimStartMs.coerceAtLeast(0)
         val end = settings.trimEndMs.takeIf { it > start } ?: durationMs
-        return ((end - start).coerceAtLeast(0)) * 1000L
+        return (end - start).coerceAtLeast(0)
     }
 
     // ---- Audio ----------------------------------------------------------
@@ -173,7 +173,8 @@ object SizeEstimator {
         if (durationMs <= 0) return 0L
         val bitrate = settings.bitrate.coerceIn(32, 320)
         val factor = if (settings.bitrateMode == com.compressly.core.engine.model.AudioBitrateMode.VBR) 0.92 else 1.0
-        val bytes = durationMs * bitrate * 1000L / 8L
+        // bitrate in kbps, duration in ms -> bytes.
+        val bytes = durationMs * bitrate / 8L
         return (bytes * factor).toLong().coerceAtLeast(2_000)
     }
 
