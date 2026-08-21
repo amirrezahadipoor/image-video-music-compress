@@ -95,6 +95,7 @@ A job goes: pick files -> settings screen (preset gauge + estimates) -> `JobCoor
 
 ## Honest limitations
 
+- Outputs are always saved to the standard media folders (`Pictures/Movies/Music/Compressly`) via MediaStore. A custom "default output folder" setting is intentionally not offered — Android's scoped storage makes fixed media folders the reliable, gallery-visible choice.
 - **HEIC/HEIF photos** require Android 9+ (API 28). Below that the app explains the limitation instead of failing silently.
 - **MP3 encoding** uses a pure-Java port of LAME (jump3r), which is fully offline but slower than a hardware encoder; AAC/M4A output is hardware-accelerated and generally the better choice.
 - **H.265 output** depends on the device having an HEVC encoder; otherwise the app falls back to H.264 with a clear note.

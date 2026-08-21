@@ -180,7 +180,15 @@ fun ProgressScreen(
             Spacer(Modifier.height(16.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(current.items) { item ->
-                    ItemRow(item)
+                    val itemBusy = item.phase == ItemPhase.QUEUED ||
+                        item.phase == ItemPhase.PREPARING ||
+                        item.phase == ItemPhase.COMPRESSING ||
+                        item.phase == ItemPhase.FINALIZING
+                    ItemRow(
+                        item = item,
+                        canCancel = itemBusy && current.status == JobStatus.RUNNING,
+                        onCancelItem = { viewModel.cancelItem(item.itemId) }
+                    )
                 }
             }
         }
@@ -219,7 +227,11 @@ private fun statusLabel(status: JobStatus, isPaused: Boolean): String = when {
 }
 
 @Composable
-private fun ItemRow(item: com.compressly.core.engine.model.ItemState) {
+private fun ItemRow(
+    item: com.compressly.core.engine.model.ItemState,
+    canCancel: Boolean = false,
+    onCancelItem: () -> Unit = {}
+) {
     val isDone = item.phase == ItemPhase.DONE
     val failed = item.phase == ItemPhase.FAILED || item.phase == ItemPhase.CANCELLED
     Surface(
@@ -249,6 +261,17 @@ private fun ItemRow(item: com.compressly.core.engine.model.ItemState) {
                     else if (isDone) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (canCancel) {
+                    Spacer(Modifier.width(4.dp))
+                    IconButton(onClick = onCancelItem, modifier = Modifier.size(30.dp)) {
+                        Icon(
+                            Icons.Outlined.Close,
+                            contentDescription = stringResource(R.string.action_cancel),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
             }
             Spacer(Modifier.height(8.dp))
             InlineProgress(

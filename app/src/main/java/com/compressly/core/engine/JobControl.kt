@@ -15,8 +15,8 @@ class CompressionCancelledException : RuntimeException("Compression cancelled by
  * Loops call [checkActive] frequently; it suspends while paused and
  * throws [CompressionCancelledException] once cancelled.
  */
-class JobControl {
-    private val paused = AtomicBoolean(false)
+class JobControl(startPaused: Boolean = false) {
+    private val paused = AtomicBoolean(startPaused)
     private val cancelled = AtomicBoolean(false)
 
     val isPaused: Boolean get() = paused.get()

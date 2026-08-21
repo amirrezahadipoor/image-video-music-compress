@@ -43,6 +43,9 @@ class JobCoordinator(
     val jobs: StateFlow<Map<Long, JobState>> = _jobs.asStateFlow()
 
     private val controls = ConcurrentHashMap<Long, JobControl>()
+    private val jobPaused = ConcurrentHashMap<Long, Boolean>()
+    private val cancelledItems = ConcurrentHashMap<Long, MutableSet<Long>>()
+    private val currentItems = ConcurrentHashMap<Long, Long>()
     private val nextJobId = AtomicLong(1)
 
     fun enqueue(
@@ -61,11 +64,13 @@ class JobCoordinator(
     fun job(jobId: Long): JobState? = _jobs.value[jobId]
 
     fun pause(jobId: Long) {
+        jobPaused[jobId] = true
         controls[jobId]?.pause()
         updateJob(jobId) { it.copy(isPaused = true) }
     }
 
     fun resume(jobId: Long) {
+        jobPaused[jobId] = false
         controls[jobId]?.resume()
         updateJob(jobId) { it.copy(isPaused = false) }
     }
@@ -75,31 +80,60 @@ class JobCoordinator(
         controls[jobId]?.cancel()
     }
 
+    /**
+     * Cancels a single file inside a batch. Queued items are skipped;
+     * the running item is aborted and the remaining items continue.
+     */
+    fun cancelItem(jobId: Long, itemId: Long) {
+        cancelledItems.getOrPut(jobId) { ConcurrentHashMap.newKeySet() }.add(itemId)
+        if (currentItems[jobId] == itemId) {
+            controls[jobId]?.cancel()
+        }
+        updateItem(jobId, itemId) { it.copy(phase = ItemPhase.CANCELLED, fraction = 0f) }
+    }
+
     // ------------------------------------------------------------------
 
     private suspend fun runJob(jobId: Long, items: List<InputItem>, settings: CompressionSettings) {
-        val control = JobControl()
+        var control = JobControl(startPaused = jobPaused[jobId] == true)
         controls[jobId] = control
-        var cancelled = false
+        var jobCancelled = false
         var anySuccess = false
         var anyFailure = false
+        var anyCancelled = false
+        val cancelled = cancelledItems[jobId] ?: emptySet()
         try {
             val compressor = Compressor(context)
             for (item in items) {
-                control.checkActive()
+                // Items individually cancelled while queued are skipped.
+                if (item.itemId in cancelled) {
+                    anyCancelled = true
+                    updateItem(jobId, item.itemId) { it.copy(phase = ItemPhase.CANCELLED) }
+                    historyRepository.insert(
+                        entryFrom(settings.mediaType(), cancelledResult(jobId, item))
+                    )
+                    continue
+                }
+                currentItems[jobId] = item.itemId
                 updateItem(jobId, item.itemId) { it.copy(phase = ItemPhase.PREPARING, fraction = 0f) }
                 val result = try {
+                    control.checkActive()
                     compressor.compressItem(jobId, item, settings, control) { phase, frac ->
                         updateItem(jobId, item.itemId) { it.copy(phase = phase, fraction = frac) }
                     }
                 } catch (e: CompressionCancelledException) {
-                    cancelled = true
-                    updateItem(jobId, item.itemId) { it.copy(phase = ItemPhase.CANCELLED) }
-                    CompressionResult(
-                        itemId = item.itemId, jobId = jobId, fileName = item.displayName,
-                        inputUri = item.uri, inputSize = item.sizeBytes,
-                        success = false, error = "cancelled"
-                    )
+                    if (item.itemId in cancelled) {
+                        // Only this item was cancelled; keep the rest of the batch.
+                        anyCancelled = true
+                        updateItem(jobId, item.itemId) { it.copy(phase = ItemPhase.CANCELLED) }
+                        control = JobControl(startPaused = jobPaused[jobId] == true)
+                        controls[jobId] = control
+                        cancelledResult(jobId, item)
+                    } else {
+                        jobCancelled = true
+                        updateItem(jobId, item.itemId) { it.copy(phase = ItemPhase.CANCELLED) }
+                        cancelledResult(jobId, item)
+                    }
                 } catch (t: Throwable) {
                     val key = errorKeyOf(t)
                     updateItem(jobId, item.itemId) { it.copy(phase = ItemPhase.FAILED, error = key) }
@@ -109,11 +143,17 @@ class JobCoordinator(
                         success = false, error = key
                     )
                 }
-                if (result.success) anySuccess = true else anyFailure = true
+                if (result.success) {
+                    anySuccess = true
+                } else if (result.error == "cancelled") {
+                    anyCancelled = true
+                } else {
+                    anyFailure = true
+                }
                 historyRepository.insert(entryFrom(settings.mediaType(), result))
-                if (cancelled) break
+                if (jobCancelled) break
             }
-            if (cancelled) {
+            if (jobCancelled) {
                 // Mark the remaining (unprocessed) items as cancelled for clarity.
                 _jobs.update { jobs ->
                     val job = jobs[jobId] ?: return@update jobs
@@ -128,9 +168,13 @@ class JobCoordinator(
             }
         } finally {
             controls.remove(jobId)
+            currentItems.remove(jobId)
+            jobPaused.remove(jobId)
+            cancelledItems.remove(jobId)
             val finalStatus = when {
-                cancelled -> JobStatus.CANCELLED
+                jobCancelled -> JobStatus.CANCELLED
                 !anySuccess && anyFailure -> JobStatus.FAILED
+                !anySuccess && anyCancelled -> JobStatus.CANCELLED
                 else -> JobStatus.COMPLETED
             }
             updateJob(jobId) { it.copy(status = finalStatus, isPaused = false) }
@@ -142,6 +186,12 @@ class JobCoordinator(
             }
         }
     }
+
+    private fun cancelledResult(jobId: Long, item: InputItem) = CompressionResult(
+        itemId = item.itemId, jobId = jobId, fileName = item.displayName,
+        inputUri = item.uri, inputSize = item.sizeBytes,
+        success = false, error = "cancelled"
+    )
 
     private fun CompressionSettings.mediaType(): MediaType = when (this) {
         is CompressionSettings.Photo -> MediaType.PHOTO

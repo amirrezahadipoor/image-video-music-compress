@@ -23,6 +23,7 @@ class JobViewModel(container: AppContainer, private val jobId: Long) : ViewModel
     fun pause() = coordinator.pause(jobId)
     fun resume() = coordinator.resume(jobId)
     fun cancel() = coordinator.cancel(jobId)
+    fun cancelItem(itemId: Long) = coordinator.cancelItem(jobId, itemId)
 
     companion object {
         fun factory(app: CompresslyApp, jobId: Long): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
