@@ -53,7 +53,7 @@ fun Waveform(
             val h = (peak.coerceIn(0f, 1f) * (size.height - 6.dp.toPx())) * animated.value
             val x = index * (barWidth + gap)
             drawRoundRect(
-                color = color,
+                color = resolvedColor,
                 topLeft = androidx.compose.ui.geometry.Offset(x, mid - h / 2),
                 size = Size(barWidth, h.coerceAtLeast(2.dp.toPx())),
                 cornerRadius = CornerRadius(barWidth / 2, barWidth / 2)
