@@ -228,17 +228,24 @@ class PhotoCompressor(private val context: Context) {
         }
     }
 
+    /**
+     * Copies the meaningful EXIF tags (camera info, timestamps, GPS, lens,
+     * scene data) from the source into the output. Orientation is reset to
+     * NORMAL because the bitmap is already rotated; dimensions are rewritten
+     * to match the output. androidx.exifinterface exposes no getAttributeNames(),
+     * so we iterate a curated list of stable tags.
+     */
     private fun copyExif(source: File, target: File, width: Int, height: Int) {
         runCatching {
             val src = ExifInterface(source.absolutePath)
             val dst = ExifInterface(target.absolutePath)
-            for (attr in src.getAttributeNames()) {
-                if (attr.contains("THUMBNAIL", ignoreCase = true)) continue
-                if (attr == ExifInterface.TAG_ORIENTATION) continue
-                if (attr == ExifInterface.TAG_IMAGE_WIDTH || attr == ExifInterface.TAG_IMAGE_LENGTH) continue
+            for (tag in COPY_TAGS) {
                 try {
-                    dst.setAttribute(attr, src.getAttribute(attr))
-                } catch (ignore: IllegalArgumentException) {
+                    val value = src.getAttribute(tag)
+                    if (value != null && value != "0" && value != "0/0") {
+                        dst.setAttribute(tag, value)
+                    }
+                } catch (ignore: Exception) {
                     // Some tags cannot be set on the output; skip them.
                 }
             }
@@ -249,6 +256,57 @@ class PhotoCompressor(private val context: Context) {
         }
         // Metadata preservation is best-effort; the image itself is always valid.
     }
+
+        private val COPY_TAGS = listOf(
+            ExifInterface.TAG_MAKE,
+            ExifInterface.TAG_MODEL,
+            ExifInterface.TAG_SOFTWARE,
+            ExifInterface.TAG_ARTIST,
+            ExifInterface.TAG_COPYRIGHT,
+            ExifInterface.TAG_IMAGE_DESCRIPTION,
+            ExifInterface.TAG_DATETIME,
+            ExifInterface.TAG_DATETIME_ORIGINAL,
+            ExifInterface.TAG_DATETIME_DIGITIZED,
+            ExifInterface.TAG_EXPOSURE_TIME,
+            ExifInterface.TAG_F_NUMBER,
+            ExifInterface.TAG_ISO_SPEED_RATINGS,
+            ExifInterface.TAG_EXPOSURE_BIAS_VALUE,
+            ExifInterface.TAG_FOCAL_LENGTH,
+            ExifInterface.TAG_MAX_APERTURE_VALUE,
+            ExifInterface.TAG_METERING_MODE,
+            ExifInterface.TAG_WHITE_BALANCE,
+            ExifInterface.TAG_EXPOSURE_MODE,
+            ExifInterface.TAG_EXPOSURE_PROGRAM,
+            ExifInterface.TAG_FLASH,
+            ExifInterface.TAG_LIGHT_SOURCE,
+            ExifInterface.TAG_CONTRAST,
+            ExifInterface.TAG_SATURATION,
+            ExifInterface.TAG_SHARPNESS,
+            ExifInterface.TAG_SCENE_CAPTURE_TYPE,
+            ExifInterface.TAG_GAIN_CONTROL,
+            ExifInterface.TAG_DIGITAL_ZOOM_RATIO,
+            ExifInterface.TAG_FOCAL_LENGTH_IN_35MM_FILM,
+            ExifInterface.TAG_PIXEL_X_DIMENSION,
+            ExifInterface.TAG_PIXEL_Y_DIMENSION,
+            ExifInterface.TAG_IMAGE_UNIQUE_ID,
+            ExifInterface.TAG_LENS_MAKE,
+            ExifInterface.TAG_LENS_MODEL,
+            ExifInterface.TAG_LENS_SPECIFICATION,
+            ExifInterface.TAG_SENSING_METHOD,
+            ExifInterface.TAG_COLOR_SPACE,
+            ExifInterface.TAG_GPS_LATITUDE,
+            ExifInterface.TAG_GPS_LATITUDE_REF,
+            ExifInterface.TAG_GPS_LONGITUDE,
+            ExifInterface.TAG_GPS_LONGITUDE_REF,
+            ExifInterface.TAG_GPS_ALTITUDE,
+            ExifInterface.TAG_GPS_ALTITUDE_REF,
+            ExifInterface.TAG_GPS_TIMESTAMP,
+            ExifInterface.TAG_GPS_DATESTAMP,
+            ExifInterface.TAG_GPS_PROCESSING_METHOD,
+            ExifInterface.TAG_GPS_MAP_DATUM,
+            ExifInterface.TAG_GPS_SPEED,
+            ExifInterface.TAG_GPS_SPEED_REF
+        )
 }
 
 /** Thrown for expected photo-engine failures; carries a stable message key. */
