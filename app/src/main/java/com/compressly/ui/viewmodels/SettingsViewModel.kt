@@ -31,6 +31,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
@@ -48,6 +49,7 @@ class SettingsViewModel(private val container: AppContainer, private val context
         val mediaType: MediaType = MediaType.PHOTO,
         val items: List<InputItem> = emptyList(),
         val preset: CompressionPreset = CompressionPreset.DEFAULT,
+        val smart: Boolean = true,
         val advanced: Boolean = false,
         val photo: PhotoSettings = PhotoSettings(),
         val video: VideoSettings = VideoSettings(),
@@ -83,6 +85,11 @@ class SettingsViewModel(private val container: AppContainer, private val context
         if (selection != null) {
             _state.update { it.copy(mediaType = selection.mediaType, items = selection.items, ready = true) }
             container.selection.set(null)
+            // Apply the user's saved default preset (Smart unless changed).
+            viewModelScope.launch {
+                val def = container.settingsRepository.defaultPreset.first()
+                applyPreset(def)
+            }
             loadMetadata()
         } else {
             _state.update { it.copy(ready = false) }
@@ -119,11 +126,20 @@ class SettingsViewModel(private val container: AppContainer, private val context
 
     // ---- Preset & advanced ------------------------------------------------
 
-    fun selectPreset(preset: CompressionPreset) {
+    fun selectPreset(preset: CompressionPreset) = applyPreset(preset)
+
+    /** Smart mode toggle. Smart is the default; picking any manual tier disables it. */
+    fun setSmart(smart: Boolean) {
+        applyPreset(if (smart) CompressionPreset.SMART else CompressionPreset.BALANCED)
+    }
+
+    private fun applyPreset(preset: CompressionPreset) {
         val s = _state.value
+        val smart = preset == CompressionPreset.SMART
         _state.update {
             it.copy(
                 preset = preset,
+                smart = smart,
                 photo = if (s.mediaType == MediaType.PHOTO) PresetDefaults.photoSettingsFor(preset) else it.photo,
                 video = if (s.mediaType == MediaType.VIDEO) PresetDefaults.videoSettingsFor(preset) else it.video,
                 audio = if (s.mediaType == MediaType.AUDIO) PresetDefaults.audioSettingsFor(preset) else it.audio
@@ -131,6 +147,16 @@ class SettingsViewModel(private val container: AppContainer, private val context
         }
         refreshEstimate()
         regeneratePreview()
+    }
+
+    /** Any manual tweak turns smart mode off (the user is now in control). */
+    private fun disableSmart() {
+        _state.update {
+            it.copy(
+                smart = false,
+                preset = if (it.preset == CompressionPreset.SMART) CompressionPreset.BALANCED else it.preset
+            )
+        }
     }
 
     fun setAdvanced(advanced: Boolean) {
@@ -141,6 +167,7 @@ class SettingsViewModel(private val container: AppContainer, private val context
 
     fun setPhotoFormat(format: PhotoFormat) {
         _state.update { it.copy(photo = it.photo.copy(outputFormat = format)) }
+        disableSmart()
         refreshEstimate(); regeneratePreview()
     }
 
@@ -151,27 +178,33 @@ class SettingsViewModel(private val container: AppContainer, private val context
             quality >= 50 -> CompressionPreset.HIGH_COMPRESSION
             else -> CompressionPreset.MAXIMUM_COMPRESSION
         }
-        _state.update { it.copy(photo = it.photo.copy(quality = quality), preset = nearest) }
+        _state.update {
+            it.copy(photo = it.photo.copy(quality = quality), preset = nearest, smart = false)
+        }
         refreshEstimate(); regeneratePreview()
     }
 
     fun setPhotoResize(resize: PhotoResize) {
         _state.update { it.copy(photo = it.photo.copy(resize = resize)) }
+        disableSmart()
         refreshEstimate(); regeneratePreview()
     }
 
     fun setPhotoCustomWidth(width: Int) {
         _state.update { it.copy(photo = it.photo.copy(customMaxWidth = width.coerceIn(320, 8000))) }
+        disableSmart()
         refreshEstimate(); regeneratePreview()
     }
 
     fun setPhotoMetadata(preserve: Boolean) {
         _state.update { it.copy(photo = it.photo.copy(preserveMetadata = preserve)) }
+        disableSmart()
     }
 
     // ---- Video setters ----------------------------------------------------
 
     fun setVideoSettings(transform: (VideoSettings) -> VideoSettings) {
+        disableSmart()
         _state.update { it.copy(video = transform(it.video)) }
         refreshEstimate()
     }
@@ -179,6 +212,7 @@ class SettingsViewModel(private val container: AppContainer, private val context
     // ---- Audio setters ----------------------------------------------------
 
     fun setAudioSettings(transform: (AudioSettings) -> AudioSettings) {
+        disableSmart()
         _state.update { it.copy(audio = transform(it.audio)) }
         refreshEstimate()
     }
@@ -245,16 +279,7 @@ class SettingsViewModel(private val container: AppContainer, private val context
             return null
         }
 
-        val settings: CompressionSettings = when (s.mediaType) {
-            MediaType.PHOTO -> CompressionSettings.Photo(s.photo, s.preset)
-            MediaType.VIDEO -> {
-                val effective = if (!s.h265Available && s.video.codec == com.compressly.core.engine.model.VideoCodec.H265) {
-                    s.video.copy(codec = com.compressly.core.engine.model.VideoCodec.H264)
-                } else s.video
-                CompressionSettings.Video(effective, s.preset)
-            }
-            MediaType.AUDIO -> CompressionSettings.Audio(s.audio, s.preset)
-        }
+        val settings = buildSettings(s)
         val jobId = container.jobCoordinator.enqueue(s.mediaType, s.items, settings)
         _state.update { it.copy(startingJob = true) }
         return jobId
@@ -269,19 +294,27 @@ class SettingsViewModel(private val container: AppContainer, private val context
         _state.update { it.copy(lowSpaceWarning = false) }
         val s = _state.value
         if (!s.ready || s.items.isEmpty()) return null
-        val settings: CompressionSettings = when (s.mediaType) {
-            MediaType.PHOTO -> CompressionSettings.Photo(s.photo, s.preset)
-            MediaType.VIDEO -> {
-                val effective = if (!s.h265Available && s.video.codec == com.compressly.core.engine.model.VideoCodec.H265) {
-                    s.video.copy(codec = com.compressly.core.engine.model.VideoCodec.H264)
-                } else s.video
-                CompressionSettings.Video(effective, s.preset)
-            }
-            MediaType.AUDIO -> CompressionSettings.Audio(s.audio, s.preset)
-        }
+        val settings = buildSettings(s)
         val jobId = container.jobCoordinator.enqueue(s.mediaType, s.items, settings)
         _state.update { it.copy(startingJob = true) }
         return jobId
+    }
+
+    private fun buildSettings(s: UiState): CompressionSettings = when (s.mediaType) {
+        MediaType.PHOTO -> CompressionSettings.Photo(
+            s.photo.copy(smart = s.smart || s.preset == CompressionPreset.SMART),
+            if (s.smart) CompressionPreset.SMART else s.preset
+        )
+        MediaType.VIDEO -> {
+            val effective = if (!s.h265Available && s.video.codec == com.compressly.core.engine.model.VideoCodec.H265) {
+                s.video.copy(codec = com.compressly.core.engine.model.VideoCodec.H264)
+            } else s.video
+            CompressionSettings.Video(effective, if (s.smart) CompressionPreset.SMART else s.preset)
+        }
+        MediaType.AUDIO -> CompressionSettings.Audio(
+            s.audio,
+            if (s.smart) CompressionPreset.SMART else s.preset
+        )
     }
 
     override fun onCleared() {

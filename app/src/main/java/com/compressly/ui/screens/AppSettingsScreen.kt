@@ -146,10 +146,11 @@ fun AppSettingsScreen(
                         )
                         Spacer(Modifier.height(12.dp))
                         ChipSelector(
-                            options = CompressionPreset.ordered,
+                            options = CompressionPreset.all,
                             selected = defaultPreset,
                             labelOf = { preset ->
                                 when (preset) {
+                                    CompressionPreset.SMART -> stringResource(R.string.preset_smart)
                                     CompressionPreset.MAXIMUM_QUALITY -> stringResource(R.string.preset_max_quality)
                                     CompressionPreset.BALANCED -> stringResource(R.string.preset_balanced)
                                     CompressionPreset.HIGH_COMPRESSION -> stringResource(R.string.preset_high_compression)

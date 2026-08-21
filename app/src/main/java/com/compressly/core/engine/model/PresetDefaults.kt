@@ -22,7 +22,9 @@ object PresetDefaults {
         CompressionPreset.MAXIMUM_QUALITY to PhotoDefaults(95, PhotoResize.NONE, 0, 0, 15),
         CompressionPreset.BALANCED to PhotoDefaults(82, PhotoResize.NONE, 0, 35, 60),
         CompressionPreset.HIGH_COMPRESSION to PhotoDefaults(62, PhotoResize.R1920, 0, 65, 80),
-        CompressionPreset.MAXIMUM_COMPRESSION to PhotoDefaults(40, PhotoResize.R1280, 0, 82, 92)
+        CompressionPreset.MAXIMUM_COMPRESSION to PhotoDefaults(40, PhotoResize.R1280, 0, 82, 92),
+        // Smart: adaptive quality 85->65 with a 1920 cap for large images.
+        CompressionPreset.SMART to PhotoDefaults(85, PhotoResize.R1920, 0, 30, 85)
     )
 
     // ---- Videos ---------------------------------------------------------
@@ -40,7 +42,9 @@ object PresetDefaults {
         CompressionPreset.MAXIMUM_QUALITY to VideoDefaults(0.9, VideoResolution.ORIGINAL, null, 5, 20),
         CompressionPreset.BALANCED to VideoDefaults(0.6, VideoResolution.ORIGINAL, null, 30, 50),
         CompressionPreset.HIGH_COMPRESSION to VideoDefaults(0.35, VideoResolution.R1080, null, 55, 72),
-        CompressionPreset.MAXIMUM_COMPRESSION to VideoDefaults(0.2, VideoResolution.R720, 30, 75, 88)
+        CompressionPreset.MAXIMUM_COMPRESSION to VideoDefaults(0.2, VideoResolution.R720, 30, 75, 88),
+        // Smart: bitrate chosen by a quality-aware formula (see SizeEstimator).
+        CompressionPreset.SMART to VideoDefaults(0.0, VideoResolution.ORIGINAL, null, 30, 85)
     )
 
     // ---- Audio ----------------------------------------------------------
@@ -55,7 +59,9 @@ object PresetDefaults {
         CompressionPreset.MAXIMUM_QUALITY to AudioDefaults(320, 5, 20),
         CompressionPreset.BALANCED to AudioDefaults(192, 35, 55),
         CompressionPreset.HIGH_COMPRESSION to AudioDefaults(128, 55, 70),
-        CompressionPreset.MAXIMUM_COMPRESSION to AudioDefaults(64, 75, 90)
+        CompressionPreset.MAXIMUM_COMPRESSION to AudioDefaults(64, 75, 90),
+        // Smart: 192 kbps - perceptually transparent for most music.
+        CompressionPreset.SMART to AudioDefaults(192, 30, 85)
     )
 
     fun reductionRange(preset: CompressionPreset, mediaType: MediaType): Pair<Int, Int> = when (mediaType) {
@@ -71,7 +77,8 @@ object PresetDefaults {
             quality = d.quality,
             resize = d.resize,
             customMaxWidth = d.customMaxWidth,
-            preserveMetadata = true
+            preserveMetadata = true,
+            smart = preset == CompressionPreset.SMART
         )
     }
 

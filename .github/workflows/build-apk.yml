@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build APKs (play + bazaar)
+    name: Build universal signed APKs
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,13 +26,11 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Build all variants
+      - name: Build universal release APKs (play + bazaar)
         run: |
           ./gradlew \
             :app:assemblePlayRelease \
-            :app:assemblePlayDebug \
             :app:assembleBazaarRelease \
-            :app:assembleBazaarDebug \
             --no-daemon
 
       - name: Restore release keystore (from secrets, if configured)
@@ -53,7 +51,6 @@ jobs:
           KEY_PASS: ${{ secrets.COMPRESSLY_KEY_PASSWORD }}
         run: |
           set -e
-          # Use the stored keystore if available, otherwise generate a throwaway.
           if [ ! -f keystore.jks ]; then
             keytool -genkeypair -v -keystore keystore.jks -alias compressly \
               -keyalg RSA -keysize 2048 -validity 10000 \
@@ -82,14 +79,21 @@ jobs:
             fi
           done
 
-      - name: Upload APKs
+      - name: Prepare universal APK artifacts
+        run: |
+          set -e
+          VERSION=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts || echo "1.0.0")
+          mkdir -p dist
+          cp app/build/outputs/apk/play/release/app-play-release-signed.apk \
+             "dist/Compressly-${VERSION}-play.apk"
+          cp app/build/outputs/apk/bazaar/release/app-bazaar-release-signed.apk \
+             "dist/Compressly-${VERSION}-bazaar.apk"
+          ls -la dist/
+
+      - name: Upload universal signed APKs
         uses: actions/upload-artifact@v4
         with:
-          name: compressly-apks
-          path: |
-            app/build/outputs/apk/play/release/*.apk
-            app/build/outputs/apk/play/debug/*.apk
-            app/build/outputs/apk/bazaar/release/*.apk
-            app/build/outputs/apk/bazaar/debug/*.apk
+          name: compressly-universal-apks
+          path: dist/*.apk
           if-no-files-found: error
           retention-days: 30

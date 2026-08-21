@@ -1,5 +1,6 @@
 package com.compressly
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -29,6 +30,18 @@ import com.compressly.ui.theme.CompresslyTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+
+    /**
+     * CRITICAL for the Persian-by-default requirement: Activities build their
+     * own Context and ignore the Application's locale. Re-applying the
+     * persisted language here (default "fa") guarantees the UI is Persian
+     * regardless of the system language, until the user picks English.
+     */
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(
+            LocaleHelper.apply(newBase, LocaleHelper.persistedLanguage(newBase))
+        )
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()

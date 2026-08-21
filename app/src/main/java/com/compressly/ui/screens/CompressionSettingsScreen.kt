@@ -183,6 +183,8 @@ fun CompressionSettingsScreen(
                 PresetGauge(
                     selected = state.preset,
                     mediaType = mediaType,
+                    smartSelected = state.smart,
+                    onSelectSmart = viewModel::setSmart,
                     onSelect = viewModel::selectPreset
                 )
 

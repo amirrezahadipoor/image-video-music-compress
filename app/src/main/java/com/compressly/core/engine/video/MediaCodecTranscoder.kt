@@ -67,7 +67,7 @@ class MediaCodecTranscoder(private val context: Context) {
         val requestedMime = if (settings.codec == VideoCodec.H265) MIME_H265 else MIME_H264
         val choice = resolveEncoder(requestedMime)
 
-        val (outW, outH) = computeOutputDims(info, settings)
+        val (outW, outH) = computeOutputDims(info, settings, preset)
         val targetBitrate = settings.bitrate
             ?: com.compressly.core.engine.estimate.SizeEstimator.targetVideoBitrate(info, settings, preset)
         val targetFps = settings.frameRate ?: 30
@@ -536,21 +536,34 @@ if (writeVideo) {
         }.getOrDefault(false)
     }
 
-    /** Computes output dimensions in the STORED orientation (rotation applied via muxer hint). */
-    private fun computeOutputDims(info: MediaInfo, settings: VideoSettings): Pair<Int, Int> {
+    /**
+     * Computes output dimensions in the STORED orientation (rotation applied
+     * via muxer hint). Smart mode caps very large footage at 1920px wide:
+     * perceptually that keeps >70% quality while saving a lot of space.
+     */
+    private fun computeOutputDims(
+        info: MediaInfo,
+        settings: VideoSettings,
+        preset: com.compressly.core.engine.model.CompressionPreset
+    ): Pair<Int, Int> {
         val storedW = info.width.takeIf { it > 0 } ?: return 1280 to 720
         val storedH = info.height.takeIf { it > 0 } ?: return 1280 to 720
         val rotated = info.rotation == 90 || info.rotation == 270
         val displayW = if (rotated) storedH else storedW
         val displayH = if (rotated) storedW else storedH
 
-        val (capW, capH) = when (settings.resolution) {
+        var (capW, capH) = when (settings.resolution) {
             VideoResolution.ORIGINAL -> displayW to displayH
             VideoResolution.R1080 -> 1920 to 1080
             VideoResolution.R720 -> 1280 to 720
             VideoResolution.R480 -> 854 to 480
             VideoResolution.CUSTOM ->
                 settings.customWidth.coerceAtLeast(64) to settings.customHeight.coerceAtLeast(64)
+        }
+        if (preset == com.compressly.core.engine.model.CompressionPreset.SMART && displayW > 1920) {
+            val ratio = 1920.0 / displayW
+            capW = 1920
+            capH = (displayH * ratio).toInt().coerceAtLeast(2)
         }
         val scale = minOf(1.0, capW.toDouble() / displayW, capH.toDouble() / displayH)
         var w = (storedW * scale).toInt()

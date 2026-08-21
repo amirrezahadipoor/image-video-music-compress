@@ -75,6 +75,9 @@
     <string name="settings_metadata_preserve_desc">Keeps camera info, tags and orientation.</string>
     <string name="settings_metadata_strip_desc">Removes location and camera details. Smaller files.</string>
 
+    <!-- Smart mode -->
+    <string name="preset_smart">Smart mode</string>
+    <string name="preset_smart_desc">Automatically balances quality and size - compresses as much as possible while keeping over 70% quality. Manual controls take over if you change any setting.</string>
     <!-- Presets -->
     <string name="preset_max_quality">Maximum Quality</string>
     <string name="preset_max_quality_desc">Light compression, near-original quality. Best for archiving.</string>

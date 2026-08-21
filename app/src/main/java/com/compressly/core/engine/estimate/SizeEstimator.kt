@@ -46,7 +46,8 @@ object SizeEstimator {
         val pixels = (w * h).coerceAtLeast(1)
 
         val format = resolvedFormat(sourceMime, settings.outputFormat)
-        val quality = settings.quality.coerceIn(1, 100)
+        // Smart mode targets ~85% then adapts; estimate at that anchor.
+        val quality = (if (settings.smart) 85 else settings.quality).coerceIn(1, 100)
         val bytesPerPixel = when (format) {
             "png" -> 2.6 // PNG is lossless; roughly 8-12 bits/px for photos
             "webp" -> 0.12 * (quality / 82.0)
@@ -105,6 +106,12 @@ object SizeEstimator {
 
     fun targetVideoBitrate(info: MediaInfo, settings: VideoSettings, preset: CompressionPreset): Int {
         settings.bitrate?.let { return it }
+        if (preset == CompressionPreset.SMART) {
+            return smartVideoBitrate(
+                info.effectiveWidth, info.effectiveHeight,
+                settings.frameRate ?: 30, settings.codec
+            )
+        }
         val source = info.videoBitrate
             .takeIf { it > 0 }
             ?: estimateSourceBitrate(info.width, info.height, info.durationMs)
@@ -123,6 +130,20 @@ object SizeEstimator {
         if (settings.codec == VideoCodec.H265) bitrate = (bitrate * 0.62).toInt()
         // Sanity bounds: 250 kbps .. 40 Mbps
         return bitrate.coerceIn(250_000, 40_000_000)
+    }
+
+    /**
+     * Quality-aware bitrate for Smart video mode. Uses a per-pixel bits
+     * factor tuned to keep perceptual quality comfortably above 70% while
+     * still shrinking the file a lot versus typical phone recordings.
+     */
+    fun smartVideoBitrate(width: Int, height: Int, fps: Int, codec: VideoCodec): Int {
+        if (width <= 0 || height <= 0) return 4_000_000
+        val pixels = width.toLong() * height
+        val bpp = 0.085
+        var bitrate = (pixels * fps.coerceIn(1, 60) * bpp).toInt()
+        if (codec == VideoCodec.H265) bitrate = (bitrate * 0.6).toInt()
+        return bitrate.coerceIn(500_000, 16_000_000)
     }
 
     private fun areaFactor(srcW: Int, srcH: Int, dstW: Int, dstH: Int): Double {

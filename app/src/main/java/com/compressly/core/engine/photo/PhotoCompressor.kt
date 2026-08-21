@@ -84,18 +84,34 @@ class PhotoCompressor(private val context: Context) {
             }
 
             try {
-                // 6. Encode, reporting progress against an honest estimate.
+                // 6. Encode. Smart mode adapts: start at 85 and step quality
+                //    down (85 -> 75 -> 65) until the size target is met.
+                //    65 is a perceptual floor well above ~70% quality.
                 val fmt = resolveCompressFormat(sourceMime, settings.outputFormat)
-                val quality = settings.quality.coerceIn(1, 100)
                 val estimate = estimatedOutputBytes(sourceMime, bounds.w, bounds.h, settings)
-                FileOutputStream(tempOut).use { out ->
-                    val counting = ProgressStream(out, estimate, control) { p ->
-                        onProgress(0.15f + p * 0.75f)
+                val sourceBytes = tempSource.length().takeIf { it > 0 } ?: 0L
+                val targetBytes = if (settings.smart) {
+                    (sourceBytes * 0.5).toLong().coerceAtLeast(60_000)
+                } else 0L
+                val qualities = if (settings.smart) intArrayOf(85, 75, 65)
+                else intArrayOf(settings.quality.coerceIn(1, 100))
+
+                var encoded = false
+                for (q in qualities) {
+                    control.checkActive()
+                    FileOutputStream(tempOut).use { out ->
+                        val counting = ProgressStream(out, estimate, control) { p ->
+                            onProgress(0.15f + p * 0.75f)
+                        }
+                        if (!bitmap.compress(fmt, q, counting)) {
+                            throw IOException("Bitmap compression failed")
+                        }
                     }
-                    if (!bitmap.compress(fmt, quality, counting)) {
-                        throw IOException("Bitmap compression failed")
-                    }
+                    encoded = true
+                    if (!settings.smart) break
+                    if (tempOut.length() <= targetBytes) break
                 }
+                if (!encoded) throw IOException("Bitmap compression failed")
 
                 // 7. Metadata handling.
                 if (settings.preserveMetadata) {
