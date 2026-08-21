@@ -51,13 +51,9 @@ Compressly is a professional, fully-offline media compressor for Android — pho
 - English + Persian (فارسی) UI
 - Fully offline — no network permission, no analytics, no ads
 
-## Screens
+## Screens (flow)
 
-| | |
-|---|---|
-| Home with three modules + space saved | Pick files -> 4-tier gauge + live preview |
-| Animated progress (foreground service) | Result with before/after + share |
-| History with per-file savings | Settings (theme, defaults, about) |
+Home (modules + space saved) -> system file picker -> Compression Settings (4-tier gauge, live estimates, before/after preview for photos, advanced panel) -> animated Progress (foreground service, pause/cancel per item or per job) -> Result (before/after sizes, reduction, share/open) -> History (per-file savings) and App Settings (theme, defaults, about). Real screenshots will be added after the first device build.
 
 ## Tech stack
 
