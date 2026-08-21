@@ -91,8 +91,13 @@ fun PresetGauge(
                         .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(
-                            if (smartSelected) Brush.horizontalGradient(GradientPrimary)
-                            else MaterialTheme.colorScheme.surfaceVariant
+                            if (smartSelected) {
+                                Brush.horizontalGradient(GradientPrimary)
+                            } else {
+                                Brush.horizontalGradient(
+                                    listOf(surfaceVariant, surfaceVariant)
+                                )
+                            }
                         ),
                     contentAlignment = Alignment.Center
                 ) {
