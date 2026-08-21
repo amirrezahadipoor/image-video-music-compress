@@ -52,6 +52,7 @@ import com.compressly.R
 import com.compressly.core.data.db.HistoryEntry
 import com.compressly.core.engine.model.MediaType
 import com.compressly.core.util.Formats
+import com.compressly.ui.components.AdSlot
 import com.compressly.ui.components.EmptyState
 import com.compressly.ui.viewmodels.HistoryViewModel
 
@@ -64,6 +65,11 @@ fun HistoryScreen(
     val context = LocalContext.current
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     var showClearDialog by remember { mutableStateOf(false) }
+    var filter by remember { mutableStateOf<MediaType?>(null) }
+
+    val visibleEntries = remember(entries, filter) {
+        if (filter == null) entries else entries.filter { MediaType.fromName(it.mediaType) == filter }
+    }
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -93,7 +99,51 @@ fun HistoryScreen(
                 }
             }
 
+            AdSlot(Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
+
+            if (entries.isNotEmpty()) {
+                // Per-section filter: All / Photos / Videos / Audio.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(
+                        null to stringResource(R.string.history_filter_all),
+                        MediaType.PHOTO to stringResource(R.string.history_filter_photos),
+                        MediaType.VIDEO to stringResource(R.string.history_filter_videos),
+                        MediaType.AUDIO to stringResource(R.string.history_filter_audio)
+                    ).forEach { (type, label) ->
+                        val isSelected = filter == type
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                                .clickable { filter = type }
+                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
             if (entries.isEmpty()) {
+                EmptyState(
+                    title = stringResource(R.string.history_empty_title),
+                    description = stringResource(R.string.history_empty_desc),
+                    modifier = Modifier.weight(1f)
+                )
+            } else if (visibleEntries.isEmpty()) {
                 EmptyState(
                     title = stringResource(R.string.history_empty_title),
                     description = stringResource(R.string.history_empty_desc),
@@ -104,7 +154,7 @@ fun HistoryScreen(
                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
                     verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)
                 ) {
-                    items(entries) { entry ->
+                    items(visibleEntries) { entry ->
                         HistoryRow(
                             entry = entry,
                             onClick = { onOpenEntry(entry.id) },

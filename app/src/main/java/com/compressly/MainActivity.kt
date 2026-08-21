@@ -5,12 +5,23 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.res.stringResource
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.compressly.compressly.R
 import com.compressly.core.data.ThemeMode
 import com.compressly.core.service.CompressionJobService
+import com.compressly.core.util.CrashGuard
+import com.compressly.core.util.LocaleHelper
 import com.compressly.ui.navigation.AppNavHost
 import com.compressly.ui.navigation.NavRequest
 import com.compressly.ui.navigation.Routes
@@ -28,7 +39,22 @@ class MainActivity : ComponentActivity() {
         setContent {
             val themeMode by container.settingsRepository.themeMode
                 .collectAsStateWithLifecycle(initialValue = ThemeMode.SYSTEM)
+            val language by container.settingsRepository.language
+                .collectAsStateWithLifecycle(initialValue = LocaleHelper.lastApplied)
+
+            // Apply language changes instantly by recreating the activity.
+            androidx.compose.runtime.LaunchedEffect(language) {
+                if (language != LocaleHelper.lastApplied) {
+                    LocaleHelper.lastApplied = language
+                    recreate()
+                }
+            }
+
             CompresslyTheme(themeMode = themeMode) {
+                val crashed = remember { CrashGuard.consumeCrash(this) }
+                if (crashed) {
+                    CrashRecoveryDialog(onDismiss = { })
+                }
                 val navController = rememberNavController()
                 HandleNavRequests(container, navController)
                 AppNavHost(navController = navController)
@@ -53,6 +79,21 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
+
+/** Shown once after an unexpected crash: explains and lets the user continue. */
+@Composable
+private fun CrashRecoveryDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.restart_after_error_title)) },
+        text = { Text(stringResource(R.string.restart_after_error_desc)) },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_done))
+            }
+        }
+    )
 }
 
 @androidx.compose.runtime.Composable

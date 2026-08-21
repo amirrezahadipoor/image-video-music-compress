@@ -1,0 +1,37 @@
+package com.compressly.core.ads
+
+/**
+ * Abstraction over the ad provider (Tapsell / تپسل for the Bazaar build).
+ * The app itself stays fully offline-capable: when no provider is available
+ * or there is no network, slots render as a subtle placeholder or nothing.
+ */
+interface AdsProvider {
+    /** True once a real ad network is integrated and can serve banners. */
+    fun isAvailable(): Boolean
+}
+
+/** Default provider: no network, no ads — the offline-first behavior. */
+class NoopAdsProvider : AdsProvider {
+    override fun isAvailable(): Boolean = false
+}
+
+object Ads {
+
+    val provider: AdsProvider by lazy { create() }
+
+    private fun create(): AdsProvider {
+        if (!BuildConfig.ADS_ENABLED) return NoopAdsProvider()
+        // The Tapsell provider lives only in the "bazaar" flavor source set.
+        return runCatching {
+            val clazz = Class.forName("com.compressly.core.ads.TapsellAdsProvider")
+            clazz.getDeclaredConstructor().newInstance() as AdsProvider
+        }.getOrDefault(NoopAdsProvider())
+    }
+
+    /**
+     * True when this build is prepared for ads (Bazaar flavor). The slot is
+     * rendered so the advertising space is visible; the real banner loads
+     * from the network only when the Tapsell SDK is integrated.
+     */
+    fun isSlotVisible(): Boolean = BuildConfig.ADS_ENABLED
+}

@@ -28,6 +28,12 @@ class AppSettingsViewModel(container: AppContainer) : ViewModel() {
     val preserveMetadataDefault: StateFlow<Boolean> = repository.preserveMetadataDefault
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
+    val language: StateFlow<String> = repository.language
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), com.compressly.core.util.LocaleHelper.DEFAULT_LANGUAGE)
+
+    val soundEnabled: StateFlow<Boolean> = repository.soundEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { repository.setThemeMode(mode) }
     }
@@ -38,6 +44,14 @@ class AppSettingsViewModel(container: AppContainer) : ViewModel() {
 
     fun setPreserveMetadataDefault(value: Boolean) {
         viewModelScope.launch { repository.setPreserveMetadataDefault(value) }
+    }
+
+    fun setLanguage(lang: String) {
+        viewModelScope.launch { repository.setLanguage(lang) }
+    }
+
+    fun setSoundEnabled(value: Boolean) {
+        viewModelScope.launch { repository.setSoundEnabled(value) }
     }
 
     companion object {

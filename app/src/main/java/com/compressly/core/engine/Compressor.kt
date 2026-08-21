@@ -93,7 +93,8 @@ class Compressor(private val context: Context) {
         control: JobControl,
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
-        val info = MediaInspector.inspect(context, item.uri)
+        val info = runCatching { MediaInspector.inspect(context, item.uri) }.getOrNull()
+            ?: com.compressly.core.engine.model.MediaInfo(hasVideo = true)
         val temp = File.createTempFile("out_", ".mp4", context.cacheDir)
         try {
             val stats = MediaCodecTranscoder(context).transcode(
@@ -119,7 +120,8 @@ class Compressor(private val context: Context) {
         control: JobControl,
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
-        val info = MediaInspector.inspect(context, item.uri)
+        val info = runCatching { MediaInspector.inspect(context, item.uri) }.getOrNull()
+            ?: com.compressly.core.engine.model.MediaInfo(hasAudio = true)
         val temp = AudioCompressor(context).compress(item.uri, info, settings, control) {
             onProgress(ItemPhase.COMPRESSING, it)
         }

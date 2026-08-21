@@ -1,8 +1,5 @@
 package com.compressly.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,8 +16,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Pause
-import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -33,6 +28,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,10 +44,13 @@ import com.compressly.R
 import com.compressly.core.engine.model.ItemPhase
 import com.compressly.core.engine.model.JobStatus
 import com.compressly.ui.components.GhostButton
+import com.compressly.core.util.SoundEffects
 import com.compressly.ui.components.InlineProgress
 import com.compressly.ui.components.LoadingState
 import com.compressly.ui.components.ProgressRing
+import com.compressly.core.util.Formats
 import com.compressly.ui.viewmodels.JobViewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun ProgressScreen(
@@ -67,16 +66,35 @@ fun ProgressScreen(
     val container = (context.applicationContext as CompresslyApp).container
     val job by viewModel.job.collectAsStateWithLifecycle()
     var showCancelDialog by remember { mutableStateOf(false) }
+    var notFound by remember { mutableStateOf(false) }
 
-    // Navigate to the result screen once the job completes successfully.
+    // If the job never shows up (e.g. it was pruned after process death),
+    // degrade gracefully instead of loading forever.
+    LaunchedEffect(Unit) {
+        delay(4000)
+        if (viewModel.job.value == null) notFound = true
+    }
+    LaunchedEffect(job) {
+        if (job != null) notFound = false
+    }
+
+    // Navigate to the result screen once the job completes successfully,
+    // and play the matching sound effect exactly once per terminal state.
+    val announced = remember { mutableSetOf<String>() }
     LaunchedEffect(job?.status) {
-        if (job?.status == JobStatus.COMPLETED) {
-            val entry = container.historyRepository.getFirstDoneByJob(jobId)
-            if (entry != null) {
-                onResult(entry.id)
-            } else {
-                onHistory()
+        when (job?.status) {
+            JobStatus.COMPLETED -> {
+                if (announced.add("ok")) SoundEffects.play(SoundEffects.Type.SUCCESS)
+                val entry = container.historyRepository.getFirstDoneByJob(jobId)
+                if (entry != null) {
+                    onResult(entry.id)
+                } else {
+                    onHistory()
+                }
             }
+            JobStatus.FAILED -> if (announced.add("err")) SoundEffects.play(SoundEffects.Type.ERROR)
+            JobStatus.CANCELLED -> if (announced.add("cancel")) SoundEffects.play(SoundEffects.Type.CLICK)
+            else -> Unit
         }
     }
 
@@ -92,7 +110,31 @@ fun ProgressScreen(
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
                 }
-                LoadingState(stringResource(R.string.progress_preparing))
+                if (notFound) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 40.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = stringResource(R.string.job_not_found),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.job_not_found_desc),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(Modifier.height(20.dp))
+                        GhostButton(text = stringResource(R.string.action_back), onClick = onBack)
+                    }
+                } else {
+                    LoadingState(stringResource(R.string.progress_preparing), showTimer = true)
+                }
             }
             return@Scaffold
         }
@@ -138,7 +180,10 @@ fun ProgressScreen(
                 )
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(14.dp))
+            ElapsedEta(job = current)
+
+            Spacer(Modifier.height(14.dp))
 
             // ---- Controls ----
             if (current.status == JobStatus.RUNNING || current.status == JobStatus.PAUSED) {
@@ -213,6 +258,41 @@ fun ProgressScreen(
                 }
             }
         )
+    }
+}
+
+/**
+ * Precise elapsed + estimated-remaining readout: ticks every 500 ms and shows
+ * real numbers so the user never wonders whether anything is happening.
+ */
+@Composable
+private fun ElapsedEta(job: com.compressly.core.engine.model.JobState) {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(500)
+            now = System.currentTimeMillis()
+        }
+    }
+    val elapsed = (now - job.startedAt).coerceAtLeast(0)
+    val fraction = job.overallFraction
+    val eta = if (fraction > 0.03f) {
+        (elapsed * (1f - fraction) / fraction).toLong()
+    } else null
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.progress_elapsed, Formats.compactDuration(elapsed)),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (eta != null && job.status == JobStatus.RUNNING) {
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = stringResource(R.string.progress_eta, Formats.compactDuration(eta)),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
     }
 }
 

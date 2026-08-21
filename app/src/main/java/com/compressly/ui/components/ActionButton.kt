@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +32,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.compressly.ui.theme.GradientPrimary
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * The signature gradient action button: pill-shaped, with a subtle press
@@ -49,7 +52,8 @@ fun ActionButton(
     contentColor: Color = Color.White
 ) {
     var pressed by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (pressed) 0.965f else 1f, label = "btn")
+    val scope = rememberCoroutineScope()
+    val scale by animateFloatAsState(if (pressed) 0.96f else 1f, label = "btn")
     val interactionSource = remember { MutableInteractionSource() }
 
     Box(
@@ -65,6 +69,10 @@ fun ActionButton(
                 indication = null
             ) {
                 pressed = true
+                scope.launch {
+                    delay(130)
+                    pressed = false
+                }
                 onClick()
             },
         contentAlignment = Alignment.Center

@@ -86,6 +86,7 @@ object WaveformSampler {
                         val buf = decoder.getOutputBuffer(outIdx)!!
                         buf.position(info.offset)
                         buf.limit(info.offset + info.size)
+                        buf.order(ByteOrder.LITTLE_ENDIAN)
                         val pts = info.presentationTimeUs
                         if (pts <= MAX_PREVIEW_US) {
                             val bucket = ((pts.toDouble() / MAX_PREVIEW_US) * buckets).toInt().coerceIn(0, buckets - 1)

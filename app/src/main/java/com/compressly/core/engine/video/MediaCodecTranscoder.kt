@@ -8,7 +8,6 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.net.Uri
-import com.compressly.core.engine.CompressionCancelledException
 import com.compressly.core.engine.JobControl
 import com.compressly.core.engine.model.MediaInfo
 import com.compressly.core.engine.model.VideoAudioMode
@@ -20,7 +19,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
 /**
  * Fully offline, hardware-accelerated video transcoder built on
@@ -99,6 +97,7 @@ class MediaCodecTranscoder(private val context: Context) {
             val wantsAudio = settings.audioMode != VideoAudioMode.STRIP && info.hasAudio
 
             // 2. Audio: passthrough or transcode.
+            var audioAlreadyTrimmed = false
             if (wantsAudio) {
                 val passthroughAac = settings.audioMode == VideoAudioMode.KEEP && audioMimeIs(inputUri, MIME_AAC)
                 if (passthroughAac) {
@@ -114,6 +113,7 @@ class MediaCodecTranscoder(private val context: Context) {
                         onProgress = { p -> onProgress(0.80f + p * 0.12f) }
                     )
                     tempAudioUri = Uri.fromFile(tempAudio)
+                    audioAlreadyTrimmed = true
                 }
             }
 
@@ -132,6 +132,7 @@ class MediaCodecTranscoder(private val context: Context) {
                     rotation = rotation,
                     trimStartUs = trimStartUs,
                     trimEndUs = trimEndUs,
+                    audioAlreadyTrimmed = audioAlreadyTrimmed,
                     control = control,
                     onProgress = { p -> onProgress(0.92f + p * 0.08f) }
                 )
@@ -348,13 +349,14 @@ class MediaCodecTranscoder(private val context: Context) {
     // Merge pass (video temp + audio temp/original -> final)
     // ------------------------------------------------------------------
 
-    private suspend fun mergePass(
+private suspend fun mergePass(
         videoPath: String,
         audioUri: Uri?,
         outputPath: String,
         rotation: Int,
         trimStartUs: Long,
         trimEndUs: Long,
+        audioAlreadyTrimmed: Boolean,
         control: JobControl,
         onProgress: (Float) -> Unit
     ) {
@@ -393,8 +395,11 @@ class MediaCodecTranscoder(private val context: Context) {
         var audioHasSample = false
         var videoDone = false
         var audioDone = audioExtractor == null
-        var lastPts = -1L
-        val audioOffset = trimStartUs
+var lastPts = -1L
+        // Passthrough audio comes from the ORIGINAL file (needs trimming to the
+        // trim window); transcoded audio is already trimmed (PTS start at 0).
+        val audioOffset = if (audioAlreadyTrimmed) 0L else trimStartUs
+        val audioEnd = if (audioAlreadyTrimmed) 0L else trimEndUs
 
         fun readVideo(): Boolean {
             if (videoDone) return false
@@ -413,8 +418,8 @@ class MediaCodecTranscoder(private val context: Context) {
                 if (sz < 0) { audioDone = true; return false }
                 val pts = ae.sampleTime
                 ae.advance()
-                if (pts < audioOffset) continue
-                if (trimEndUs > 0 && pts > trimEndUs) { audioDone = true; return false }
+if (pts < audioOffset) continue
+                if (audioEnd > 0 && pts > audioEnd) { audioDone = true; return false }
                 audioInfo.set(0, sz, (pts - audioOffset).coerceAtLeast(0), ae.sampleFlags)
                 return true
             }
@@ -435,10 +440,8 @@ class MediaCodecTranscoder(private val context: Context) {
                     else -> videoInfo.presentationTimeUs <= audioInfo.presentationTimeUs
                 }
 
-                if (writeVideo) {
-                    if (videoInfo.presentationTimeUs >= trimStartUs) {
-                        muxer.writeSampleData(videoMuxerTrack, videoBuf, videoInfo)
-                    }
+if (writeVideo) {
+                    muxer.writeSampleData(videoMuxerTrack, videoBuf, videoInfo)
                     videoHasSample = readVideo()
                 } else {
                     muxer.writeSampleData(audioMuxerTrack, audioBuf, audioInfo)
@@ -446,7 +449,8 @@ class MediaCodecTranscoder(private val context: Context) {
                 }
 
                 if (videoInfo.presentationTimeUs > lastPts && trimEndUs > trimStartUs) {
-                    val p = ((videoInfo.presentationTimeUs - trimStartUs).toFloat() / (trimEndUs - trimStartUs)).coerceIn(0f, 1f)
+                    // The video temp file is already trimmed (PTS start at 0).
+                    val p = (videoInfo.presentationTimeUs.toFloat() / (trimEndUs - trimStartUs)).coerceIn(0f, 1f)
                     onProgress(p)
                     lastPts = videoInfo.presentationTimeUs
                 }

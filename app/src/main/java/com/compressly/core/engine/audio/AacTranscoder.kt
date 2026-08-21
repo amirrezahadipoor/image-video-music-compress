@@ -7,7 +7,6 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.net.Uri
-import com.compressly.core.engine.CompressionCancelledException
 import com.compressly.core.engine.JobControl
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -209,6 +208,8 @@ object AacTranscoder {
         sourceChannels: Int,
         targetChannels: Int
     ) {
+        // Decoder output byte order is not guaranteed; PCM16 is little-endian.
+        source.order(ByteOrder.LITTLE_ENDIAN)
         val ch = if (sourceChannels <= 2) sourceChannels else 2
         val perSampleBytes = ch * 2
         val samples = sourceSize / perSampleBytes

@@ -27,7 +27,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.PhotoCamera
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -63,6 +62,9 @@ import com.compressly.core.engine.model.InputItem
 import com.compressly.core.engine.model.MediaType
 import com.compressly.core.util.Formats
 import com.compressly.core.util.Uris
+import com.compressly.ui.components.AdSlot
+import com.compressly.ui.components.RotatingGear
+import com.compressly.core.util.SoundEffects
 import com.compressly.ui.theme.GradientAudio
 import com.compressly.ui.theme.GradientHero
 import com.compressly.ui.theme.GradientPhoto
@@ -152,6 +154,9 @@ fun HomeScreen(
                 SectionTitle(stringResource(R.string.home_tap_to_choose))
             }
             item { ModuleCards(onPick = ::pick) }
+            item {
+                AdSlot(Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            }
             item { SectionTitle(stringResource(R.string.home_recent_activity)) }
             if (recent.isEmpty()) {
                 item {
@@ -192,6 +197,7 @@ fun HomeScreen(
 
 @Composable
 private fun HomeHeader(onOpenHistory: () -> Unit, onOpenAppSettings: () -> Unit) {
+    var spin by remember { mutableStateOf(0) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -219,8 +225,15 @@ private fun HomeHeader(onOpenHistory: () -> Unit, onOpenAppSettings: () -> Unit)
         IconButton(onClick = onOpenHistory) {
             Icon(Icons.Outlined.History, contentDescription = stringResource(R.string.history_title), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        IconButton(onClick = onOpenAppSettings) {
-            Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.app_settings_title), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        IconButton(onClick = {
+            spin++
+            SoundEffects.play(SoundEffects.Type.CLICK)
+            onOpenAppSettings()
+        }) {
+            RotatingGear(
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                spinKey = spin
+            )
         }
     }
 }

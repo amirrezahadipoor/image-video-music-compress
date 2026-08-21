@@ -33,8 +33,13 @@ class HistoryViewModel(container: AppContainer) : ViewModel() {
 
     fun share(context: Context, entry: HistoryEntry) {
         val uri = entry.outputUri?.let { Uri.parse(it) } ?: return
+        val mime = when (MediaType.fromName(entry.mediaType)) {
+            MediaType.PHOTO -> "image/*"
+            MediaType.VIDEO -> "video/*"
+            MediaType.AUDIO -> "audio/*"
+        }
         val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "application/octet-stream"
+            type = mime
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }

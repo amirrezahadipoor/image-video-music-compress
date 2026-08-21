@@ -11,7 +11,6 @@ import com.compressly.core.engine.MediaInspector
 import com.compressly.core.engine.JobControl
 import com.compressly.core.engine.audio.WaveformSampler
 import com.compressly.core.engine.estimate.SizeEstimator
-import com.compressly.core.engine.model.AudioBitrateMode
 import com.compressly.core.engine.model.AudioSettings
 import com.compressly.core.engine.model.CompressionPreset
 import com.compressly.core.engine.model.CompressionSettings

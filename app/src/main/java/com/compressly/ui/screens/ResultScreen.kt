@@ -24,7 +24,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +52,8 @@ import com.compressly.core.util.Formats
 import com.compressly.ui.components.ActionButton
 import com.compressly.ui.components.GhostButton
 import com.compressly.ui.components.LoadingState
+import com.compressly.core.util.SoundEffects
+import com.compressly.ui.components.AdSlot
 import com.compressly.ui.components.StatCard
 import com.compressly.ui.theme.GradientSuccess
 import com.compressly.ui.util.ErrorMessages
@@ -75,6 +76,9 @@ fun ResultScreen(
 
     LaunchedEffect(entry?.id) {
         reveal = false
+        if (entry?.status == HistoryEntry.STATUS_DONE) {
+            SoundEffects.play(SoundEffects.Type.SUCCESS)
+        }
         siblings = entry?.let { runCatching { viewModel.loadSiblings(it) }.getOrDefault(emptyList()) } ?: emptyList()
         reveal = true
     }
@@ -259,6 +263,8 @@ private fun SuccessContent(
             text = stringResource(R.string.result_view_history),
             onClick = onHistory
         )
+        Spacer(Modifier.height(20.dp))
+        AdSlot()
         Spacer(Modifier.height(24.dp))
     }
 }

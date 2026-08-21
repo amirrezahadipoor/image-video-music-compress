@@ -24,15 +24,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.compressly.core.engine.model.CompressionPreset
 import com.compressly.core.engine.model.MediaType
 import com.compressly.core.engine.model.PresetDefaults
 import com.compressly.R
-import com.compressly.ui.theme.GradientPrimary
 
 private fun presetTitle(preset: CompressionPreset): Int = when (preset) {
     CompressionPreset.MAXIMUM_QUALITY -> R.string.preset_max_quality

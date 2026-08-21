@@ -25,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -36,6 +35,7 @@ import com.compressly.R
 import com.compressly.core.data.ThemeMode
 import com.compressly.core.engine.model.CompressionPreset
 import com.compressly.ui.components.ChipSelector
+import com.compressly.ui.components.RotatingGear
 import com.compressly.ui.components.SectionHeader
 import com.compressly.ui.components.SelectableOptionList
 import com.compressly.ui.components.ToggleRow
@@ -49,6 +49,8 @@ fun AppSettingsScreen(
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val defaultPreset by viewModel.defaultPreset.collectAsStateWithLifecycle()
     val preserveMetadata by viewModel.preserveMetadataDefault.collectAsStateWithLifecycle()
+    val language by viewModel.language.collectAsStateWithLifecycle()
+    val soundEnabled by viewModel.soundEnabled.collectAsStateWithLifecycle()
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         Column(
@@ -69,8 +71,15 @@ fun AppSettingsScreen(
                 Text(
                     text = stringResource(R.string.app_settings_title),
                     style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
                 )
+                RotatingGear(
+                    tint = MaterialTheme.colorScheme.primary,
+                    size = 26.dp,
+                    infinite = true
+                )
+                Spacer(Modifier.width(20.dp))
             }
 
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
@@ -92,6 +101,28 @@ fun AppSettingsScreen(
                             },
                             descriptionOf = { null },
                             onSelect = viewModel::setThemeMode
+                        )
+                        Spacer(Modifier.height(18.dp))
+                        Text(
+                            text = stringResource(R.string.settings_language),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        ChipSelector(
+                            options = listOf("fa", "en"),
+                            selected = language,
+                            labelOf = { lang ->
+                                stringResource(if (lang == "fa") R.string.language_fa else R.string.language_en)
+                            },
+                            onSelect = viewModel::setLanguage
+                        )
+                        Spacer(Modifier.height(18.dp))
+                        ToggleRow(
+                            title = stringResource(R.string.sound_effects),
+                            description = stringResource(R.string.sound_effects_desc),
+                            checked = soundEnabled,
+                            onCheckedChange = viewModel::setSoundEnabled
                         )
                     }
                 }

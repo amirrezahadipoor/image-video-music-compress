@@ -13,6 +13,8 @@ import com.compressly.core.engine.model.MediaType
 import com.compressly.core.service.JobCoordinator
 import com.compressly.core.service.NotificationHelper
 import com.compressly.ui.navigation.NavRequest
+import com.compressly.core.util.CrashGuard
+import com.compressly.core.util.SoundEffects
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,10 +31,18 @@ class CompresslyApp : Application() {
     lateinit var container: AppContainer
         private set
 
+    override fun attachBaseContext(base: Context) {
+        // Apply the persisted language (Persian default) before any UI is built.
+        super.attachBaseContext(
+            com.compressly.core.util.LocaleHelper.apply(base, com.compressly.core.util.LocaleHelper.persistedLanguage(base))
+        )
+    }
+
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
         NotificationHelper.createChannels(this)
+        CrashGuard.install(this)
 
         // Coil image loader with offline video-frame decoding for thumbnails.
         val imageLoader = ImageLoader.Builder(this)
@@ -40,6 +50,13 @@ class CompresslyApp : Application() {
             .crossfade(180)
             .build()
         Coil.setImageLoader(imageLoader)
+
+        // Apply sound preference (default on) to the sound engine.
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            container.settingsRepository.soundEnabled.collect { enabled ->
+                SoundEffects.enabled = enabled
+            }
+        }
 
         // Any job that was mid-flight when the process died is marked
         // interrupted with a clear message instead of leaving a mystery.

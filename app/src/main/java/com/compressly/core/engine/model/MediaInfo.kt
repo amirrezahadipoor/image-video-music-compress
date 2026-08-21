@@ -1,6 +1,5 @@
 package com.compressly.core.engine.model
 
-import android.graphics.Bitmap
 
 /** Lightweight metadata about a media file, read via MediaMetadataRetriever. */
 data class MediaInfo(

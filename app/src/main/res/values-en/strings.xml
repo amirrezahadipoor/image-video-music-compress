@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Compressly</string>
+    <string name="app_tagline">Photos, videos and music. Smaller.</string>
+
+    <!-- Common actions -->
+    <string name="action_compress">Compress</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_resume">Resume</string>
+    <string name="action_share">Share</string>
+    <string name="action_open">Open</string>
+    <string name="action_retry">Try again</string>
+    <string name="action_done">Done</string>
+    <string name="action_close">Close</string>
+    <string name="action_back">Back</string>
+    <string name="action_next">Next</string>
+    <string name="action_allow">Allow</string>
+    <string name="action_not_now">Not now</string>
+    <string name="action_choose_files">Choose files</string>
+
+    <!-- Media types -->
+    <string name="media_photo">Photo</string>
+    <string name="media_video">Video</string>
+    <string name="media_audio">Audio</string>
+    <string name="media_photos">Photos</string>
+    <string name="media_videos">Videos</string>
+    <string name="media_audio_files">Audio files</string>
+
+    <!-- Home -->
+    <string name="home_greeting">Welcome</string>
+    <string name="home_hero_title">Make your media smaller, without losing quality</string>
+    <string name="home_hero_subtitle">Everything runs on your device. No internet needed, ever.</string>
+    <string name="home_compress_photo">Compress Photo</string>
+    <string name="home_compress_video">Compress Video</string>
+    <string name="home_compress_audio">Compress Audio</string>
+    <string name="home_photo_subtitle">JPEG, PNG, WebP, HEIC</string>
+    <string name="home_video_subtitle">MP4, MOV, MKV, WebM</string>
+    <string name="home_audio_subtitle">MP3, WAV, FLAC, AAC, OGG</string>
+    <string name="home_recent_activity">Recent activity</string>
+    <string name="home_view_all">View all</string>
+    <string name="home_no_activity">Nothing here yet</string>
+    <string name="home_no_activity_desc">Your compression history will appear here.</string>
+    <string name="home_total_saved">Total space saved</string>
+    <string name="home_jobs_active">%1$d job(s) in progress</string>
+    <string name="home_tap_to_choose">Pick files from your device to get started</string>
+
+    <!-- File picking -->
+    <string name="pick_title_photo">Select photos</string>
+    <string name="pick_title_video">Select videos</string>
+    <string name="pick_title_audio">Select audio files</string>
+    <string name="pick_error_none">No files were selected.</string>
+    <string name="pick_error_unsupported_photo">One or more files are not supported photos.</string>
+    <string name="pick_error_unsupported_video">One or more files are not supported videos.</string>
+    <string name="pick_error_unsupported_audio">One or more files are not supported audio files.</string>
+
+    <!-- Compression settings -->
+    <string name="settings_title_photo">Photo settings</string>
+    <string name="settings_title_video">Video settings</string>
+    <string name="settings_title_audio">Audio settings</string>
+    <string name="settings_files_selected">%1$d file(s) selected</string>
+    <string name="settings_preset_section">Compression level</string>
+    <string name="settings_advanced_section">Advanced</string>
+    <string name="settings_advanced_toggle">Advanced options</string>
+    <string name="settings_estimated_size">Estimated output size</string>
+    <string name="settings_original_size">Original size</string>
+    <string name="settings_est_saving">Estimated saving</string>
+    <string name="settings_est_saving_range">%1$s-%2$s</string>
+    <string name="settings_output_format">Output format</string>
+    <string name="settings_quality">Quality</string>
+    <string name="settings_quality_value">%1$d%%</string>
+    <string name="settings_metadata">Metadata (EXIF / ID3)</string>
+    <string name="settings_metadata_preserve">Preserve</string>
+    <string name="settings_metadata_strip">Strip for privacy</string>
+    <string name="settings_metadata_preserve_desc">Keeps camera info, tags and orientation.</string>
+    <string name="settings_metadata_strip_desc">Removes location and camera details. Smaller files.</string>
+
+    <!-- Presets -->
+    <string name="preset_max_quality">Maximum Quality</string>
+    <string name="preset_max_quality_desc">Light compression, near-original quality. Best for archiving.</string>
+    <string name="preset_balanced">Balanced</string>
+    <string name="preset_balanced_desc">Great quality with a meaningful size drop. Recommended default.</string>
+    <string name="preset_high_compression">High Compression</string>
+    <string name="preset_high_compression_desc">Smaller files, minor quality loss. Good for email and documents.</string>
+    <string name="preset_max_compression">Maximum Compression</string>
+    <string name="preset_max_compression_desc">Smallest files for messaging apps and low-storage devices.</string>
+
+    <!-- Photo options -->
+    <string name="photo_resize">Resize</string>
+    <string name="photo_resize_original">Keep original resolution</string>
+    <string name="photo_resize_2560">2560 px (large)</string>
+    <string name="photo_resize_1920">1920 px (full HD)</string>
+    <string name="photo_resize_1280">1280 px (HD)</string>
+    <string name="photo_resize_1024">1024 px (web)</string>
+    <string name="photo_resize_custom">Custom width</string>
+    <string name="photo_custom_width_hint">Max width in pixels</string>
+    <string name="photo_before_after">Before / After</string>
+    <string name="photo_format_jpeg">JPEG (best compatibility)</string>
+    <string name="photo_format_webp">WebP (smaller, modern)</string>
+    <string name="photo_format_png">PNG (lossless, large)</string>
+    <string name="photo_keep_original_format">Keep original format</string>
+
+    <!-- Video options -->
+    <string name="video_resolution">Resolution</string>
+    <string name="video_resolution_original">Original</string>
+    <string name="video_resolution_1080">1080p (Full HD)</string>
+    <string name="video_resolution_720">720p (HD)</string>
+    <string name="video_resolution_480">480p (SD)</string>
+    <string name="video_resolution_custom">Custom</string>
+    <string name="video_bitrate">Bitrate</string>
+    <string name="video_bitrate_auto">Auto (by quality level)</string>
+    <string name="video_fps">Frame rate</string>
+    <string name="video_fps_original">Original</string>
+    <string name="video_fps_30">30 fps</string>
+    <string name="video_fps_24">24 fps</string>
+    <string name="video_codec">Video codec</string>
+    <string name="video_codec_h264">H.264 (AVC)</string>
+    <string name="video_codec_h264_desc">Plays everywhere. Larger files.</string>
+    <string name="video_codec_h265">H.265 (HEVC)</string>
+    <string name="video_codec_h265_desc">Up to 40%% smaller, same quality. Newer devices only.</string>
+    <string name="video_codec_unavailable">H.265 encoder not available on this device. Using H.264.</string>
+    <string name="video_audio_track">Audio track</string>
+    <string name="video_audio_keep">Keep original audio</string>
+    <string name="video_audio_compress">Compress audio too</string>
+    <string name="video_audio_strip">Remove audio</string>
+    <string name="video_trim">Trim</string>
+    <string name="video_trim_on">Trim to a shorter clip</string>
+    <string name="video_trim_start">Start</string>
+    <string name="video_trim_end">End</string>
+    <string name="video_trim_invalid">End must be after start.</string>
+    <string name="video_info_duration">Duration</string>
+
+    <!-- Audio options -->
+    <string name="audio_bitrate">Bitrate</string>
+    <string name="audio_bitrate_64">64 kbps</string>
+    <string name="audio_bitrate_128">128 kbps</string>
+    <string name="audio_bitrate_192">192 kbps</string>
+    <string name="audio_bitrate_256">256 kbps</string>
+    <string name="audio_bitrate_320">320 kbps</string>
+    <string name="audio_mode_vbr">VBR (variable bitrate)</string>
+    <string name="audio_mode_cbr">CBR (constant bitrate)</string>
+    <string name="audio_output_format">Output format</string>
+    <string name="audio_format_m4a">AAC (M4A) - best quality per size</string>
+    <string name="audio_format_mp3">MP3 - widest compatibility</string>
+    <string name="audio_waveform">Waveform</string>
+
+    <!-- Progress -->
+    <string name="progress_title">Compressing</string>
+    <string name="progress_preparing">Preparing…</string>
+    <string name="progress_compressing">Compressing…</string>
+    <string name="progress_finalizing">Saving…</string>
+    <string name="progress_cancelling">Cancelling…</string>
+    <string name="progress_paused">Paused</string>
+    <string name="progress_complete">Complete</string>
+    <string name="progress_failed">Failed</string>
+    <string name="progress_item_of">Item %1$d of %2$d</string>
+    <string name="progress_eta">About %1$s left</string>
+    <string name="progress_elapsed">Elapsed %1$s</string>
+    <string name="progress_stopped_by_user">Cancelled</string>
+    <string name="progress_will_keep_running">Compression continues in the background. You can leave this screen.</string>
+    <string name="progress_percent">%1$d%%</string>
+
+    <!-- Result -->
+    <string name="result_title_success">Done!</string>
+    <string name="result_title_failed">Something went wrong</string>
+    <string name="result_saved">Saved</string>
+    <string name="result_reduction">Size reduced by %1$s</string>
+    <string name="result_before_size">Before</string>
+    <string name="result_after_size">After</string>
+    <string name="result_time_taken">Took %1$s</string>
+    <string name="result_compress_another">Compress another</string>
+    <string name="result_view_history">View history</string>
+    <string name="result_share_output">Share</string>
+    <string name="result_open_output">Open file</string>
+    <string name="result_saved_to">Saved to %1$s</string>
+    <string name="result_error_detail">%1$s</string>
+    <string name="result_items_success">%1$d of %2$d files compressed successfully</string>
+    <string name="result_share_sheet_title">Share compressed file</string>
+
+    <!-- History -->
+    <string name="history_title">History</string>
+    <string name="history_empty_title">No compressions yet</string>
+    <string name="history_empty_desc">Everything you compress will be listed here with the space you saved.</string>
+    <string name="history_clear_all">Clear history</string>
+    <string name="history_clear_confirm_title">Clear history?</string>
+    <string name="history_clear_confirm_msg">This removes the history list. Files you already saved stay on your device.</string>
+    <string name="history_clear_confirm_yes">Clear</string>
+    <string name="history_cleared">History cleared</string>
+    <string name="history_reduced">-%1$s</string>
+    <string name="history_status_done">Compressed</string>
+    <string name="history_status_failed">Failed</string>
+    <string name="history_status_cancelled">Cancelled</string>
+    <string name="history_status_interrupted">Interrupted</string>
+    <string name="history_recompress">Recompress</string>
+    <string name="history_time_ago">%1$s ago</string>
+
+    <!-- App settings -->
+    <string name="app_settings_title">Settings</string>
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="theme_mode">Theme</string>
+    <string name="theme_system">Follow system</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="settings_section_defaults">Defaults</string>
+    <string name="default_preset">Default compression level</string>
+    <string name="default_preset_desc">Used when you open a new compression.</string>
+    <string name="default_metadata">Metadata handling</string>
+    <string name="default_metadata_desc">Applies to photos and audio files.</string>
+    <string name="settings_section_about">About</string>
+    <string name="about_offline_title">100%% offline</string>
+    <string name="about_offline_desc">All compression happens on your device. No accounts, no uploads, no internet needed.</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_build">Built with Kotlin and Jetpack Compose</string>
+    <string name="about_licenses">Open source licenses</string>
+    <string name="about_licenses_body">This app bundles jump3r (a pure-Java LAME port) and jaudiotagger for offline metadata handling.</string>
+
+    <!-- Permissions -->
+    <string name="perm_notification_title">Show compression progress?</string>
+    <string name="perm_notification_body">A notification lets you follow and control long compressions, even when the app is in the background. No data leaves your device.</string>
+    <string name="perm_storage_title">Allow saving files?</string>
+    <string name="perm_storage_body">Your device needs storage access so compressed files can be saved to your gallery and files apps.</string>
+    <string name="perm_rationale_notification">Notifications show the progress of long jobs and let you pause or cancel them from anywhere. Allow to keep going in the background?</string>
+
+    <!-- Errors -->
+    <string name="error_generic">Something went wrong while processing this file.</string>
+    <string name="error_file_empty">This file is empty and cannot be compressed.</string>
+    <string name="error_file_not_found">The file could not be opened. It may have been moved or deleted.</string>
+    <string name="error_unsupported_format">This format is not supported.</string>
+    <string name="error_unsupported_codec">The video codec in this file is not supported on this device.</string>
+    <string name="error_heic_unsupported">HEIC photos need Android 9 or newer. Please use JPEG or PNG instead.</string>
+    <string name="error_no_space">Not enough free storage for the estimated output. Free up space and try again.</string>
+    <string name="error_interrupted">The app was closed during compression. Please try again.</string>
+    <string name="error_corrupt">The file appears to be damaged or unreadable.</string>
+    <string name="error_cancelled">Compression was cancelled.</string>
+    <string name="error_metadata_write">Could not write metadata to the output file.</string>
+    <string name="error_output">Could not save the output file.</string>
+    <string name="error_pick_failed">Could not read the selected file.</string>
+    <string name="error_low_storage_warn_title">Low storage space</string>
+    <string name="error_low_storage_warn_body">Only about %1$s is free, and the estimated output needs around %2$s. It is safer to free up space before compressing.</string>
+    <string name="error_encode_failed">Encoding failed. Try a different setting or a software codec.</string>
+    <string name="error_decode_failed">Could not decode this file on your device.</string>
+
+    <!-- Notification -->
+    <string name="notif_channel_name">Compression jobs</string>
+    <string name="notif_channel_desc">Progress and controls for running compression jobs</string>
+    <string name="notif_title">Compressing %1$s</string>
+    <string name="notif_item">%1$d of %2$d</string>
+    <string name="notif_done_title">Compression finished</string>
+    <string name="notif_done_text">%1$d file(s) compressed. Tap to view.</string>
+    <string name="notif_failed_title">Compression failed</string>
+    <string name="notif_paused_title">Compression paused</string>
+
+    <!-- Units / formats -->
+    <string name="unit_bytes">B</string>
+    <string name="unit_kb">KB</string>
+    <string name="unit_mb">MB</string>
+    <string name="unit_gb">GB</string>
+    <string name="time_sec">%1$ds</string>
+    <string name="time_min">%1$dm %2$ds</string>
+    <string name="time_hour">%1$dh %2$dm</string>
+    <string name="duration_format">%1$s</string>
+    <string name="unknown">Unknown</string>
+    <string name="free_space_unknown">Unknown</string>
+
+    <!-- Misc -->
+    <string name="estimate_note">Estimates are based on file type and settings. The real result may differ slightly.</string>
+    <string name="advanced_hint">Fine-tune quality, resolution, bitrate and more.</string>
+    <string name="processing_warning_long_video">Large videos may take a while. You can leave this screen; compression keeps running.</string>
+    <!-- App language -->
+    <string name="settings_language">App language</string>
+    <string name="language_fa">Persian (فارسی)</string>
+    <string name="language_en">English</string>
+
+    <!-- Sounds -->
+    <string name="sound_effects">Sound effects</string>
+    <string name="sound_effects_desc">Short sounds when starting, succeeding or failing</string>
+
+    <!-- Ads slot -->
+    <string name="ads_placeholder">Ad</string>
+    <string name="ads_slot_note">Advertising space</string>
+
+    <!-- History filters -->
+    <string name="history_filter_all">All</string>
+    <string name="history_filter_photos">Photos</string>
+    <string name="history_filter_videos">Videos</string>
+    <string name="history_filter_audio">Audio</string>
+
+    <!-- Job not found -->
+    <string name="job_not_found">Job not found</string>
+    <string name="job_not_found_desc">This job may have finished or been removed. Check your history.</string>
+
+    <!-- Crash recovery -->
+    <string name="restart_after_error_title">Sorry</string>
+    <string name="restart_after_error_desc">The app restarted after an unexpected error. Unfinished jobs were marked as interrupted; you can simply try again.</string>
+</resources>

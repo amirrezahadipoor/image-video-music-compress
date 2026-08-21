@@ -199,6 +199,7 @@ class AudioCompressor(private val context: Context) {
 
     /** Converts float PCM (-1..1) to 16-bit little-endian, returns bytes written. */
     private fun floatToPcm16(src: ByteBuffer, sizeBytes: Int, dst: ByteArray): Int {
+        src.order(ByteOrder.LITTLE_ENDIAN)
         val floats = sizeBytes / 4
         val n = minOf(floats * 2, dst.size)
         var p = 0

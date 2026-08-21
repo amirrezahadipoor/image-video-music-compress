@@ -1,103 +1,115 @@
-# Compressly
+# کامپرسلی (Compressly)
 
-**Photos. Videos. Music. Smaller.**
+**عکس. ویدیو. موسیقی. کوچک‌تر.**
 
-Compressly is a professional, fully-offline media compressor for Android — photos, videos and audio/music files in one app. Everything runs on your device. No internet, no accounts, no uploads, ever.
+کامپرسلی یک اپلیکیشن اندروید حرفه‌ای و کاملاً آفلاین برای فشرده‌سازی عکس، ویدیو و فایل‌های صوتی است. همه‌ی پردازش‌ها روی خود دستگاه انجام می‌شود؛ بدون اینترنت، بدون حساب کاربری، بدون آپلود.
 
-![Compressly banner](art/banner.png)
+![بنر کامپرسلی](art/banner.png)
 
 ---
 
-## Highlights
+## ویژگی‌های اصلی
 
-- **100% offline.** All compression runs on-device with native Android APIs (MediaCodec, MediaExtractor, MediaMuxer, BitmapFactory, ExifInterface). The app has no INTERNET permission and works in airplane mode from first launch.
-- **One coherent grading system.** Photos, videos and audio share the same 4-tier gauge — *Maximum Quality*, *Balanced*, *High Compression*, *Maximum Compression* — with honest estimated size-reduction ranges shown before you commit, plus an Advanced/Custom mode for fine control.
-- **Quality-first engines.** Hardware-accelerated video transcoding via a MediaCodec surface pipeline (H.264/H.265, software fallback), sampled photo decoding with EXIF handling, and hardware AAC encoding with an embedded pure-Java LAME MP3 encoder.
-- **Batch everything.** Compress many files at once with one profile; per-file and overall progress; cancel individual items or the whole job.
-- **Runs in the background.** Long jobs live in a foreground service with a progress notification and Pause/Resume/Cancel actions.
-- **Real numbers.** Original size, estimated output, actual output and % reduction — before, during and after.
-- **No ads, no sign-up.** Just a clean, offline, premium app.
+- **۱۰۰٪ آفلاین.** فشرده‌سازی با API های بومی اندروید (MediaCodec، MediaExtractor، MediaMuxer، BitmapFactory، ExifInterface) انجام می‌شود. اپلیکیشن مجوز اینترنت ندارد (در بیلد پلی) و از اولین لحظه در حالت هواپیما قابل استفاده است.
+- **سیستم درجه‌بندی یکپارچه.** عکس، ویدیو و صدا همگی از یک نوار ۴ مرحله‌ای استفاده می‌کنند: *حداکثر کیفیت*، *متعادل*، *فشرده‌سازی بالا*، *حداکثر فشرده‌سازی* — با نمایش درصد کاهش حجم تقریبی قبل از شروع + حالت پیشرفته برای کنترل دقیق.
+- **موتورهای کیفیت‌محور.** رونویسی ویدیو با سخت‌افزار (MediaCodec surface pipeline با پشتیبانی H.264/H.265 و فالبک نرم‌افزاری)، رمزگشایی نمونه‌ای عکس با مدیریت EXIF، و انکودر سخت‌افزاری AAC به‌همراه انکودر MP3 (LAME) داخل‌برنامه‌ای.
+- **پردازش گروهی.** چند فایل با یک پروفایل؛ پیشرفت هر فایل و کل گروه؛ لغو تک‌فایل یا کل کار.
+- **ادامه در پس‌زمینه.** کارهای طولانی در سرویس پیش‌زمینه اجرا می‌شوند و اعلان پیشرفت با دکمه‌های توقف/ادامه/لغو دارند.
+- **اعداد واقعی.** حجم اصلی، حجم تقریبی خروجی، حجم واقعی و درصد کاهش — قبل، حین و بعد از فشرده‌سازی.
+- **بدون تبلیغات و بدون ثبت‌نام** (در بیلد پیش‌فرض/پلی).
 
-## Features
+## بخش‌ها
 
-### Photos
-- Input: JPEG, PNG, WebP, HEIC/HEIF (read; Android 9+ for HEIC)
-- Output: JPEG, WebP, PNG, or keep the source format
-- Quality slider + resize presets (2560 / 1920 / 1280 / 1024 / custom, aspect locked)
-- EXIF metadata preserved by default, or stripped for privacy
-- Live draggable before/after preview with real-time size estimates
-- Batch compression with per-photo progress
+### عکس
+- ورودی: JPEG، PNG، WebP، HEIC/HEIF (خواندن؛ اندروید ۹ به بالا)
+- خروجی: JPEG، WebP، PNG یا حفظ فرمت اصلی
+- اسلایدر کیفیت + پری‌ست‌های تغییر اندازه (۲۵۶۰/۱۹۲۰/۱۲۸۰/۱۰۲۴/دلخواه با حفظ نسبت)
+- حفظ متادیتا EXIF به‌صورت پیش‌فرض یا حذف برای حریم خصوصی
+- پیش‌نمایش زنده «قبل/بعد» با اسلایدر کشیدنی و تخمین حجم لحظه‌ای
 
-### Videos
-- Input: MP4, MOV, MKV, WebM
-- Output: MP4 (H.264/AVC or H.265/HEVC where hardware-supported; trade-offs explained in-app)
-- Resolution (original / 1080p / 720p / 480p / custom), bitrate, frame rate
-- Audio track: keep, compress separately, or remove
-- Trim (in/out points) before compressing
-- Foreground service with persistent notification; pause and cancel supported
-- Estimated size before starting; actual size + ratio when done
+### ویدیو
+- ورودی: MP4، MOV، MKV، WebM
+- خروجی: MP4 (H.264 یا H.265 در صورت پشتیبانی سخت‌افزار؛ توضیح تفاوت‌ها داخل اپ)
+- رزولوشن (اصلی/۱۰۸۰p/۷۲۰p/۴۸۰p/دلخواه)، بیت‌ریت، نرخ فریم
+- صدای ویدیو: حفظ، فشرده‌سازی جدا، یا حذف
+- برش (نقطه شروع/پایان) قبل از فشرده‌سازی
+- سرویس پیش‌زمینه با اعلان؛ پشتیبانی از توقف و لغو
 
-### Audio / Music
-- Input: MP3, WAV, FLAC, AAC, OGG, M4A
-- Output: AAC (M4A) via hardware encoder, or MP3 via the embedded pure-Java LAME port — CBR or VBR, 64–320 kbps
-- ID3/MP4 tags (title, artist, album, cover art) preserved by default, with a strip option
-- Batch support and a lightweight waveform preview
+### صدا / موسیقی
+- ورودی: MP3، WAV، FLAC، AAC، OGG، M4A
+- خروجی: AAC (M4A) سخت‌افزاری یا MP3 با LAME داخلی — CBR یا VBR، ۶۴ تا ۳۲۰ کیلوبیت
+- حفظ برچسب‌های ID3/MP4 (عنوان، خواننده، آلبوم، کاور) با گزینه حذف
+- پردازش گروهی + نمایش موج‌نگار سبک
 
-### App
-- History of every compression with before/after sizes and quick share/open
-- Share sheet and "save to folder" (MediaStore: Pictures/Movies/Music/Compressly)
-- System file pickers only (Photo Picker on Android 13+, Storage Access Framework elsewhere)
-- Light/dark themes following the system, with manual override
-- English + Persian (فارسی) UI
-- Fully offline — no network permission, no analytics, no ads
+### امکانات دیگر
+- تاریخچه با فیلتر بخش‌بندی‌شده (همه / عکس / ویدیو / صدا) و دسترسی سریع به فایل‌های فشرده
+- اشتراک‌گذاری و ذخیره در پوشه‌های استاندارد (Pictures/Movies/Music/Compressly)
+- تم روشن/تیره با انتخاب کاربر (پیروی از سیستم به‌صورت پیش‌فرض)
+- **زبان پیش‌فرض فارسی** + انتخاب زبان انگلیسی از تنظیمات
+- افکت‌های صوتی سبک (سنتزشده داخل اپ، بدون فایل اضافه) با امکان خاموش‌کردن
+- لودینگ‌های انیمیشنی با نمایش زمان دقیق (گذشت و زمان باقی‌مانده)
+- بازیابی پس از کرش: اگر برنامه به‌طور غیرمنتظره بسته شود، در اجرای بعدی پیام شفاف نشان داده می‌شود و کارهای ناتمام «ناقص» علامت می‌خورند
 
-## Screens (flow)
+## زبان‌ها
 
-Home (modules + space saved) -> system file picker -> Compression Settings (4-tier gauge, live estimates, before/after preview for photos, advanced panel) -> animated Progress (foreground service, pause/cancel per item or per job) -> Result (before/after sizes, reduction, share/open) -> History (per-file savings) and App Settings (theme, defaults, about). Real screenshots will be added after the first device build.
+- پیش‌فرض: **فارسی** (با چیدمان راست‌به‌چپ)
+- انگلیسی: از تنظیمات → «زبان برنامه» می‌توانید به English تغییر دهید (تغییر فوری، بدون نیاز به راه‌اندازی مجدد دستی)
 
-## Tech stack
+## نسخه‌های خروجی (Flavors)
 
-- **Language:** Kotlin 2.1, Jetpack Compose (Material 3)
-- **Architecture:** MVVM — Compose UI, ViewModels, repository + engine layer
-- **Concurrency:** Coroutines + Flow, all heavy work on background dispatchers
-- **Video:** MediaCodec / MediaExtractor / MediaMuxer surface pipeline
-- **Photo:** BitmapFactory / ExifInterface (framework)
-- **Audio:** MediaCodec AAC + `de.sciss:jump3r` (pure-Java LAME, used at the low level to stay Android-compatible) + `net.jthink:jaudiotagger` for metadata
-- **Persistence:** Room (history), DataStore (settings)
-- **minSdk 26 / targetSdk 35 / compileSdk 35**
+| فلِیور | کاربرد | اینترنت | تبلیغات |
+|---|---|---|---|
+| `play` | استور گوگل و بیلد پیش‌فرض | ندارد (کاملاً آفلاین) | ندارد |
+| `bazaar` | کافه‌بازار | فقط برای SDK تبلیغات (تپسل) | جایگاه‌های آماده |
 
-## Build
+- **جایگاه تبلیغات (تپسل):** سه اسلات آماده در صفحه اصلی، تاریخچه و نتیجه قرار داده شده است (`AdSlot`). در بیلد bazaar به‌صورت پلیس‌هولدر برچسب‌دار دیده می‌شود؛ اتصال SDK تپسل از طریق کلاس `TapsellAdsProvider` در سورس‌ست bazaar انجام می‌شود (دستورالعمل داخل فایل). بدون SDK، اپ کاملاً آفلاین می‌ماند.
+- **کافه‌بازار:** بیلد bazaar هیچ وابستگی به Google Play Services ندارد و برای انتشار در کافه‌بازار آماده است.
+
+## ساخت (Build)
 
 ```bash
-./gradlew assembleDebug        # debug APK
-./gradlew assembleRelease      # release APK (R8; add your signing config first)
-./gradlew lint                 # static analysis
+./gradlew :app:assemblePlayRelease      # خروجی release پلی
+./gradlew :app:assembleBazaarDebug      # خروجی debug بازار (مناسب تست)
+./gradlew :app:assemblePlayDebug        # دباک معمولی
 ```
 
-Open the project in Android Studio (Ladybug or newer), sync, and run on a device or emulator. No network permissions are requested or needed.
+برای release نهایی باید keystore خود را در `signingConfigs` تنظیم کنید.
 
-## Architecture
+## CI — خروجی خودکار APK از گیت‌هاب
+
+ورک‌فلو `.github/workflows/build-apk.yml` به‌صورت خودکار با هر push روی `main` (یا به‌صورت دستی از تب Actions) هر دو APK را می‌سازد و به‌عنوان Artifact آپلود می‌کند:
+
+1. به تب **Actions** ریپو بروید.
+2. ورک‌فلو **Build APKs** را انتخاب و روی **Run workflow** بزنید.
+3. بعد از پایان، از صفحه ورک‌فلو روی **compressly-apks** کلیک کنید تا APK ها دانلود شوند.
+
+## کاهش حجم برنامه
+
+- R8 + ShrinkResources در release
+- `resConfigs("fa","en")` — فقط دو زبان نگه داشته می‌شود
+- تصاویر برنامه به WebP فشرده شدند (۲.۸MB → ~۲۱۲KB)
+- بدون فایل‌های باینری اضافه؛ صداها به‌صورت سنتزشده در حافظه تولید می‌شوند
+
+## ساختار فنی
 
 ```
-ui/        Compose screens, ViewModels, theme, reusable components
+ui/        کامپوز اسکرین‌ها، ViewModel ها، تم و کامپوننت‌های مشترک
 core/
-  engine/  photo | video | audio engines, size estimator, media inspector
-  service/ JobCoordinator + foreground service + notifications
-  data/    Room history, DataStore settings, MediaStore output publishing
-  util/    formatting, storage, mime helpers
+  engine/  موتورهای عکس | ویدیو | صدا، تخمین‌گر حجم، بازرس رسانه
+  service/ هماهنگ‌کننده‌ی کارها + سرویس پیش‌زمینه + اعلان‌ها
+  data/    تاریخچه (Room)، تنظیمات (DataStore)، خروجی MediaStore
+  ads/     لایه تبلیغات (Noop پیش‌فرض / Tapsell در bazaar)
+  util/    قالب‌بندی، صداها، زبان، بازیابی کرش
 ```
 
-A job goes: pick files -> settings screen (preset gauge + estimates) -> `JobCoordinator.enqueue` -> foreground service -> per-file engine -> MediaStore publish -> history + result.
+## محدودیت‌های صادقانه
 
-## Honest limitations
+- **عکس HEIC/HEIF** به اندروید ۹+ (API 28) نیاز دارد؛ در نسخه‌های پایین‌تر پیام شفاف نمایش داده می‌شود.
+- **انکودر MP3** نسخه خالص جاوا از LAME است (jump3r)؛ کاملاً آفلاین ولی از AAC سخت‌افزاری کندتر است. برای بیشتر کارها AAC/M4A گزینه بهتر است.
+- **خروجی H.265** به وجود انکودر HEVC در دستگاه بستگی دارد؛ در غیر این صورت با پیام واضح به H.264 برمی‌گردد.
+- در اندروید ۱۴+ سرویس‌های `dataSync` محدودیت زمانی (۶ ساعت) دارند — برای فایل‌های معمولی عملاً بی‌اثر است.
+- نوشتن متادیتا بهترین تلاش است؛ فایل خروجی همیشه سالم تحویل داده می‌شود حتی اگر برچسب‌نویسی ناموفق باشد.
 
-- Outputs are always saved to the standard media folders (`Pictures/Movies/Music/Compressly`) via MediaStore. A custom "default output folder" setting is intentionally not offered — Android's scoped storage makes fixed media folders the reliable, gallery-visible choice.
-- **HEIC/HEIF photos** require Android 9+ (API 28). Below that the app explains the limitation instead of failing silently.
-- **MP3 encoding** uses a pure-Java port of LAME (jump3r), which is fully offline but slower than a hardware encoder; AAC/M4A output is hardware-accelerated and generally the better choice.
-- **H.265 output** depends on the device having an HEVC encoder; otherwise the app falls back to H.264 with a clear note.
-- On Android 14+, `dataSync` foreground services are time-limited (6 hours) — effectively a non-issue for typical files.
-- Metadata writing is best-effort: the encoded file is always delivered even if tagging fails.
+## مجوزها
 
-## License
-
-Add a `LICENSE` file of your choice before publishing. This project's third-party pieces: jump3r (GPL/LGPL lineage — verify for your distribution), jaudiotagger (LGPL).
+قبل از انتشار، فایل `LICENSE` دلخواه خود را اضافه کنید. اجزای شخص ثالث: jump3r (تبار LGPL/GPL — برای توزیع بررسی کنید)، jaudiotagger (LGPL).

@@ -58,7 +58,6 @@ import com.compressly.CompresslyApp
 import com.compressly.R
 import com.compressly.core.engine.model.AudioBitrateMode
 import com.compressly.core.engine.model.AudioFormat
-import com.compressly.core.engine.model.CompressionPreset
 import com.compressly.core.engine.model.MediaType
 import com.compressly.core.engine.model.PhotoFormat
 import com.compressly.core.engine.model.PhotoResize
@@ -66,14 +65,14 @@ import com.compressly.core.engine.model.VideoAudioMode
 import com.compressly.core.engine.model.VideoCodec
 import com.compressly.core.engine.model.VideoResolution
 import com.compressly.core.util.Formats
-import com.compressly.ui.components.ActionButton
 import com.compressly.ui.components.BeforeAfterSlider
+import com.compressly.core.util.SoundEffects
 import com.compressly.ui.components.ChipSelector
 import com.compressly.ui.components.GradientSummaryBar
 import com.compressly.ui.components.InfoRow
-import com.compressly.ui.components.LoadingState
 import com.compressly.ui.components.PresetGauge
 import com.compressly.ui.components.SectionHeader
+import com.compressly.ui.components.ShimmerBox
 import com.compressly.ui.components.SelectableOptionList
 import com.compressly.ui.components.ToggleRow
 import com.compressly.ui.components.Waveform
@@ -117,7 +116,10 @@ fun CompressionSettingsScreen(
 
     fun startCompression() {
         val jobId = viewModel.compress()
-        if (jobId != null) onJobStarted(jobId)
+        if (jobId != null) {
+            SoundEffects.play(SoundEffects.Type.CLICK)
+            onJobStarted(jobId)
+        }
     }
 
     Scaffold(
@@ -327,8 +329,14 @@ private fun PhotoPreviewCard(
         color = MaterialTheme.colorScheme.surface
     ) {
         when (state) {
-            is SettingsViewModel.PreviewState.Idle -> LoadingState(stringResource(R.string.progress_preparing))
-            is SettingsViewModel.PreviewState.Generating -> LoadingState(stringResource(R.string.progress_preparing))
+            is SettingsViewModel.PreviewState.Idle -> ShimmerBox(
+                Modifier.fillMaxWidth().height(250.dp),
+                cornerRadius = 22
+            )
+            is SettingsViewModel.PreviewState.Generating -> ShimmerBox(
+                Modifier.fillMaxWidth().height(250.dp),
+                cornerRadius = 22
+            )
             is SettingsViewModel.PreviewState.Ready -> {
                 Column {
                     Text(

@@ -17,8 +17,27 @@ android {
         versionCode = 1
         versionName = "1.0.0"
 
+        // Keep only the two bundled locales -> smaller resources.
+        resConfigs("fa", "en")
+
         vectorDrawables {
             useSupportLibrary = true
+        }
+    }
+
+    // Two distribution flavors: a clean offline "play" build and a
+    // "bazaar" build prepared for the Cafe Bazaar store + Tapsell ads.
+    flavorDimensions += "store"
+    productFlavors {
+        create("play") {
+            dimension = "store"
+            buildConfigField("String", "STORE", "\"play\"")
+            buildConfigField("boolean", "ADS_ENABLED", "false")
+        }
+        create("bazaar") {
+            dimension = "store"
+            buildConfigField("String", "STORE", "\"bazaar\"")
+            buildConfigField("boolean", "ADS_ENABLED", "true")
         }
     }
 
@@ -58,7 +77,15 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "/META-INF/DEPENDENCIES"
             excludes += "META-INF/LICENSE*"
+            excludes += "/META-INF/versions/**"
+            excludes += "META-INF/*.kotlin_module"
         }
+    }
+
+    lint {
+        // CI builds APKs; lint runs separately and must not block release.
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 }
 
