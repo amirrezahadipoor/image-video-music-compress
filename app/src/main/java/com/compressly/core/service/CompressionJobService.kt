@@ -42,9 +42,9 @@ class CompressionJobService : Service() {
         val jobId = intent?.getLongExtra(EXTRA_JOB_ID, -1L)
 
         when (intent?.action) {
-            ACTION_PAUSE -> if (jobId != -1L) coordinator.pause(jobId)
-            ACTION_RESUME -> if (jobId != -1L) coordinator.resume(jobId)
-            ACTION_CANCEL -> if (jobId != -1L) coordinator.cancel(jobId)
+            ACTION_PAUSE -> if (jobId != null && jobId != -1L) coordinator.pause(jobId)
+            ACTION_RESUME -> if (jobId != null && jobId != -1L) coordinator.resume(jobId)
+            ACTION_CANCEL -> if (jobId != null && jobId != -1L) coordinator.cancel(jobId)
         }
 
         val type = if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else 0

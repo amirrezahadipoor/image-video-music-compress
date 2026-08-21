@@ -54,7 +54,7 @@ object SizeEstimator {
         }
         // Baseline estimate, then blend toward a sane JPEG real-world result.
         val raw = pixels * bytesPerPixel
-        val heuristic = if (format == "png") raw else raw.coerceAtLeast(pixels / 8)
+        val heuristic = if (format == "png") raw else raw.coerceAtLeast(pixels / 8.0)
         return (heuristic * 1.15).toLong().coerceAtLeast(1_000)
     }
 
@@ -88,13 +88,13 @@ object SizeEstimator {
 
     // ---- Videos ---------------------------------------------------------
 
-    fun estimateVideo(info: MediaInfo, settings: VideoSettings): Long {
+    fun estimateVideo(info: MediaInfo, settings: VideoSettings, preset: CompressionPreset): Long {
         val durationUs = info.durationMs * 1000L
-        val targetVideoBitrate = targetVideoBitrate(info, settings)
+        val targetVideoBitrate = targetVideoBitrate(info, settings, preset)
         val audioBitrate = when (settings.audioMode) {
             com.compressly.core.engine.model.VideoAudioMode.STRIP -> 0
             com.compressly.core.engine.model.VideoAudioMode.COMPRESS ->
-                (info.audioBitrate * 0.55).coerceIn(96_000, 192_000)
+                ((info.audioBitrate * 0.55).toInt()).coerceIn(96_000, 192_000)
             com.compressly.core.engine.model.VideoAudioMode.KEEP ->
                 info.audioBitrate.takeIf { it > 0 } ?: 128_000
         }
@@ -103,12 +103,12 @@ object SizeEstimator {
         return bytes.coerceAtLeast(8_000)
     }
 
-    fun targetVideoBitrate(info: MediaInfo, settings: VideoSettings): Int {
+    fun targetVideoBitrate(info: MediaInfo, settings: VideoSettings, preset: CompressionPreset): Int {
         settings.bitrate?.let { return it }
         val source = info.videoBitrate
             .takeIf { it > 0 }
             ?: estimateSourceBitrate(info.width, info.height, info.durationMs)
-        val factor = PresetDefaults.videoDefaults[settings.preset]?.bitrateFactor ?: 0.6
+        val factor = PresetDefaults.videoDefaults[preset]?.bitrateFactor ?: 0.6
         var bitrate = (source * factor).toInt()
         // Resolution scaling
         val resFactor = when (settings.resolution) {

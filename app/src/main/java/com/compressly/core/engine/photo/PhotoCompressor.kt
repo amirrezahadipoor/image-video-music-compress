@@ -219,10 +219,12 @@ class PhotoCompressor(private val context: Context) {
     private fun estimatedOutputBytes(sourceMime: String?, srcW: Int, srcH: Int, settings: PhotoSettings): Long {
         val fmt = resolveCompressFormat(sourceMime, settings.outputFormat)
         return when (fmt) {
-            Bitmap.CompressFormat.PNG -> (srcW.toLong() * srcH * 3 * 0.6).coerceAtLeast(4_000)
+            Bitmap.CompressFormat.PNG ->
+                (srcW.toLong() * srcH * 3 * 0.6).toLong().coerceAtLeast(4_000)
             Bitmap.CompressFormat.WEBP, Bitmap.CompressFormat.WEBP_LOSSY ->
-                (srcW.toLong() * srcH * 0.08).coerceAtLeast(3_000)
-            else -> (srcW.toLong() * srcH * settings.quality / 100.0 * 0.5).toLong().coerceAtLeast(2_000)
+                (srcW.toLong() * srcH * 0.08).toLong().coerceAtLeast(3_000)
+            else ->
+                (srcW.toLong() * srcH * settings.quality / 100.0 * 0.5).toLong().coerceAtLeast(2_000)
         }
     }
 
@@ -230,7 +232,7 @@ class PhotoCompressor(private val context: Context) {
         runCatching {
             val src = ExifInterface(source.absolutePath)
             val dst = ExifInterface(target.absolutePath)
-            for (attr in src.attributeNames) {
+            for (attr in src.getAttributeNames()) {
                 if (attr.contains("THUMBNAIL", ignoreCase = true)) continue
                 if (attr == ExifInterface.TAG_ORIENTATION) continue
                 if (attr == ExifInterface.TAG_IMAGE_WIDTH || attr == ExifInterface.TAG_IMAGE_LENGTH) continue
@@ -294,8 +296,8 @@ private fun JobControl.checkActiveIo() {
 private suspend fun java.io.InputStream.copyToProgress(
     out: java.io.OutputStream,
     control: JobControl,
-    onProgress: (Float) -> Unit,
-    bufferSize: Int = 128 * 1024
+    bufferSize: Int = 128 * 1024,
+    onProgress: (Float) -> Unit
 ) {
     val buffer = ByteArray(bufferSize)
     var total = 0L

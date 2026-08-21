@@ -23,9 +23,10 @@ import androidx.compose.ui.unit.dp
 fun Waveform(
     peaks: List<Float>,
     modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.primary,
+    color: Color? = null,
     barCount: Int = 64
 ) {
+    val resolvedColor = color ?: MaterialTheme.colorScheme.primary
     val animated = remember { Animatable(0f) }
     LaunchedEffect(peaks) {
         animated.animateTo(1f, tween(450))

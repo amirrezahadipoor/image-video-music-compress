@@ -53,6 +53,7 @@ class MediaCodecTranscoder(private val context: Context) {
         outputPath: String,
         info: MediaInfo,
         settings: VideoSettings,
+        preset: com.compressly.core.engine.model.CompressionPreset,
         control: JobControl,
         onProgress: (Float) -> Unit
     ): Stats = withContext(Dispatchers.Default) {
@@ -68,7 +69,7 @@ class MediaCodecTranscoder(private val context: Context) {
 
         val (outW, outH) = computeOutputDims(info, settings)
         val targetBitrate = settings.bitrate
-            ?: com.compressly.core.engine.estimate.SizeEstimator.targetVideoBitrate(info, settings)
+            ?: com.compressly.core.engine.estimate.SizeEstimator.targetVideoBitrate(info, settings, preset)
         val targetFps = settings.frameRate ?: 30
 
         val tempVideo = File(context.cacheDir, "tmp_${System.currentTimeMillis()}_video.mp4")

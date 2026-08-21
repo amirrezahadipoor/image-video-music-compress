@@ -93,19 +93,21 @@ fun ProgressRing(
 fun InlineProgress(
     fraction: Float,
     modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.primary
+    color: Color? = null
 ) {
+    val resolvedColor = color ?: MaterialTheme.colorScheme.primary
+    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
     val animated by animateFloatAsState(fraction.coerceIn(0f, 1f), tween(250), label = "bar")
     Box(modifier = modifier) {
         Canvas(Modifier.matchParentSize()) {
             val h = size.height
             drawRoundRect(
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                color = surfaceVariant,
                 cornerRadius = androidx.compose.ui.geometry.CornerRadius(h / 2, h / 2)
             )
             if (animated > 0.01f) {
                 drawRoundRect(
-                    color = color,
+                    color = resolvedColor,
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(h / 2, h / 2),
                     size = Size(size.width * animated, size.height)
                 )

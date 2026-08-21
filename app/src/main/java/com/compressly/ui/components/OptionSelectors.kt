@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.dp
 fun <T> ChipSelector(
     options: List<T>,
     selected: T,
-    labelOf: (T) -> String,
+    labelOf: @Composable (T) -> String,
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -130,8 +130,8 @@ fun <T> SelectableOption(
 fun <T> SelectableOptionList(
     options: List<T>,
     selected: T,
-    titleOf: (T) -> String,
-    descriptionOf: (T) -> String?,
+    titleOf: @Composable (T) -> String,
+    descriptionOf: @Composable (T) -> String?,
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier
 ) {

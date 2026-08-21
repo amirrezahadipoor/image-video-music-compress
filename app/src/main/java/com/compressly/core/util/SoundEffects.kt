@@ -67,7 +67,7 @@ object SoundEffects {
                 tone(880.0, 110, 0.40),
                 tone(1174.66, 170, 0.40) // pleasant rising chime
             )
-            Type.ERROR -> tone(196.0, 300, 0.35) // soft low buzz
+            Type.ERROR -> concat(tone(196.0, 300, 0.35)) // soft low buzz
         }
     }
 

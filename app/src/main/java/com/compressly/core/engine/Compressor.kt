@@ -41,7 +41,7 @@ class Compressor(private val context: Context) {
         try {
             val output = when (settings) {
                 is CompressionSettings.Photo -> compressPhoto(item, settings.settings, control, onProgress)
-                is CompressionSettings.Video -> compressVideo(item, settings.settings, control, onProgress)
+                is CompressionSettings.Video -> compressVideo(item, settings.settings, settings.preset, control, onProgress)
                 is CompressionSettings.Audio -> compressAudio(item, settings.settings, control, onProgress)
             }
             onProgress(ItemPhase.FINALIZING, 1f)
@@ -90,6 +90,7 @@ class Compressor(private val context: Context) {
     private suspend fun compressVideo(
         item: InputItem,
         settings: com.compressly.core.engine.model.VideoSettings,
+        preset: com.compressly.core.engine.model.CompressionPreset,
         control: JobControl,
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
@@ -102,6 +103,7 @@ class Compressor(private val context: Context) {
                 outputPath = temp.absolutePath,
                 info = info,
                 settings = settings,
+                preset = preset,
                 control = control,
                 onProgress = { onProgress(ItemPhase.COMPRESSING, it) }
             )

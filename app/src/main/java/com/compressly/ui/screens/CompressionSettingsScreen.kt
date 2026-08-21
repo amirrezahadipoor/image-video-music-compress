@@ -104,6 +104,14 @@ fun CompressionSettingsScreen(
         ActivityResultContracts.RequestPermission()
     ) { _ -> /* proceed regardless; job still runs without a notification */ }
 
+    fun startCompression() {
+        val jobId = viewModel.compress()
+        if (jobId != null) {
+            SoundEffects.play(SoundEffects.Type.CLICK)
+            onJobStarted(jobId)
+        }
+    }
+
     fun requestCompression() {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -111,14 +119,6 @@ fun CompressionSettingsScreen(
             showPermissionDialog = true
         } else {
             startCompression()
-        }
-    }
-
-    fun startCompression() {
-        val jobId = viewModel.compress()
-        if (jobId != null) {
-            SoundEffects.play(SoundEffects.Type.CLICK)
-            onJobStarted(jobId)
         }
     }
 
@@ -585,9 +585,11 @@ private fun TrimSection(
     )
     if (state.video.trimEnabled && durationMs > 0) {
         Spacer(Modifier.height(10.dp))
+        val durationF = durationMs.toFloat()
+        val startF = state.video.trimStartMs.toFloat().coerceIn(0f, durationF)
+        val endF = state.video.trimEndMs.toFloat().takeIf { it > 0 }?.coerceIn(0f, durationF) ?: durationF
         RangeSlider(
-            value = state.video.trimStartMs.toFloat().coerceIn(0f, durationMs.toFloat())..
-                state.video.trimEndMs.toFloat().takeIf { it > 0 }?.coerceIn(0f, durationMs.toFloat()) ?: durationMs.toFloat(),
+            value = startF..endF,
             onValueChange = { range ->
                 viewModel.setVideoSettings {
                     it.copy(trimStartMs = range.start.toLong(), trimEndMs = range.endInclusive.toLong())
