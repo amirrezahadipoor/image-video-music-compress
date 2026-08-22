@@ -179,9 +179,11 @@ class JobCoordinator(
             }
             updateJob(jobId) { it.copy(status = finalStatus, isPaused = false) }
             stopServiceIfIdle()
-            // Prune terminal jobs from memory (results live in Room).
+            // Prune terminal jobs from memory (results live in Room). 3 minutes
+            // gives the user time to review the progress screen before it
+            // degrades to the "job not found" fallback.
             appScope.launch {
-                delay(60_000)
+                delay(3 * 60_000)
                 _jobs.update { it - jobId }
             }
         }

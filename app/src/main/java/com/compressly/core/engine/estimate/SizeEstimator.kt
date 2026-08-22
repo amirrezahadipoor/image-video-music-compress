@@ -30,7 +30,6 @@ object SizeEstimator {
         settings: PhotoSettings
     ): Long {
         if (sourceWidth <= 0 || sourceHeight <= 0) return estimateByScale(sourceSizeBytes, reductionScale(settings))
-        val rotationSwapped = sourceWidth > sourceHeight // portrait handling is cosmetic here
         var w = sourceWidth.toLong()
         var h = sourceHeight.toLong()
         val maxW = when (settings.resize) {

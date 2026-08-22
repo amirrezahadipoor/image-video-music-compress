@@ -3,6 +3,8 @@ package com.compressly.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,6 +28,7 @@ import androidx.compose.ui.unit.dp
 /**
  * Compact horizontal chip selector for short option lists (bitrates, fps...).
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun <T> ChipSelector(
     options: List<T>,
@@ -34,9 +37,12 @@ fun <T> ChipSelector(
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    // FlowRow wraps long chip lists (e.g. the 5 presets in Settings) instead
+    // of overflowing horizontally.
+    FlowRow(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         options.forEach { option ->
             val isSelected = option == selected

@@ -29,6 +29,16 @@ import java.io.IOException
  */
 class Compressor(private val context: Context) {
 
+    // Inspecting media metadata is expensive (a full MediaMetadataRetriever
+    // pass); cache per URI so a batch never inspects the same file twice.
+    private val infoCache = java.util.concurrent.ConcurrentHashMap<String, com.compressly.core.engine.model.MediaInfo>()
+
+    private fun mediaInfoOf(uri: Uri, fallbackHasVideo: Boolean): com.compressly.core.engine.model.MediaInfo =
+        infoCache.getOrPut(uri.toString()) {
+            runCatching { MediaInspector.inspect(context, uri) }.getOrNull()
+                ?: com.compressly.core.engine.model.MediaInfo(hasVideo = fallbackHasVideo)
+        }
+
     suspend fun compressItem(
         jobId: Long,
         item: InputItem,
@@ -94,8 +104,7 @@ class Compressor(private val context: Context) {
         control: JobControl,
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
-        val info = runCatching { MediaInspector.inspect(context, item.uri) }.getOrNull()
-            ?: com.compressly.core.engine.model.MediaInfo(hasVideo = true)
+        val info = mediaInfoOf(item.uri, fallbackHasVideo = true)
         val temp = File.createTempFile("out_", ".mp4", context.cacheDir)
         try {
             val stats = MediaCodecTranscoder(context).transcode(
@@ -122,8 +131,7 @@ class Compressor(private val context: Context) {
         control: JobControl,
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
-        val info = runCatching { MediaInspector.inspect(context, item.uri) }.getOrNull()
-            ?: com.compressly.core.engine.model.MediaInfo(hasAudio = true)
+        val info = mediaInfoOf(item.uri, fallbackHasVideo = true)
         val temp = AudioCompressor(context).compress(item.uri, info, settings, control) {
             onProgress(ItemPhase.COMPRESSING, it)
         }

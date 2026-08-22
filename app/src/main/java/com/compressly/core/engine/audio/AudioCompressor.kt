@@ -52,7 +52,7 @@ class AudioCompressor(private val context: Context) {
                     if (!ok) throw AudioCompressionException(KEY_UNSUPPORTED)
                 }
                 AudioFormat.MP3 -> {
-                    encodeMp3(uri, tempOut, settings, control) { p -> onProgress(p * 0.9f) }
+                    encodeMp3(uri, tempOut, settings, info.durationMs, control) { p -> onProgress(p * 0.9f) }
                 }
             }
 
@@ -85,6 +85,7 @@ class AudioCompressor(private val context: Context) {
         uri: Uri,
         outFile: File,
         settings: AudioSettings,
+        durationMs: Long,
         control: JobControl,
         onProgress: (Float) -> Unit
     ) {
@@ -105,7 +106,7 @@ class AudioCompressor(private val context: Context) {
             decoder.configure(inputFormat, null, null, 0)
             decoder.start()
 
-            val durationUs = com.compressly.core.engine.MediaInspector.inspect(context, uri).durationMs * 1000
+            val durationUs = durationMs * 1000
             var pcmFloat = false
             var lastPts = -1L
             var lastReported = -1f
@@ -154,14 +155,21 @@ class AudioCompressor(private val context: Context) {
                                 val buf = decoder.getOutputBuffer(outIndex)!!
                                 buf.position(info.offset)
                                 buf.limit(info.offset + info.size)
-                                val n = if (pcmFloat) {
-                                    floatToPcm16(buf, info.size, pcmOut)
+                                if (pcmFloat) {
+                                    val n = floatToPcm16(buf, info.size, pcmOut)
+                                    if (n > 0) writer.writePcm(pcmOut, n)
                                 } else {
-                                    val n = minOf(info.size, pcmOut.size)
-                                    buf.get(pcmOut, 0, n)
-                                    n
+                                    // Decoder output buffers can exceed our 32KB
+                                    // scratch; feed the encoder in chunks so no
+                                    // PCM is ever dropped.
+                                    var remaining = info.size
+                                    while (remaining > 0) {
+                                        val chunk = minOf(remaining, pcmOut.size)
+                                        buf.get(pcmOut, 0, chunk)
+                                        writer.writePcm(pcmOut, chunk)
+                                        remaining -= chunk
+                                    }
                                 }
-                                writer.writePcm(pcmOut, n)
                                 if (info.presentationTimeUs > lastPts) {
                                     lastPts = info.presentationTimeUs
                                     if (durationUs > 0) {

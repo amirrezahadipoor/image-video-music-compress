@@ -55,9 +55,6 @@ object OutputStore {
         }
         val uri = context.contentResolver.insert(collection, values)
             ?: throw IOException("MediaStore insert failed")
-        if (Build.VERSION.SDK_INT < 29) {
-            // The file will be created on first write; nothing more needed.
-        }
         return uri
     }
 

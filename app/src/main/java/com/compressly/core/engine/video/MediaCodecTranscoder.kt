@@ -192,13 +192,28 @@ class MediaCodecTranscoder(private val context: Context) {
                 if (encoderSupportsBitrateMode(encoderMime, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)) {
                     setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)
                 }
+                // Speed: realtime priority + operating-rate hint keep hardware
+                // encoders from over-allocating and speed up the transcode.
+                if (android.os.Build.VERSION.SDK_INT >= 23) {
+                    setInteger(MediaFormat.KEY_PRIORITY, 0)
+                    setInteger(MediaFormat.KEY_OPERATING_RATE, targetFps)
+                }
             }
             encoder.configure(encFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
             val inputSurface = encoder.createInputSurface()
             encoder.start()
 
+            // CRITICAL: with a Surface output the decoder applies the source
+            // rotation metadata itself. If we kept it, the encoder would receive
+            // already-rotated frames while we configure it with STORED-orientation
+            // dimensions AND set the muxer rotation hint -> double rotation /
+            // distorted portrait videos. Forcing rotation 0 makes decoder output,
+            // encoder input size and muxer hint all consistent.
+            val decoderFormat = MediaFormat(inputFormat).apply {
+                setInteger(MediaFormat.KEY_ROTATION, 0)
+            }
             val decoder = MediaCodec.createDecoderByType(inputMime)
-            decoder.configure(inputFormat, inputSurface, null, 0)
+            decoder.configure(decoderFormat, inputSurface, null, 0)
             decoder.start()
 
             var muxer: MediaMuxer? = null

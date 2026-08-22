@@ -63,7 +63,9 @@ class PhotoCompressor(private val context: Context) {
             val (targetW, targetH) = targetDims(bounds, rotation, settings)
 
             // 5. Decode with sampling; fall back gracefully on OOM.
-            var bitmap = decodeSampled(tempSource, targetW, targetH)
+            val lossy = fmtIsLossy(sourceMime, settings.outputFormat)
+            val use565 = lossy && (settings.smart || settings.quality < 90)
+            var bitmap = decodeSampled(tempSource, targetW, targetH, use565)
             try {
                 if (rotation != 0) {
                     val m = Matrix().apply { postRotate(rotation.toFloat()) }
@@ -71,8 +73,12 @@ class PhotoCompressor(private val context: Context) {
                     if (rotated != bitmap) bitmap.recycle()
                     bitmap = rotated
                 }
-                if (bitmap.width != targetW || bitmap.height != targetH) {
-                    val scaled = Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
+                // Scale only down. The 4096px decode cap may already be
+                // smaller than the requested target; never upscale.
+                val finalW = minOf(targetW, bitmap.width)
+                val finalH = minOf(targetH, bitmap.height)
+                if (bitmap.width != finalW || bitmap.height != finalH) {
+                    val scaled = Bitmap.createScaledBitmap(bitmap, finalW, finalH, true)
                     if (scaled != bitmap) bitmap.recycle()
                     bitmap = scaled
                 }
@@ -80,7 +86,7 @@ class PhotoCompressor(private val context: Context) {
                 // The intermediate rotation/scale copy failed; retry with a
                 // smaller decode so we can still deliver a valid file.
                 bitmap.recycle()
-                bitmap = decodeSampled(tempSource, targetW / 2, targetH / 2)
+                bitmap = decodeSampled(tempSource, targetW / 2, targetH / 2, use565)
             }
 
             try {
@@ -104,14 +110,14 @@ class PhotoCompressor(private val context: Context) {
                             onProgress(0.15f + p * 0.75f)
                         }
                         if (!bitmap.compress(fmt, q, counting)) {
-                            throw IOException("Bitmap compression failed")
+                            throw PhotoCompressionException(KEY_ENCODE)
                         }
                     }
                     encoded = true
                     if (!settings.smart) break
                     if (tempOut.length() <= targetBytes) break
                 }
-                if (!encoded) throw IOException("Bitmap compression failed")
+                if (!encoded) throw PhotoCompressionException(KEY_ENCODE)
 
                 // 7. Metadata handling.
                 if (settings.preserveMetadata) {
@@ -137,6 +143,7 @@ class PhotoCompressor(private val context: Context) {
         const val KEY_DECODE_FAILED = "decode_failed"
         const val KEY_CORRUPT = "corrupt"
         const val KEY_METADATA_WRITE = "metadata_write"
+        const val KEY_ENCODE = "encode_failed"
     }
 
     // ---- helpers --------------------------------------------------------
@@ -211,16 +218,28 @@ class PhotoCompressor(private val context: Context) {
         return w to h
     }
 
-    private fun decodeSampled(file: File, targetW: Int, targetH: Int): Bitmap {
+    /**
+     * Decodes at a sample size that keeps the bitmap between the target size
+     * and 4096px on the longest side. The 4096 cap prevents OOM crashes on
+     * huge photos (8K+) while "keep original resolution" is selected.
+     * Lossy outputs use RGB_565 below quality 90: ~half the memory and faster
+     * encode with no visible difference for photographs.
+     */
+    private fun decodeSampled(file: File, targetW: Int, targetH: Int, use565: Boolean): Bitmap {
         val probe = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.absolutePath, probe)
         var sample = 1
+        // Safety cap: decoded longest side must not exceed 4096px.
+        while ((probe.outWidth / (sample * 2) > 4096 || probe.outHeight / (sample * 2) > 4096) && sample < 64) {
+            sample *= 2
+        }
+        // Stay at or above the target so the single scale pass is a downscale.
         while (probe.outWidth / (sample * 2) >= targetW && probe.outHeight / (sample * 2) >= targetH && sample < 64) {
             sample *= 2
         }
         val decodeOpts = BitmapFactory.Options().apply {
             inSampleSize = sample
-            inPreferredConfig = Bitmap.Config.ARGB_8888
+            inPreferredConfig = if (use565) Bitmap.Config.RGB_565 else Bitmap.Config.ARGB_8888
         }
         try {
             return BitmapFactory.decodeFile(file.absolutePath, decodeOpts)
@@ -230,6 +249,13 @@ class PhotoCompressor(private val context: Context) {
             return BitmapFactory.decodeFile(file.absolutePath, decodeOpts)
                 ?: throw PhotoCompressionException(KEY_DECODE_FAILED)
         }
+    }
+
+    /** True when the chosen output keeps no alpha channel (JPEG / WebP lossy). */
+    private fun fmtIsLossy(sourceMime: String?, format: PhotoFormat): Boolean = when (format) {
+        PhotoFormat.PNG -> false
+        PhotoFormat.WEBP -> false // could be lossless; stay safe with alpha
+        else -> true
     }
 
     private fun estimatedOutputBytes(sourceMime: String?, srcW: Int, srcH: Int, settings: PhotoSettings): Long {
