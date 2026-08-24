@@ -47,10 +47,10 @@ val AppTypography = Typography(
     ),
     titleSmall = TextStyle(
         fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Medium,
         fontSize = 14.sp,
         lineHeight = 20.sp,
-        letterSpacing = 0.2.sp
+        letterSpacing = 0.15.sp
     ),
     bodyLarge = TextStyle(
         fontFamily = FontFamily.Default,

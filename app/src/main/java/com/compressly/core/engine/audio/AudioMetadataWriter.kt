@@ -36,7 +36,15 @@ object AudioMetadataWriter {
             runCatching { tag.deleteArtworkField() }
             val artwork = ArtworkFactory.getNew().apply {
                 setBinaryData(bytes)
-                setMimeType("image/jpeg")
+                // Detect MIME from magic bytes instead of hardcoding JPEG.
+                // PNG: 0x89504E47, JPEG: 0xFFD8FF
+                setMimeType(
+                    when {
+                        bytes.size >= 4 && bytes[0] == 0x89.toByte() && bytes[1] == 0x50.toByte() -> "image/png"
+                        bytes.size >= 2 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() -> "image/jpeg"
+                        else -> "image/jpeg"
+                    }
+                )
             }
             tag.setField(artwork)
         }

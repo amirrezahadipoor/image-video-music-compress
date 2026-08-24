@@ -108,7 +108,7 @@ class AudioCompressor(private val context: Context) {
 
             val durationUs = durationMs * 1000
             var pcmFloat = false
-            var lastPts = -1L
+            var lastPts = 0L
             var lastReported = -1f
 
             FileOutputStream(outFile).use { fos ->
@@ -163,8 +163,8 @@ class AudioCompressor(private val context: Context) {
                                     // scratch; feed the encoder in chunks so no
                                     // PCM is ever dropped.
                                     var remaining = info.size
-                                    while (remaining > 0) {
-                                        val chunk = minOf(remaining, pcmOut.size)
+                                    while (remaining > 0 && buf.remaining() > 0) {
+                                        val chunk = minOf(remaining, pcmOut.size, buf.remaining())
                                         buf.get(pcmOut, 0, chunk)
                                         writer.writePcm(pcmOut, chunk)
                                         remaining -= chunk
@@ -197,12 +197,8 @@ class AudioCompressor(private val context: Context) {
         }
     }
 
-    private fun findTrack(extractor: MediaExtractor, prefix: String): Int? {
-        for (i in 0 until extractor.trackCount) {
-            if (extractor.getTrackFormat(i).getString(MediaFormat.KEY_MIME)?.startsWith(prefix) == true) return i
-        }
-        return null
-    }
+    private fun findTrack(extractor: MediaExtractor, prefix: String): Int? =
+        com.compressly.core.engine.MediaUtil.findTrack(extractor, prefix)
 
     /** Converts float PCM (-1..1) to 16-bit little-endian, returns bytes written. */
     private fun floatToPcm16(src: ByteBuffer, sizeBytes: Int, dst: ByteArray): Int {

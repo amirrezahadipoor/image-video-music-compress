@@ -78,6 +78,8 @@ class CompressionJobService : Service() {
                         .notify((job.jobId % 100).toInt() + 1000, NotificationHelper.buildResultNotification(this, job))
                 }
             }
+            // Prune: only keep IDs still in the live jobs map (bounded growth).
+            notifiedResults.retainAll(jobs.keys)
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
             stopSelf()
             return

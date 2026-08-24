@@ -37,7 +37,7 @@ fun Waveform(
         List(barCount) { i ->
             val from = (i * step).toInt()
             val to = ((i + 1) * step).toInt().coerceAtMost(peaks.size)
-            if (to > from) peaks.subList(from, to).max() else 0f
+            if (to > from) peaks.subList(from, to).maxOrNull() ?: 0f else 0f
         }
     }
     Canvas(

@@ -218,26 +218,26 @@ class MediaCodecTranscoder(private val context: Context) {
 
             var muxer: MediaMuxer? = null
             try {
-            muxer = MediaMuxer(outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-            muxer.setOrientationHint(rotation)
-            var videoMuxerTrack = -1
-            var muxerStarted = false
-            var encEos = false
-            var inputDone = false
-            var decoderEosSignalled = false
+                muxer = MediaMuxer(outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+                muxer.setOrientationHint(rotation)
+                var videoMuxerTrack = -1
+                var muxerStarted = false
+                var encEos = false
+                var inputDone = false
+                var decoderEosSignalled = false
 
-            if (trimStartUs > 0) {
+                if (trimStartUs > 0) {
                 extractor.seekTo(trimStartUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
-            }
+                }
 
-            val decoderInfo = MediaCodec.BufferInfo()
-            val encoderInfo = MediaCodec.BufferInfo()
-            val lastKeptPts = longArrayOf(Long.MIN_VALUE)
-            val keepAllFrames = settings.frameRate == null
-            val frameIntervalUs = if (keepAllFrames) 0L else 1_000_000L / targetFps
-            var lastReported = -1f
+                val decoderInfo = MediaCodec.BufferInfo()
+                val encoderInfo = MediaCodec.BufferInfo()
+                val lastKeptPts = longArrayOf(Long.MIN_VALUE)
+                val keepAllFrames = settings.frameRate == null
+                val frameIntervalUs = if (keepAllFrames) 0L else (1_000_000.0 / targetFps).toLong()
+                var lastReported = -1f
 
-            while (!encEos) {
+                while (!encEos) {
                 control.checkActive()
 
                 if (!inputDone) {
@@ -252,9 +252,16 @@ class MediaCodecTranscoder(private val context: Context) {
                             val pts = extractor.sampleTime
                             decoder.queueInputBuffer(inIndex, 0, sampleSize, pts, 0)
                             extractor.advance()
-                            val total = trimEndUs - trimStartUs
-                            if (total > 0) {
-                                val p = ((pts - trimStartUs).toFloat() / total).coerceIn(0f, 1f)
+                            // Report progress: use trim window when trimming,
+                            // otherwise use the full source duration.
+                            val progressTotal = if (trimEndUs > trimStartUs) {
+                                trimEndUs - trimStartUs
+                            } else {
+                                runCatching { inputFormat.getLong(MediaFormat.KEY_DURATION) }.getOrDefault(0L).coerceAtLeast(0L)
+                            }
+                            if (progressTotal > 0) {
+                                val effectivePts = if (trimStartUs > 0) pts - trimStartUs else pts
+                                val p = (effectivePts.toFloat() / progressTotal).coerceIn(0f, 1f)
                                 if (p - lastReported >= 0.005f) {
                                     onProgress(p)
                                     lastReported = p
@@ -321,7 +328,7 @@ class MediaCodecTranscoder(private val context: Context) {
                     encoder.releaseOutputBuffer(encoderOut, false)
                     encoderOut = encoder.dequeueOutputBuffer(encoderInfo, 0)
                 }
-            }
+                }
             } finally {
                 runCatching { inputSurface.release() }
                 runCatching { decoder.stop() }
@@ -411,7 +418,7 @@ private suspend fun mergePass(
         var audioHasSample = false
         var videoDone = false
         var audioDone = audioExtractor == null
-var lastPts = -1L
+        var lastPts = 0L
         // Passthrough audio comes from the ORIGINAL file (needs trimming to the
         // trim window); transcoded audio is already trimmed (PTS start at 0).
         val audioOffset = if (audioAlreadyTrimmed) 0L else trimStartUs
@@ -434,7 +441,7 @@ var lastPts = -1L
                 if (sz < 0) { audioDone = true; return false }
                 val pts = ae.sampleTime
                 ae.advance()
-if (pts < audioOffset) continue
+                if (pts < audioOffset) continue
                 if (audioEnd > 0 && pts > audioEnd) { audioDone = true; return false }
                 audioInfo.set(0, sz, (pts - audioOffset).coerceAtLeast(0), ae.sampleFlags)
                 return true
@@ -450,24 +457,38 @@ if (pts < audioOffset) continue
             while (!videoDone || !audioDone) {
                 control.checkActive()
 
+                // Only write when a valid sample is available; this prevents
+                // writing stale/repeated data when one stream has finished.
                 val writeVideo: Boolean = when {
                     videoDone -> false
-                    audioDone -> true
+                    audioDone -> videoHasSample
+                    !videoHasSample && !audioHasSample -> false
+                    !videoHasSample -> false
+                    !audioHasSample -> true
                     else -> videoInfo.presentationTimeUs <= audioInfo.presentationTimeUs
                 }
 
-if (writeVideo) {
+                if (writeVideo && videoHasSample) {
                     muxer.writeSampleData(videoMuxerTrack, videoBuf, videoInfo)
                     videoHasSample = readVideo()
-                } else {
+                } else if (!writeVideo && audioHasSample) {
                     muxer.writeSampleData(audioMuxerTrack, audioBuf, audioInfo)
                     audioHasSample = readAudio()
+                } else {
+                    // Neither stream has a ready sample — read the next one.
+                    if (!videoDone) videoHasSample = readVideo()
+                    if (!audioDone) audioHasSample = readAudio()
                 }
 
-                if (videoInfo.presentationTimeUs > lastPts && trimEndUs > trimStartUs) {
-                    // The video temp file is already trimmed (PTS start at 0).
-                    val p = (videoInfo.presentationTimeUs.toFloat() / (trimEndUs - trimStartUs)).coerceIn(0f, 1f)
-                    onProgress(p)
+                // Report progress. When trim is not enabled, use the video
+                // duration from the extractor as the denominator.
+                if (videoInfo.presentationTimeUs > lastPts) {
+                    val totalUs = if (trimEndUs > trimStartUs) trimEndUs - trimStartUs
+                    else runCatching { videoExtractor.getTrackFormat(videoIndex).getLong(MediaFormat.KEY_DURATION) }.getOrDefault(0L)
+                    if (totalUs > 0) {
+                        val p = (videoInfo.presentationTimeUs.toFloat() / totalUs).coerceIn(0f, 1f)
+                        onProgress(p)
+                    }
                     lastPts = videoInfo.presentationTimeUs
                 }
             }
@@ -483,13 +504,8 @@ if (writeVideo) {
     // Helpers
     // ------------------------------------------------------------------
 
-    private fun findTrack(extractor: MediaExtractor, prefix: String): Int? {
-        for (i in 0 until extractor.trackCount) {
-            val fmt = extractor.getTrackFormat(i)
-            if (fmt.getString(MediaFormat.KEY_MIME)?.startsWith(prefix) == true) return i
-        }
-        return null
-    }
+    private fun findTrack(extractor: MediaExtractor, prefix: String): Int? =
+        com.compressly.core.engine.MediaUtil.findTrack(extractor, prefix)
 
     private fun audioMimeIs(uri: Uri, mime: String): Boolean {
         return runCatching {
@@ -597,18 +613,14 @@ if (writeVideo) {
     }
 
     /** Copies at most the remaining capacity of [dst] from [src] (no overflow). */
-    private fun putLimited(dst: ByteBuffer, src: ByteBuffer) {
-        val n = dst.remaining().coerceAtMost(src.remaining())
-        val oldLimit = src.limit()
-        src.limit(src.position() + n)
-        dst.put(src)
-        src.limit(oldLimit)
-    }
+    private fun putLimited(dst: ByteBuffer, src: ByteBuffer) =
+        com.compressly.core.engine.MediaUtil.putLimited(dst, src)
 
     /**
      * Copies PCM from a decoder output buffer into [target] (16-bit signed,
      * little-endian), down-mixing to at most [targetChannels] channels.
      */
+    /** Delegates to the shared implementation in MediaUtil (DRY). */
     private fun convertPcmToEncoder(
         source: ByteBuffer,
         sourceSize: Int,
@@ -616,29 +628,7 @@ if (writeVideo) {
         sourceChannels: Int,
         targetChannels: Int
     ) {
-        val ch = if (sourceChannels <= 2) sourceChannels else 2
-        val perSampleBytes = ch * 2
-        val samples = sourceSize / perSampleBytes
-        for (i in 0 until samples) {
-            var l = 0
-            var r = 0
-            for (c in 0 until ch) {
-                val v = source.getShort()
-                if (c == 0) l = v.toInt()
-                else if (c == 1) r = v.toInt()
-                else {
-                    // Downmix additional channels into L/R by averaging.
-                    l = (l + v) / 2
-                    r = (r + v) / 2
-                }
-            }
-            if (targetChannels == 1) {
-                target.putShort(((l + r) / 2).toShort())
-            } else {
-                target.putShort(l.toShort())
-                target.putShort(r.toShort())
-            }
-        }
+        com.compressly.core.engine.MediaUtil.convertPcmToEncoder(source, sourceSize, target, sourceChannels, targetChannels)
     }
 }
 

@@ -12,6 +12,7 @@ import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Publishes compressed temp files into the device's media library via
@@ -104,11 +105,17 @@ object OutputStore {
         return if (dot > 0) displayName.substring(0, dot) else displayName
     }
 
+    /** Thread-safe date format cache — one SimpleDateFormat per locale. */
+    private val dateFormatCache = ConcurrentHashMap<String, SimpleDateFormat>()
+
     fun uniqueNameFor(displayName: String): String {
         val dot = displayName.lastIndexOf('.')
         val name = if (dot > 0) displayName.substring(0, dot) else displayName
         val ext = if (dot > 0) displayName.substring(dot) else ""
-        val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        val fmt = dateFormatCache.getOrPut("stamp") {
+            SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
+        }
+        val stamp: String = synchronized(fmt) { fmt.format(Date()) }
         return "${name}_compressed_$stamp$ext"
     }
 }

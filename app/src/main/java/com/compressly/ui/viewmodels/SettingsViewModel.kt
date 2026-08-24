@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.compressly.CompresslyApp
 import com.compressly.AppContainer
+import com.compressly.Selection
 import com.compressly.core.engine.MediaInspector
 import com.compressly.core.engine.JobControl
 import com.compressly.core.engine.audio.WaveformSampler
@@ -81,10 +82,15 @@ class SettingsViewModel(private val container: AppContainer, private val context
     private var firstInfo: MediaInfo? = null
 
     init {
-        val selection = container.selection.selection.value
-        if (selection != null) {
-            _state.update { it.copy(mediaType = selection.mediaType, items = selection.items, ready = true) }
+        // Atomically consume the selection to avoid losing it on fast config changes.
+        var selection: Selection? = null
+        container.selection.selection.value?.let { sel ->
+            selection = sel
             container.selection.set(null)
+        }
+        if (selection != null) {
+            val sel = selection!!
+            _state.update { it.copy(mediaType = sel.mediaType, items = sel.items, ready = true) }
             // Apply the user's saved default preset (Smart unless changed).
             viewModelScope.launch {
                 val def = container.settingsRepository.defaultPreset.first()

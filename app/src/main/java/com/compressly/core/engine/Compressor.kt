@@ -131,7 +131,7 @@ class Compressor(private val context: Context) {
         control: JobControl,
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
-        val info = mediaInfoOf(item.uri, fallbackHasVideo = true)
+        val info = mediaInfoOf(item.uri, fallbackHasVideo = false)
         val temp = AudioCompressor(context).compress(item.uri, info, settings, control) {
             onProgress(ItemPhase.COMPRESSING, it)
         }

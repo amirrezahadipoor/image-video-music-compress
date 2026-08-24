@@ -108,9 +108,11 @@ object NotificationHelper {
             putExtra(CompressionJobService.EXTRA_JOB_ID, jobId)
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
+        // Use a stable hash to avoid Int overflow when jobId is large.
+        val requestCode = (jobId.hashCode() * 31 and 0x7FFFFFFF)
         return PendingIntent.getActivity(
             context,
-            (jobId * 7).toInt(),
+            requestCode,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -121,7 +123,8 @@ object NotificationHelper {
             this.action = action
             putExtra(CompressionJobService.EXTRA_JOB_ID, jobId)
         }
-        val code = (jobId * 31 + action.hashCode()).toInt()
+        // Stable hash that won't overflow for large jobIds.
+        val code = ((jobId.hashCode() * 31 + action.hashCode()) and 0x7FFFFFFF)
         return PendingIntent.getService(
             context,
             code,

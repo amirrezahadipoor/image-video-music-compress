@@ -31,7 +31,10 @@ private val LightColors = lightColorScheme(
     error = LightError,
     onError = LightOnError,
     errorContainer = LightErrorContainer,
-    onErrorContainer = LightOnErrorContainer
+    onErrorContainer = LightOnErrorContainer,
+    inversePrimary = LightInversePrimary,
+    inverseSurface = LightInverseSurface,
+    inverseOnSurface = LightInverseOnSurface
 )
 
 private val DarkColors = darkColorScheme(
@@ -58,7 +61,10 @@ private val DarkColors = darkColorScheme(
     error = DarkError,
     onError = DarkOnError,
     errorContainer = DarkErrorContainer,
-    onErrorContainer = DarkOnErrorContainer
+    onErrorContainer = DarkOnErrorContainer,
+    inversePrimary = DarkInversePrimary,
+    inverseSurface = DarkInverseSurface,
+    inverseOnSurface = DarkInverseOnSurface
 )
 
 /**

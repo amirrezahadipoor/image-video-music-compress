@@ -37,4 +37,28 @@ data class AudioTags(
     val comment: String? = null,
     /** Embedded artwork as JPEG/PNG bytes (may be null). */
     val artwork: ByteArray? = null
-)
+) {
+    // ByteArray uses identity comparison; override for structural equality.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is AudioTags) return false
+        return title == other.title && artist == other.artist && album == other.album &&
+            albumArtist == other.albumArtist && genre == other.genre && year == other.year &&
+            track == other.track && comment == other.comment &&
+            (artwork == null && other.artwork == null || artwork != null && other.artwork != null && artwork.contentEquals(other.artwork))
+    }
+
+    override fun hashCode(): Int {
+        var h = 0
+        h = 31 * h + (title?.hashCode() ?: 0)
+        h = 31 * h + (artist?.hashCode() ?: 0)
+        h = 31 * h + (album?.hashCode() ?: 0)
+        h = 31 * h + (albumArtist?.hashCode() ?: 0)
+        h = 31 * h + (genre?.hashCode() ?: 0)
+        h = 31 * h + (year?.hashCode() ?: 0)
+        h = 31 * h + (track?.hashCode() ?: 0)
+        h = 31 * h + (comment?.hashCode() ?: 0)
+        h = 31 * h + (artwork?.contentHashCode() ?: 0)
+        return h
+    }
+}

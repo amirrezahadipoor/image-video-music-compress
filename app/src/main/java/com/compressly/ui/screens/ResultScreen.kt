@@ -76,9 +76,8 @@ fun ResultScreen(
 
     LaunchedEffect(entry?.id) {
         reveal = false
-        if (entry?.status == HistoryEntry.STATUS_DONE) {
-            SoundEffects.play(SoundEffects.Type.SUCCESS)
-        }
+        // Sound is already played by ProgressScreen when the job completes;
+        // avoid double-playing here.
         siblings = entry?.let { runCatching { viewModel.loadSiblings(it) }.getOrDefault(emptyList()) } ?: emptyList()
         reveal = true
     }

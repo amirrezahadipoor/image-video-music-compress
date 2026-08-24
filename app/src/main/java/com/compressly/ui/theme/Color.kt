@@ -83,3 +83,11 @@ val GradientAudio = listOf(Teal, Emerald)
 val GradientHero = listOf(Color(0xFF3A3A8C), Color(0xFF5B5FEF), Violet)
 val GradientPrimary = listOf(Indigo, Violet)
 val GradientSuccess = listOf(Teal, Emerald)
+
+// ---- Inverse colors for snackbar / badge overlays ----
+val LightInversePrimary = Color(0xFFE4E5FF)
+val LightInverseSurface = Color(0xFF2E2C6B)
+val LightInverseOnSurface = Color(0xFFE4E5FF)
+val DarkInversePrimary = Color(0xFF2A2C63)
+val DarkInverseSurface = Color(0xFFDFE0FF)
+val DarkInverseOnSurface = Color(0xFF1C1D4D)

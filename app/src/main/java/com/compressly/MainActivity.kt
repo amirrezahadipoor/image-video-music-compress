@@ -27,7 +27,6 @@ import com.compressly.ui.navigation.AppNavHost
 import com.compressly.ui.navigation.NavRequest
 import com.compressly.ui.navigation.Routes
 import com.compressly.ui.theme.CompresslyTheme
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 

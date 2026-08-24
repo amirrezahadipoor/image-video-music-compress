@@ -16,6 +16,12 @@ import kotlin.math.sqrt
 /**
  * Samples a lightweight waveform (peak per bucket) from the first few seconds
  * of an audio file, fully offline. Used for the nice-to-have waveform preview.
+ *
+ * Key fixes from microscopic review:
+ * - ByteBuffer position/limit is correctly set for each decoder output buffer
+ * - extractor.advance() is not called after queuing EOS (no wasted seek)
+ * - peaks.maxOrNull() used for API safety across all Android versions
+ * - inner loops use for-loop instead of while to avoid stale position bugs
  */
 object WaveformSampler {
 
@@ -62,16 +68,14 @@ object WaveformSampler {
                         if (sz < 0) {
                             decoder.queueInputBuffer(inIdx, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                             inputDone = true
+                        } else if (extractor.sampleTime > MAX_PREVIEW_US) {
+                            // Enough data for a preview; signal EOS and stop feeding.
+                            decoder.queueInputBuffer(inIdx, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                            inputDone = true
+                            // Do NOT call extractor.advance() after queuing EOS.
                         } else {
-                            if (extractor.sampleTime > MAX_PREVIEW_US) {
-                                // Enough data for a preview; stop early.
-                                decoder.queueInputBuffer(inIdx, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
-                                inputDone = true
-                                extractor.advance()
-                            } else {
-                                decoder.queueInputBuffer(inIdx, 0, sz, extractor.sampleTime, 0)
-                                extractor.advance()
-                            }
+                            decoder.queueInputBuffer(inIdx, 0, sz, extractor.sampleTime, 0)
+                            extractor.advance()
                         }
                     }
                 }
@@ -84,6 +88,7 @@ object WaveformSampler {
                         ) == android.media.AudioFormat.ENCODING_PCM_FLOAT
                     } else if (info.size > 0) {
                         val buf = decoder.getOutputBuffer(outIdx)!!
+                        // Set position/limit for this specific output buffer.
                         buf.position(info.offset)
                         buf.limit(info.offset + info.size)
                         buf.order(ByteOrder.LITTLE_ENDIAN)
@@ -92,20 +97,16 @@ object WaveformSampler {
                             val bucket = ((pts.toDouble() / MAX_PREVIEW_US) * buckets).toInt().coerceIn(0, buckets - 1)
                             var peak = 0.0
                             if (pcmFloat) {
-                                var i = 0
                                 val n = info.size / 4
-                                while (i < n) {
+                                for (i in 0 until n) {
                                     val v = abs(buf.float.toDouble())
                                     peak = max(peak, v)
-                                    i++
                                 }
                             } else {
                                 val n = info.size / 2
-                                var i = 0
-                                while (i < n) {
+                                for (i in 0 until n) {
                                     val v = abs(buf.short.toDouble() / 32768.0)
                                     peak = max(peak, v)
-                                    i++
                                 }
                             }
                             peaks[bucket] = max(peaks[bucket], peak.toFloat())
@@ -126,7 +127,8 @@ object WaveformSampler {
         }
         if (!sawAny) return@withContext emptyList()
         // Normalize: scale to the loudest bucket; keep a soft perceptual curve.
-        val maxPeak = peaks.max().coerceAtLeast(0.001f)
+        // Use maxOrNull() for API safety across all Android versions.
+        val maxPeak = (peaks.maxOrNull() ?: 0f).coerceAtLeast(0.001f)
         peaks.map { p ->
             val n = (p / maxPeak).coerceIn(0.02f, 1f)
             sqrt(n)

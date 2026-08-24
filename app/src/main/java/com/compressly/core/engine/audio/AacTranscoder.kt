@@ -16,6 +16,9 @@ import java.nio.ByteOrder
  * AAC-LC in an M4A container, using hardware-accelerated MediaCodec codecs.
  * Fully offline. Used by both the video pipeline and the standalone audio
  * compressor.
+ *
+ * Key fix: PCM data is never dropped when the encoder has no free input
+ * buffer — a pending buffer holds the PCM and retries on the next iteration.
  */
 object AacTranscoder {
 
@@ -71,8 +74,13 @@ object AacTranscoder {
             var encEosQueued = false
             var decoderEosSeen = false
             var inputDone = false
-            var lastPts = -1L
-            val durationUs = trimEndUs - trimStartUs
+            var lastPts = 0L
+            // Use extractor duration for progress when trim is not set.
+            val sourceDurationUs = if (trimEndUs > trimStartUs) {
+                trimEndUs - trimStartUs
+            } else {
+                runCatching { inputFormat.getLong(MediaFormat.KEY_DURATION) }.getOrDefault(0L).coerceAtLeast(0L)
+            }
 
             if (trimStartUs > 0) {
                 extractor.seekTo(trimStartUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
@@ -81,9 +89,41 @@ object AacTranscoder {
             val decInfo = MediaCodec.BufferInfo()
             val encInfo = MediaCodec.BufferInfo()
             val pcmBuf = ByteBuffer.allocateDirect(64 * 1024).order(ByteOrder.LITTLE_ENDIAN)
+            // Pending PCM buffer: holds PCM data when the encoder had no free
+            // input buffer, so nothing is ever dropped. Uses a compact pattern
+            // so partial consumption is safe — remaining bytes are moved to the
+            // front of the buffer on each iteration.
+            val pendingBuf = ByteBuffer.allocateDirect(64 * 1024).order(ByteOrder.LITTLE_ENDIAN)
+            var pendingPcm = false
+            var pendingPts = 0L
 
             while (!encEos) {
                 control.checkActive()
+
+                // Feed pending PCM to encoder first (from a previous iteration
+                // where the encoder had no free input buffer). Loop until all
+                // pending data is consumed or no encoder input buffer is free.
+                while (pendingPcm) {
+                    val inIndex = encoder.dequeueInputBuffer(TIMEOUT_US)
+                    if (inIndex < 0) break // No free buffer; retry next iteration.
+                    val encBuf = encoder.getInputBuffer(inIndex)!!
+                    encBuf.clear()
+                    val bytesBefore = pendingBuf.remaining()
+                    putLimited(encBuf, pendingBuf)
+                    val fed = bytesBefore - pendingBuf.remaining()
+                    if (fed > 0) {
+                        lastPts = pendingPts
+                        encoder.queueInputBuffer(inIndex, 0, encBuf.position(), pendingPts, 0)
+                    }
+                    if (!pendingBuf.hasRemaining()) {
+                        // All pending data was consumed.
+                        pendingPcm = false
+                    } else {
+                        // Partial consumption: compact remaining data to the front.
+                        pendingBuf.compact()
+                        pendingBuf.flip()
+                    }
+                }
 
                 if (!inputDone) {
                     val inIndex = decoder.dequeueInputBuffer(TIMEOUT_US)
@@ -97,8 +137,9 @@ object AacTranscoder {
                             val pts = extractor.sampleTime
                             decoder.queueInputBuffer(inIndex, 0, sampleSize, pts, 0)
                             extractor.advance()
-                            if (durationUs > 0 && pts >= 0) {
-                                onProgress(((pts - trimStartUs).toFloat() / durationUs).coerceIn(0f, 1f))
+                            if (sourceDurationUs > 0 && pts >= 0) {
+                                val effectivePts = if (trimStartUs > 0) pts - trimStartUs else pts
+                                onProgress((effectivePts.toFloat() / sourceDurationUs).coerceIn(0f, 1f))
                             }
                         }
                     }
@@ -115,16 +156,24 @@ object AacTranscoder {
                         pcm.limit(decInfo.offset + decInfo.size)
                         pcmBuf.clear()
                         convertPcmToEncoder(pcm, decInfo.size, pcmBuf, srcChannels, channels)
+                        pcmBuf.flip()
+                        var pts = (decInfo.presentationTimeUs - trimStartUs).coerceAtLeast(0)
+                        if (pts <= lastPts) pts = lastPts + 1_000
                         val inIndex = encoder.dequeueInputBuffer(TIMEOUT_US)
                         if (inIndex >= 0) {
                             val encBuf = encoder.getInputBuffer(inIndex)!!
                             encBuf.clear()
-                            pcmBuf.flip()
                             putLimited(encBuf, pcmBuf)
-                            var pts = (decInfo.presentationTimeUs - trimStartUs).coerceAtLeast(0)
-                            if (pts <= lastPts) pts = lastPts + 1_000
                             lastPts = pts
                             encoder.queueInputBuffer(inIndex, 0, encBuf.position(), pts, 0)
+                            pendingPcm = false
+                        } else {
+                            // Encoder has no free input buffer — save PCM for retry.
+                            pendingBuf.clear()
+                            pendingBuf.put(pcmBuf)
+                            pendingBuf.flip()
+                            pendingPcm = true
+                            pendingPts = pts
                         }
                     }
                     if (decInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
@@ -134,7 +183,9 @@ object AacTranscoder {
                     decOut = decoder.dequeueOutputBuffer(decInfo, 0)
                 }
 
-                if (decoderEosSeen && !encEosQueued) {
+                // Queue encoder EOS ONLY after all pending PCM has been fed.
+                // Otherwise the last audio frame is lost.
+                if (decoderEosSeen && !encEosQueued && !pendingPcm) {
                     val inIndex = encoder.dequeueInputBuffer(TIMEOUT_US)
                     if (inIndex >= 0) {
                         encoder.queueInputBuffer(
@@ -166,12 +217,6 @@ object AacTranscoder {
                 }
             }
 
-            if (muxerStarted) muxer.stop()
-            muxer.release()
-            decoder.stop()
-            decoder.release()
-            encoder.stop()
-            encoder.release()
             return true
         } finally {
             runCatching { extractor.release() }
@@ -184,23 +229,12 @@ object AacTranscoder {
         }
     }
 
-    private fun findTrack(extractor: MediaExtractor, prefix: String): Int? {
-        for (i in 0 until extractor.trackCount) {
-            if (extractor.getTrackFormat(i).getString(MediaFormat.KEY_MIME)?.startsWith(prefix) == true) return i
-        }
-        return null
-    }
+    private fun findTrack(extractor: MediaExtractor, prefix: String): Int? =
+        com.compressly.core.engine.MediaUtil.findTrack(extractor, prefix)
 
-    /** Copies at most the remaining capacity of [dst] from [src] (no overflow). */
-    private fun putLimited(dst: ByteBuffer, src: ByteBuffer) {
-        val n = dst.remaining().coerceAtMost(src.remaining())
-        val oldLimit = src.limit()
-        src.limit(src.position() + n)
-        dst.put(src)
-        src.limit(oldLimit)
-    }
+    private fun putLimited(dst: ByteBuffer, src: ByteBuffer) =
+        com.compressly.core.engine.MediaUtil.putLimited(dst, src)
 
-    /** 16-bit little-endian PCM into [target], down-mixing to at most [targetChannels]. */
     private fun convertPcmToEncoder(
         source: ByteBuffer,
         sourceSize: Int,
@@ -210,27 +244,6 @@ object AacTranscoder {
     ) {
         // Decoder output byte order is not guaranteed; PCM16 is little-endian.
         source.order(ByteOrder.LITTLE_ENDIAN)
-        val ch = if (sourceChannels <= 2) sourceChannels else 2
-        val perSampleBytes = ch * 2
-        val samples = sourceSize / perSampleBytes
-        for (i in 0 until samples) {
-            var l = 0
-            var r = 0
-            for (c in 0 until ch) {
-                val v = source.getShort()
-                if (c == 0) l = v.toInt()
-                else if (c == 1) r = v.toInt()
-                else {
-                    l = (l + v) / 2
-                    r = (r + v) / 2
-                }
-            }
-            if (targetChannels == 1) {
-                target.putShort(((l + r) / 2).toShort())
-            } else {
-                target.putShort(l.toShort())
-                target.putShort(r.toShort())
-            }
-        }
+        com.compressly.core.engine.MediaUtil.convertPcmToEncoder(source, sourceSize, target, sourceChannels, targetChannels)
     }
 }

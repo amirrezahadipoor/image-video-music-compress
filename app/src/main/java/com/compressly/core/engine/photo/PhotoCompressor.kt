@@ -86,7 +86,12 @@ class PhotoCompressor(private val context: Context) {
                 // The intermediate rotation/scale copy failed; retry with a
                 // smaller decode so we can still deliver a valid file.
                 bitmap.recycle()
-                bitmap = decodeSampled(tempSource, targetW / 2, targetH / 2, use565)
+                try {
+                    bitmap = decodeSampled(tempSource, targetW / 2, targetH / 2, use565)
+                } catch (oom2: OutOfMemoryError) {
+                    // Even the half-size decode failed; propagate cleanly.
+                    throw e
+                }
             }
 
             try {

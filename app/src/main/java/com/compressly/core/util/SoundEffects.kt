@@ -28,6 +28,9 @@ object SoundEffects {
             val durationMs = pcm.second
             val data = pcm.first
             Thread {
+                // Daemon so the thread never prevents the host activity from
+                // being garbage-collected if the process is winding down.
+                setDaemon(true)
                 runCatching {
                     val attrs = AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
@@ -47,9 +50,17 @@ object SoundEffects {
                     track.write(data, 0, data.size)
                     track.setVolume(0.85f)
                     track.play()
-                    Thread.sleep(durationMs.toLong() + 60)
-                    track.stop()
-                    track.release()
+                    // Wait for playback to finish, then release cleanly.
+                    // Use a loop with a short sleep so we can release promptly
+                    // even if the thread is interrupted.
+                    val endAt = System.currentTimeMillis() + durationMs.toLong() + 80
+                    while (track.playState != AudioTrack.PLAYSTATE_STOPPED &&
+                        System.currentTimeMillis() < endAt
+                    ) {
+                        Thread.sleep(20)
+                    }
+                    runCatching { track.stop() }
+                    runCatching { track.release() }
                 }
             }.start()
         } catch (_: Throwable) {
