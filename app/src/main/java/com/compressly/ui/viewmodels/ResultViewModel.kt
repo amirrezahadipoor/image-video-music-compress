@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import ir.siliksama.hajmino.R
 import com.compressly.CompresslyApp
 import com.compressly.AppContainer
 import com.compressly.core.data.db.HistoryEntry
@@ -36,7 +37,7 @@ class ResultViewModel(container: AppContainer, private val entryId: Long) : View
         }
         // createChooser can strip URI grant flags on Android 10+;
         // re-add them to the chooser intent so the receiving app can read.
-        val chooser = Intent.createChooser(intent, context.getString(com.compressly.R.string.result_share_sheet_title)).apply {
+        val chooser = Intent.createChooser(intent, context.getString(ir.siliksama.hajmino.R.string.result_share_sheet_title)).apply {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         runCatching { context.startActivity(chooser) }

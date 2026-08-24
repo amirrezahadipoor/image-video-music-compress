@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import ir.siliksama.hajmino.R
 import com.compressly.ui.theme.GradientPrimary
 
 /** Section heading used inside settings and result screens. */
@@ -174,7 +175,7 @@ fun GradientSummaryBar(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(com.compressly.R.string.settings_files_selected, count),
+                    text = stringResource(ir.siliksama.hajmino.R.string.settings_files_selected, count),
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.85f)
                 )
@@ -186,7 +187,7 @@ fun GradientSummaryBar(
                 )
             }
             Text(
-                text = stringResource(com.compressly.R.string.action_compress).uppercase(),
+                text = stringResource(ir.siliksama.hajmino.R.string.action_compress).uppercase(),
                 style = MaterialTheme.typography.labelLarge,
                 color = Color.White
             )
