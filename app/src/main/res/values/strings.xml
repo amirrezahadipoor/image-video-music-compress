@@ -1,49 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">کامپرسلی</string>
-    <string name="app_tagline">عکس، ویدیو و موسیقی؛ با حجم کمتر</string>
+    <string name="app_tagline">مدیریت و فشرده‌سازی حرفه‌ای رسانه‌ها</string>
 
     <!-- Common actions -->
-    <string name="action_compress">فشرده‌سازی</string>
-    <string name="action_cancel">انصراف</string>
+    <string name="action_compress">شروع فشرده‌سازی</string>
+    <string name="action_cancel">لغو عملیات</string>
     <string name="action_pause">توقف موقت</string>
-    <string name="action_resume">ادامه</string>
+    <string name="action_resume">ادامه پردازش</string>
     <string name="action_share">اشتراک‌گذاری</string>
     <string name="action_open">باز کردن</string>
-    <string name="action_retry">تلاش دوباره</string>
-    <string name="action_done">انجام شد</string>
+    <string name="action_retry">تلاش مجدد</string>
+    <string name="action_done">پایان</string>
     <string name="action_close">بستن</string>
     <string name="action_back">بازگشت</string>
-    <string name="action_next">بعدی</string>
-    <string name="action_allow">اجازه دادن</string>
+    <string name="action_next">مرحله بعد</string>
+    <string name="action_allow">تأیید دسترسی</string>
     <string name="action_not_now">فعلاً نه</string>
     <string name="action_choose_files">انتخاب فایل‌ها</string>
 
     <!-- Media types -->
     <string name="media_photo">عکس</string>
     <string name="media_video">ویدیو</string>
-    <string name="media_audio">صدا</string>
-    <string name="media_photos">عکس‌ها</string>
+    <string name="media_audio">صوت</string>
+    <string name="media_photos">تصاویر</string>
     <string name="media_videos">ویدیوها</string>
     <string name="media_audio_files">فایل‌های صوتی</string>
 
     <!-- Home -->
-    <string name="home_greeting">خوش آمدید</string>
-    <string name="home_hero_title">فایل‌های رسانه‌ای‌تان را کوچک کنید، بدون افت کیفیت</string>
-    <string name="home_hero_subtitle">همه‌چیز روی دستگاه شما انجام می‌شود. هرگز به اینترنت نیاز نیست.</string>
+    <string name="home_greeting">کاربر گرامی، خوش آمدید</string>
+    <string name="home_hero_title">فشرده‌سازی هوشمند تصاویر و ویدیوها</string>
+    <string name="home_hero_subtitle">تمامی پردازش‌ها به صورت کاملاً امن و آفلاین روی دستگاه شما انجام می‌شود.</string>
     <string name="home_compress_photo">فشرده‌سازی عکس</string>
     <string name="home_compress_video">فشرده‌سازی ویدیو</string>
-    <string name="home_compress_audio">فشرده‌سازی صدا</string>
-    <string name="home_photo_subtitle">JPEG، PNG، WebP، HEIC</string>
-    <string name="home_video_subtitle">MP4، MOV، MKV، WebM</string>
-    <string name="home_audio_subtitle">MP3، WAV، FLAC، AAC، OGG</string>
-    <string name="home_recent_activity">فعالیت‌های اخیر</string>
-    <string name="home_view_all">مشاهده همه</string>
-    <string name="home_no_activity">هنوز چیزی اینجا نیست</string>
-    <string name="home_no_activity_desc">تاریخچه فشرده‌سازی‌های شما اینجا نمایش داده می‌شود.</string>
-    <string name="home_total_saved">کل فضای ذخیره‌شده</string>
-    <string name="home_jobs_active">%1$d فشرده‌سازی در جریان است</string>
-    <string name="home_tap_to_choose">برای شروع، فایل‌ها را از دستگاه خود انتخاب کنید</string>
+    <string name="home_compress_audio">فشرده‌سازی فایل صوتی</string>
+    <string name="home_photo_subtitle">پشتیبانی از JPEG، PNG، WebP، HEIC</string>
+    <string name="home_video_subtitle">پشتیبانی از MP4، MOV، MKV، WebM</string>
+    <string name="home_audio_subtitle">پشتیبانی از MP3، WAV، FLAC، AAC، OGG</string>
+    <string name="home_recent_activity">سوابق اخیر</string>
+    <string name="home_view_all">مشاهده همه سوابق</string>
+    <string name="home_no_activity">هیچ سابقه فعالیتی یافت نشد</string>
+    <string name="home_no_activity_desc">لیست عملیات‌های فشرده‌سازی شما در این قسمت نمایش داده خواهد شد.</string>
+    <string name="home_total_saved">مجموع فضای آزاد شده</string>
+    <string name="home_jobs_active">%1$d عملیات در حال اجرا است</string>
+    <string name="home_tap_to_choose">برای شروع پردازش، فایل مورد نظر خود را انتخاب نمایید</string>
 
     <!-- File picking -->
     <string name="pick_title_photo">انتخاب عکس‌ها</string>

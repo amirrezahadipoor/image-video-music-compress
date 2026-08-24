@@ -41,7 +41,8 @@ data class JobState(
     val status: JobStatus,
     val isPaused: Boolean = false,
     val items: List<ItemState> = emptyList(),
-    val startedAt: Long = System.currentTimeMillis()
+    val startedAt: Long = System.currentTimeMillis(),
+    val preset: CompressionPreset? = null
 ) {
     /** Aggregated progress across all items, 0..1. */
     val overallFraction: Float

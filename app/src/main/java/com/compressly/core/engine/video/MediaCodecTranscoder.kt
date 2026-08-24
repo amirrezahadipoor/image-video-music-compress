@@ -608,10 +608,12 @@ private suspend fun mergePass(
         val scale = minOf(1.0, capW.toDouble() / displayW, capH.toDouble() / displayH)
         var w = (storedW * scale).toInt()
         var h = (storedH * scale).toInt()
-        // Encoders want even dimensions.
-        if (w % 2 != 0) w -= 1
-        if (h % 2 != 0) h -= 1
-        return w.coerceAtLeast(2) to h.coerceAtLeast(2)
+        
+        // Video encoders perform best and are most stable when dimensions are multiples of 16.
+        w -= (w % 16)
+        h -= (h % 16)
+        
+        return w.coerceAtLeast(16) to h.coerceAtLeast(16)
     }
 
     private fun trimmedDurationMs(originalMs: Long, startUs: Long, endUs: Long): Long {

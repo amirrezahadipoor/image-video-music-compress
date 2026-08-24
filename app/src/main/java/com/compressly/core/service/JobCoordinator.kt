@@ -55,7 +55,7 @@ class JobCoordinator(
     ): Long {
         val jobId = nextJobId.getAndIncrement()
         val itemStates = items.map { ItemState(it.itemId, it.displayName, ItemPhase.QUEUED) }
-        _jobs.update { it + (jobId to JobState(jobId, mediaType, JobStatus.RUNNING, items = itemStates)) }
+        _jobs.update { it + (jobId to JobState(jobId, mediaType, JobStatus.RUNNING, items = itemStates, preset = settings.preset)) }
         startService()
         appScope.launch { runJob(jobId, items, settings) }
         return jobId

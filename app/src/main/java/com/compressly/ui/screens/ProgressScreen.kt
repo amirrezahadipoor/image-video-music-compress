@@ -41,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.compressly.CompresslyApp
 import com.compressly.R
+import com.compressly.core.engine.model.CompressionPreset
 import com.compressly.core.engine.model.ItemPhase
 import com.compressly.core.engine.model.JobStatus
 import com.compressly.ui.components.GhostButton
@@ -153,12 +154,21 @@ fun ProgressScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = stringResource(R.string.progress_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f)
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.progress_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    current.preset?.let { preset ->
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = stringResource(presetTitle(preset)),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
                 if (!isTerminal) {
                     IconButton(onClick = { showCancelDialog = true }) {
                         Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.action_cancel))
@@ -410,4 +420,12 @@ private fun TerminalSummary(
             onClick = onHistory
         )
     }
+}
+
+private fun presetTitle(preset: CompressionPreset): Int = when (preset) {
+    CompressionPreset.MAXIMUM_QUALITY -> R.string.preset_max_quality
+    CompressionPreset.BALANCED -> R.string.preset_balanced
+    CompressionPreset.HIGH_COMPRESSION -> R.string.preset_high_compression
+    CompressionPreset.MAXIMUM_COMPRESSION -> R.string.preset_max_compression
+    CompressionPreset.SMART -> R.string.preset_smart
 }
