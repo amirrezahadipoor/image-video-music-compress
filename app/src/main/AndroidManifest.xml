@@ -21,7 +21,7 @@
         tools:ignore="ScopedStorage" />
 
     <application
-        android:name=".CompresslyApp"
+        android:name="com.compressly.CompresslyApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -33,7 +33,7 @@
         tools:targetApi="35">
 
         <activity
-            android:name=".MainActivity"
+            android:name="com.compressly.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Compressly.Splash"
             android:windowSoftInputMode="adjustResize">
@@ -49,7 +49,7 @@
             processing and is required on Android 14+.
         -->
         <service
-            android:name=".core.service.CompressionJobService"
+            android:name="com.compressly.core.service.CompressionJobService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 

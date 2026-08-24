@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Compressly</string>
-    <string name="app_tagline">Photos, videos and music. Smaller.</string>
+    <string name="app_name">حجمینو | Hajmino</string>
+    <string name="app_tagline">Media Manager &amp; Compressor</string>
 
     <!-- Common actions -->
     <string name="action_compress">Compress</string>
