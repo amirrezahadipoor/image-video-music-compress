@@ -197,7 +197,7 @@ fun GradientSummaryBar(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(ir.siliksama.hajmino.R.string.settings_files_selected, count),
+                    text = stringResource(R.string.settings_files_selected, count),
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.85f)
                 )
@@ -209,7 +209,7 @@ fun GradientSummaryBar(
                 )
             }
             Text(
-                text = stringResource(ir.siliksama.hajmino.R.string.action_compress).uppercase(),
+                text = stringResource(R.string.action_compress).uppercase(),
                 style = MaterialTheme.typography.labelLarge,
                 color = Color.White
             )

@@ -37,7 +37,7 @@ class ResultViewModel(container: AppContainer, private val entryId: Long) : View
         }
         // createChooser can strip URI grant flags on Android 10+;
         // re-add them to the chooser intent so the receiving app can read.
-        val chooser = Intent.createChooser(intent, context.getString(ir.siliksama.hajmino.R.string.result_share_sheet_title)).apply {
+        val chooser = Intent.createChooser(intent, context.getString(R.string.result_share_sheet_title)).apply {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         runCatching { context.startActivity(chooser) }

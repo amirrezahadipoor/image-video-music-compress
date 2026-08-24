@@ -28,3 +28,10 @@
 
 # MediaCodec / MediaExtractor / MediaMuxer / MediaMetadataRetriever are framework
 # classes; nothing to keep.
+
+# Adivery specific rules
+-keep class com.adivery.** { *; }
+-dontwarn com.adivery.**
+-dontwarn com.mbridge.**
+-dontwarn com.google.android.gms.ads.**
+-dontwarn com.google.android.gms.common.**
