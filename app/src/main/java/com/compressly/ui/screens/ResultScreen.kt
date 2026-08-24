@@ -46,7 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.compressly.CompresslyApp
-import com.compressly.R
+import ir.siliksama.hajmino.R
 import com.compressly.core.data.db.HistoryEntry
 import com.compressly.core.util.Formats
 import com.compressly.ui.components.ActionButton

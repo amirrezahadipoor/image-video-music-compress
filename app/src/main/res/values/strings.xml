@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">کامپرسلی</string>
+    <string name="app_name">حجمینو | فشرده سازعکس ویدیو موزیک</string>
     <string name="app_tagline">مدیریت و فشرده‌سازی حرفه‌ای رسانه‌ها</string>
 
     <!-- Common actions -->
@@ -50,6 +50,7 @@
     <string name="pick_title_video">انتخاب ویدیوها</string>
     <string name="pick_title_audio">انتخاب فایل‌های صوتی</string>
     <string name="pick_error_none">هیچ فایلی انتخاب نشد.</string>
+    <string name="pick_error_too_large">یک یا چند فایل بیشتر از حد مجاز (۲ گیگابایت) هستند.</string>
     <string name="pick_error_unsupported_photo">یک یا چند فایل، عکس پشتیبانی‌شده نیستند.</string>
     <string name="pick_error_unsupported_video">یک یا چند فایل، ویدیوی پشتیبانی‌شده نیستند.</string>
     <string name="pick_error_unsupported_audio">یک یا چند فایل، صدای پشتیبانی‌شده نیستند.</string>

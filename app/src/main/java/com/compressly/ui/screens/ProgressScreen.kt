@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.compressly.CompresslyApp
-import com.compressly.R
+import ir.siliksama.hajmino.R
 import com.compressly.core.engine.model.CompressionPreset
 import com.compressly.core.engine.model.ItemPhase
 import com.compressly.core.engine.model.JobStatus

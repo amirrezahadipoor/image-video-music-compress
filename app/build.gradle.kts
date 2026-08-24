@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "com.compressly"
+    namespace = "ir.siliksama.hajmino"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.compressly"
+        applicationId = "ir.siliksama.hajmino"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -43,7 +43,7 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("../compressly.jks")
+            storeFile = file("../hajmino.jks")
             storePassword = "compressly123"
             keyAlias = "compressly"
             keyPassword = "compressly123"

@@ -6,7 +6,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.compressly.R
+import ir.siliksama.hajmino.R
 
 /**
  * Custom Vazirmatn FontFamily for a professional Persian UI.

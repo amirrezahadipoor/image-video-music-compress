@@ -39,7 +39,7 @@ jobs:
           VERSION=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts || echo "1.0.0")
           mkdir -p dist
           cp app/build/outputs/apk/bazaar/release/app-bazaar-release.apk \
-             "dist/Compressly-${VERSION}-bazaar.apk"
+             "dist/Hajmino-${VERSION}-bazaar.apk"
           ls -la dist/
 
       - name: Upload universal signed APKs

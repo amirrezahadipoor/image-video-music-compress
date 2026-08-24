@@ -70,7 +70,7 @@ object OutputStore {
         displayName: String,
         mimeType: String
     ): Uri {
-        val uniqueName = uniqueNameFor(displayName)
+        val uniqueName = uniqueNameFor(displayName, mimeType)
         val uri = createOutputUri(context, mediaType, displayName, mimeType, uniqueName)
         try {
             context.contentResolver.openOutputStream(uri)?.use { out ->
@@ -108,10 +108,21 @@ object OutputStore {
     /** Thread-safe date format cache — one SimpleDateFormat per locale. */
     private val dateFormatCache = ConcurrentHashMap<String, SimpleDateFormat>()
 
-    fun uniqueNameFor(displayName: String): String {
+    fun uniqueNameFor(displayName: String, mimeType: String): String {
         val dot = displayName.lastIndexOf('.')
         val name = if (dot > 0) displayName.substring(0, dot) else displayName
-        val ext = if (dot > 0) displayName.substring(dot) else ""
+        
+        // Correct the extension based on the actual output mimeType
+        val ext = when (mimeType) {
+            "image/jpeg" -> ".jpg"
+            "image/png" -> ".png"
+            "image/webp" -> ".webp"
+            "video/mp4" -> ".mp4"
+            "audio/mp4", "audio/m4a" -> ".m4a"
+            "audio/mpeg" -> ".mp3"
+            else -> if (dot > 0) displayName.substring(dot) else ""
+        }
+        
         val fmt = dateFormatCache.getOrPut("stamp") {
             SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
         }

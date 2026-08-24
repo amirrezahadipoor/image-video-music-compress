@@ -48,7 +48,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
-import com.compressly.R
+import ir.siliksama.hajmino.R
 import com.compressly.core.data.db.HistoryEntry
 import com.compressly.core.engine.model.MediaType
 import com.compressly.core.util.Formats

@@ -7,7 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
-import com.compressly.R
+import ir.siliksama.hajmino.R
 import com.compressly.core.engine.model.ItemPhase
 import com.compressly.core.engine.model.JobState
 import com.compressly.core.engine.model.JobStatus

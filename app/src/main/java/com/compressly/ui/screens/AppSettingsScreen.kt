@@ -30,8 +30,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.compressly.BuildConfig
-import com.compressly.R
+import ir.siliksama.hajmino.BuildConfig
+import ir.siliksama.hajmino.R
 import com.compressly.core.data.ThemeMode
 import com.compressly.core.engine.model.CompressionPreset
 import com.compressly.ui.components.ChipSelector

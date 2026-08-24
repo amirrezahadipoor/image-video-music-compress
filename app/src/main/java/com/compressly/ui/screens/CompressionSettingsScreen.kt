@@ -55,7 +55,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.compressly.CompresslyApp
-import com.compressly.R
+import ir.siliksama.hajmino.R
 import com.compressly.core.engine.model.AudioFormat
 import com.compressly.core.engine.model.MediaType
 import com.compressly.core.engine.model.PhotoFormat

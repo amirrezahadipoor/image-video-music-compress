@@ -1,6 +1,6 @@
 package com.compressly.core.ads
 
-import com.compressly.BuildConfig
+import ir.siliksama.hajmino.BuildConfig
 
 /**
  * Abstraction over the ad provider (Tapsell / تپسل for the Bazaar build).

@@ -2,6 +2,7 @@ package com.compressly.ui.screens
 
 import android.net.Uri
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -60,7 +61,7 @@ import coil.request.ImageRequest
 import coil.request.videoFrameMillis
 import com.compressly.CompresslyApp
 import com.compressly.Selection
-import com.compressly.R
+import ir.siliksama.hajmino.R
 import com.compressly.core.data.db.HistoryEntry
 import com.compressly.core.engine.model.InputItem
 import com.compressly.core.engine.model.MediaType
@@ -93,16 +94,35 @@ fun HomeScreen(
 
     fun acceptPicked(type: MediaType, uris: List<Uri>) {
         if (uris.isEmpty()) return
-        val items = uris.mapIndexed { index, uri ->
-            InputItem(
-                itemId = System.nanoTime() + index,
-                uri = uri,
-                displayName = Uris.displayNameOf(context, uri),
-                sizeBytes = Uris.sizeOf(context, uri).takeIf { it > 0 } ?: -1L,
-                mediaType = type
-            )
+        
+        val maxSizeBytes = 2L * 1024 * 1024 * 1024 // 2 GB limit
+        val validItems = mutableListOf<InputItem>()
+        var skippedTooLarge = false
+
+        uris.forEachIndexed { index, uri ->
+            val size = Uris.sizeOf(context, uri).takeIf { it > 0 } ?: -1L
+            if (size > maxSizeBytes) {
+                skippedTooLarge = true
+            } else {
+                validItems.add(
+                    InputItem(
+                        itemId = System.nanoTime() + index,
+                        uri = uri,
+                        displayName = Uris.displayNameOf(context, uri),
+                        sizeBytes = size,
+                        mediaType = type
+                    )
+                )
+            }
         }
-        container.selection.set(Selection(type, items))
+
+        if (skippedTooLarge) {
+            Toast.makeText(context, context.getString(R.string.pick_error_too_large), Toast.LENGTH_LONG).show()
+        }
+
+        if (validItems.isEmpty()) return
+
+        container.selection.set(Selection(type, validItems))
         onOpenSettings(type)
     }
 

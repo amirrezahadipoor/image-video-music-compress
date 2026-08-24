@@ -1,7 +1,7 @@
 package com.compressly.ui.util
 
 import androidx.annotation.StringRes
-import com.compressly.R
+import ir.siliksama.hajmino.R
 
 /** Maps stable engine error keys to plain-language UI strings. */
 object ErrorMessages {

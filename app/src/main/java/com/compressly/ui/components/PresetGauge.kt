@@ -32,7 +32,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.compressly.R
+import ir.siliksama.hajmino.R
 import com.compressly.core.engine.model.CompressionPreset
 import com.compressly.core.engine.model.MediaType
 import com.compressly.core.engine.model.PresetDefaults
