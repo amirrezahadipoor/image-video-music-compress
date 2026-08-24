@@ -43,10 +43,10 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("../hajmino.jks")
-            storePassword = "compressly123"
-            keyAlias = "compressly"
-            keyPassword = "compressly123"
+            storeFile = file("../hajmino_secure.jks")
+            storePassword = "hajmino_B2k9!Xq"
+            keyAlias = "hajmino_key"
+            keyPassword = "hajmino_B2k9!Xq"
         }
     }
 
