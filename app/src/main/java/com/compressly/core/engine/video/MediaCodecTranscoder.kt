@@ -105,9 +105,17 @@ class MediaCodecTranscoder(private val context: Context) {
                     tempAudioUri = inputUri // copy samples directly during merge
                 } else {
                     tempAudio = File(context.cacheDir, "tmp_${System.currentTimeMillis()}_audio.m4a")
+                    val audioBitrate = when (settings.audioMode) {
+                        VideoAudioMode.COMPRESS -> {
+                            // Re-encode at ~55% of source, bounded to 96-192 kbps.
+                            ((info.audioBitrate * 0.55).toInt()).coerceIn(96_000, 192_000)
+                        }
+                        else -> 128_000 // KEEP: passthrough failed, re-encode at a safe default.
+                    }
                     audioTranscodePass(
                         inputUri = inputUri,
                         outputPath = tempAudio.absolutePath,
+                        bitrate = audioBitrate,
                         trimStartUs = trimStartUs,
                         trimEndUs = trimEndUs,
                         control = control,
@@ -350,6 +358,7 @@ class MediaCodecTranscoder(private val context: Context) {
     private suspend fun audioTranscodePass(
         inputUri: Uri,
         outputPath: String,
+        bitrate: Int,
         trimStartUs: Long,
         trimEndUs: Long,
         control: JobControl,
@@ -360,7 +369,7 @@ class MediaCodecTranscoder(private val context: Context) {
             context = context,
             inputUri = inputUri,
             outputPath = outputPath,
-            bitrate = 128_000,
+            bitrate = bitrate,
             trimStartUs = trimStartUs,
             trimEndUs = trimEndUs,
             control = control,

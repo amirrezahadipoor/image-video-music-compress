@@ -43,7 +43,12 @@ class HistoryViewModel(container: AppContainer) : ViewModel() {
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        runCatching { context.startActivity(Intent.createChooser(intent, null)) }
+        // createChooser can strip URI grant flags on Android 10+;
+        // re-add them to the chooser intent so the receiving app can read.
+        val chooser = Intent.createChooser(intent, null).apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        runCatching { context.startActivity(chooser) }
     }
 
     companion object {

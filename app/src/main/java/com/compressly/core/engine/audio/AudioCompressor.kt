@@ -106,7 +106,12 @@ class AudioCompressor(private val context: Context) {
             decoder.configure(inputFormat, null, null, 0)
             decoder.start()
 
-            val durationUs = durationMs * 1000
+            // Use the format's duration if the caller-provided value is 0.
+            val durationUs = if (durationMs > 0) {
+                durationMs * 1000
+            } else {
+                runCatching { inputFormat.getLong(MediaFormat.KEY_DURATION) }.getOrDefault(0L).coerceAtLeast(0L)
+            }
             var pcmFloat = false
             var lastPts = 0L
             var lastReported = -1f

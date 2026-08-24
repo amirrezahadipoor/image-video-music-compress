@@ -55,6 +55,7 @@ class Compressor(private val context: Context) {
                 is CompressionSettings.Audio -> compressAudio(item, settings.settings, control, onProgress)
             }
             onProgress(ItemPhase.FINALIZING, 1f)
+            onProgress(ItemPhase.DONE, 1f)
             return CompressionResult(
                 itemId = item.itemId,
                 jobId = jobId,
@@ -67,8 +68,9 @@ class Compressor(private val context: Context) {
                 success = true,
                 settingsSummary = output.summary
             )
-        } finally {
-            onProgress(ItemPhase.DONE, 1f)
+        } catch (t: Throwable) {
+            // Don't report DONE on failure — the caller will set FAILED.
+            throw t
         }
     }
 

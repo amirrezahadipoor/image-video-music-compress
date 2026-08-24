@@ -152,7 +152,7 @@ fun HomeScreen(
             item { HomeHeader(onOpenHistory, onOpenAppSettings) }
             item { HeroCard(totalSaved) }
             if (activeJobs.isNotEmpty()) {
-                item { ActiveJobsBanner(activeJobs.size, { onOpenJob(activeJobs.first().jobId) }) }
+                item { ActiveJobsBanner(activeJobs.size) { onOpenJob(activeJobs.first().jobId) } }
             }
             item {
                 SectionTitle(stringResource(R.string.home_tap_to_choose))
@@ -302,7 +302,7 @@ private fun HeroCard(totalSaved: Long) {
 }
 
 @Composable
-private fun ActiveJobsBanner(count: Int, onOpenJob: (Long) -> Unit) {
+private fun ActiveJobsBanner(count: Int, onOpenJob: () -> Unit) {
     val primary = MaterialTheme.colorScheme.primary
     val onPrimary = MaterialTheme.colorScheme.onPrimary
     Row(
@@ -311,7 +311,7 @@ private fun ActiveJobsBanner(count: Int, onOpenJob: (Long) -> Unit) {
             .padding(horizontal = 20.dp, vertical = 6.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(primary.copy(alpha = 0.12f))
-            .clickable { onOpenJob(-1L) }
+            .clickable { onOpenJob() }
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

@@ -52,7 +52,10 @@ class CompresslyApp : Application() {
         Coil.setImageLoader(imageLoader)
 
         // Apply sound preference (default on) to the sound engine.
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+        // Use ProcessLifecycleOwner so the scope is tied to the app lifecycle
+        // and gets cancelled when the process dies (no coroutine leak).
+        val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        appScope.launch {
             container.settingsRepository.soundEnabled.collect { enabled ->
                 SoundEffects.enabled = enabled
             }
@@ -60,7 +63,7 @@ class CompresslyApp : Application() {
 
         // Any job that was mid-flight when the process died is marked
         // interrupted with a clear message instead of leaving a mystery.
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+        appScope.launch {
             container.historyRepository.markInterruptedOnStartup()
         }
     }

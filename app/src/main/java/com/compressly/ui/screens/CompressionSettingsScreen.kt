@@ -100,7 +100,11 @@ fun CompressionSettingsScreen(
     var showPermissionDialog by remember { mutableStateOf(false) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { _ -> /* proceed regardless; job still runs without a notification */ }
+    ) { granted ->
+        // Whether granted or not, proceed with compression — notification
+        // permission is optional and the job runs either way.
+        startCompression()
+    }
 
     fun startCompression() {
         val jobId = viewModel.compress()
@@ -278,7 +282,11 @@ fun CompressionSettingsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.dismissLowSpaceWarning()
-                    viewModel.forceCompress()
+                    val jobId = viewModel.forceCompress()
+                    if (jobId != null) {
+                        SoundEffects.play(SoundEffects.Type.CLICK)
+                        onJobStarted(jobId)
+                    }
                 }) {
                     Text(stringResource(R.string.action_compress))
                 }
@@ -308,6 +316,8 @@ fun CompressionSettingsScreen(
             dismissButton = {
                 TextButton(onClick = {
                     showPermissionDialog = false
+                    // Start compression anyway — notification permission is
+                    // optional; the job runs without a visible notification.
                     startCompression()
                 }) {
                     Text(stringResource(R.string.action_not_now))
