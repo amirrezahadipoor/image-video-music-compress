@@ -98,20 +98,20 @@ fun CompressionSettingsScreen(
 
     // Notification permission explainer (Android 13+).
     var showPermissionDialog by remember { mutableStateOf(false) }
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        // Whether granted or not, proceed with compression — notification
-        // permission is optional and the job runs either way.
-        startCompression()
-    }
-
     fun startCompression() {
         val jobId = viewModel.compress()
         if (jobId != null) {
             SoundEffects.play(SoundEffects.Type.CLICK)
             onJobStarted(jobId)
         }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        // Whether granted or not, proceed with compression — notification
+        // permission is optional and the job runs either way.
+        startCompression()
     }
 
     fun requestCompression() {

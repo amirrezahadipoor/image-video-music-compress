@@ -27,10 +27,7 @@ object SoundEffects {
             val pcm = buildPcm(type)
             val durationMs = pcm.second
             val data = pcm.first
-            Thread {
-                // Daemon so the thread never prevents the host activity from
-                // being garbage-collected if the process is winding down.
-                setDaemon(true)
+            val thread = Thread {
                 runCatching {
                     val attrs = AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
@@ -62,7 +59,9 @@ object SoundEffects {
                     runCatching { track.stop() }
                     runCatching { track.release() }
                 }
-            }.start()
+            }
+            thread.isDaemon = true
+            thread.start()
         } catch (_: Throwable) {
             // Never let sound break the app.
         }
