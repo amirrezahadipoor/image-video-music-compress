@@ -143,6 +143,9 @@ dependencies {
     // Offline metadata tagging (ID3v2 / MP4)
     implementation(libs.jaudiotagger)
 
+    // Adivery SDK for Bazaar
+    "bazaarImplementation"("com.adivery:sdk:4.9.0")
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
 }

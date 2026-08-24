@@ -213,20 +213,64 @@ fun AppSettingsScreen(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = stringResource(R.string.about_licenses),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+
+                // ---- Other Apps ----
+                SectionHeader(stringResource(R.string.other_apps_title))
+                Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface) {
+                    Column {
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        
+                        com.compressly.ui.components.InfoRow(
+                            title = stringResource(R.string.app_factor),
+                            onClick = {
+                                runCatching {
+                                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("bazaar://details?id=com.siliksama.factor_hesabdari")))
+                                }.onFailure {
+                                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://cafebazaar.ir/app/?id=com.siliksama.factor_hesabdari")))
+                                }
+                            }
                         )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            text = stringResource(R.string.about_licenses_body),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        com.compressly.ui.components.InfoRow(
+                            title = stringResource(R.string.app_konkoorify),
+                            onClick = {
+                                runCatching {
+                                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("bazaar://details?id=ir.konkoorify.app")))
+                                }.onFailure {
+                                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://cafebazaar.ir/app/?id=ir.konkoorify.app")))
+                                }
+                            }
+                        )
+                        com.compressly.ui.components.InfoRow(
+                            title = stringResource(R.string.app_fal),
+                            onClick = {
+                                runCatching {
+                                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("bazaar://details?id=ir.siliksama.falhafez")))
+                                }.onFailure {
+                                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://cafebazaar.ir/app/?id=ir.siliksama.falhafez")))
+                                }
+                            }
                         )
                     }
                 }
+                Spacer(Modifier.height(24.dp))
+
+                // ---- Policies ----
+                Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface) {
+                    Column {
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        com.compressly.ui.components.InfoRow(
+                            title = stringResource(R.string.app_policy),
+                            onClick = {
+                                // Real implementation would open privacy policy URL
+                                android.widget.Toast.makeText(context, "سیاست حریم خصوصی به زودی", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    }
+                }
+
                 Spacer(Modifier.height(32.dp))
             }
         }

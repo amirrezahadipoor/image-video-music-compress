@@ -44,6 +44,8 @@ class CompresslyApp : Application() {
         NotificationHelper.createChannels(this)
         CrashGuard.install(this)
 
+        com.compressly.core.ads.Ads.provider.initialize(this)
+
         // Coil image loader with offline video-frame decoding for thumbnails.
         val imageLoader = ImageLoader.Builder(this)
             .components { add(VideoFrameDecoder.Factory()) }

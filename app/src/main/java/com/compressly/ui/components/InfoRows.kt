@@ -40,6 +40,28 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     )
 }
 
+@Composable
+fun InfoRow(
+    title: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
 /** Label/value row (e.g. "Original size  12.4 MB"). */
 @Composable
 fun InfoRow(

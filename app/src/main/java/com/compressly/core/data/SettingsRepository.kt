@@ -23,9 +23,14 @@ class SettingsRepository(private val context: Context) {
     private val keyPreserveMetadata = booleanPreferencesKey("preserve_metadata_default")
     private val keyLanguage = stringPreferencesKey("language")
     private val keySound = booleanPreferencesKey("sound_enabled")
+    private val keyPremium = booleanPreferencesKey("is_premium")
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { prefs ->
         runCatching { ThemeMode.valueOf(prefs[keyTheme] ?: "SYSTEM") }.getOrDefault(ThemeMode.SYSTEM)
+    }
+
+    val isPremium: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[keyPremium] ?: false
     }
 
     val defaultPreset: Flow<CompressionPreset> = context.dataStore.data.map { prefs ->
@@ -63,5 +68,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSoundEnabled(value: Boolean) {
         context.dataStore.edit { it[keySound] = value }
+    }
+
+    suspend fun setPremium(value: Boolean) {
+        context.dataStore.edit { it[keyPremium] = value }
     }
 }

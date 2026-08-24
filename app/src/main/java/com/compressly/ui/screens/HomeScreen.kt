@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Videocam
@@ -88,6 +89,7 @@ fun HomeScreen(
     val totalSaved by viewModel.totalSaved.collectAsStateWithLifecycle()
     val recent by viewModel.recent.collectAsStateWithLifecycle()
     val activeJobs by viewModel.activeJobs.collectAsStateWithLifecycle()
+    val isPremium by viewModel.isPremium.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val container = (context.applicationContext as CompresslyApp).container
@@ -170,6 +172,11 @@ fun HomeScreen(
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
             item { HomeHeader(onOpenHistory, onOpenAppSettings) }
+            
+            if (!isPremium) {
+                item { PremiumBanner { viewModel.simulatePurchase(container) } }
+            }
+            
             item { HeroCard(totalSaved) }
             if (activeJobs.isNotEmpty()) {
                 item { ActiveJobsBanner(activeJobs.size) { onOpenJob(activeJobs.first().jobId) } }
@@ -542,6 +549,42 @@ private fun Thumbnail(entry: HistoryEntry) {
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(26.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun PremiumBanner(onBuy: () -> Unit) {
+    val primary = MaterialTheme.colorScheme.primary
+    val onPrimary = MaterialTheme.colorScheme.onPrimary
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(primary)
+            .clickable { onBuy() }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.AutoAwesome,
+            contentDescription = null,
+            tint = onPrimary,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.premium_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = onPrimary
+            )
+            Text(
+                text = stringResource(R.string.premium_desc),
+                style = MaterialTheme.typography.labelSmall,
+                color = onPrimary.copy(alpha = 0.8f)
             )
         }
     }

@@ -297,4 +297,19 @@
     <string name="restart_after_error_title">ببخشید</string>
     <string name="restart_after_error_desc">برنامه پس از یک خطای غیرمنتظره راه‌اندازی مجدد شد. کارهای ناتمام به‌عنوان «ناقص» علامت خوردند و می‌توانید دوباره تلاش کنید.</string>
     <string name="history_arrow">←</string>
+
+
+    <!-- Premium -->
+    <string name="premium_title">حمایت مالی / ارتقا به نسخه طلایی</string>
+    <string name="premium_desc">با ۹۹ هزار تومان، تمام تبلیغات را برای همیشه حذف کنید و از ما حمایت کنید.</string>
+    <string name="premium_buy">خرید اشتراک (۹۹,۰۰۰ تومان)</string>
+    <string name="premium_thank_you">از حمایت شما سپاسگزاریم! نسخه طلایی فعال است.</string>
+
+    <!-- App Links -->
+    <string name="other_apps_title">برنامه‌های دیگر سازنده</string>
+    <string name="app_factor">فاکتور حسابداری</string>
+    <string name="app_konkoorify">کنکوریفای | برنامه‌ریز کنکور</string>
+    <string name="app_fal">فال حافظ</string>
+    <string name="app_policy">سیاست حریم خصوصی و قوانین</string>
+
 </resources>

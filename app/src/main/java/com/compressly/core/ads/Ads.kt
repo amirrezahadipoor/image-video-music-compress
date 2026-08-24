@@ -1,5 +1,7 @@
 package com.compressly.core.ads
 
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import ir.siliksama.hajmino.BuildConfig
 
 /**
@@ -10,11 +12,18 @@ import ir.siliksama.hajmino.BuildConfig
 interface AdsProvider {
     /** True once a real ad network is integrated and can serve banners. */
     fun isAvailable(): Boolean
+    fun initialize(app: android.app.Application) {}
+    
+    @Composable
+    fun AdBanner(modifier: Modifier) {}
 }
 
 /** Default provider: no network, no ads — the offline-first behavior. */
 class NoopAdsProvider : AdsProvider {
     override fun isAvailable(): Boolean = false
+    
+    @Composable
+    override fun AdBanner(modifier: Modifier) {}
 }
 
 object Ads {
@@ -23,9 +32,9 @@ object Ads {
 
     private fun create(): AdsProvider {
         if (!BuildConfig.ADS_ENABLED) return NoopAdsProvider()
-        // The Tapsell provider lives only in the "bazaar" flavor source set.
+        // The Adivery provider lives only in the "bazaar" flavor source set.
         return runCatching {
-            val clazz = Class.forName("com.compressly.core.ads.TapsellAdsProvider")
+            val clazz = Class.forName("com.compressly.core.ads.AdiveryAdsProvider")
             clazz.getDeclaredConstructor().newInstance() as AdsProvider
         }.getOrDefault(NoopAdsProvider())
     }
