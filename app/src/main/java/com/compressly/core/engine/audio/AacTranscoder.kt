@@ -114,6 +114,8 @@ object AacTranscoder {
                     if (fed > 0) {
                         lastPts = pendingPts
                         encoder.queueInputBuffer(inIndex, 0, encBuf.position(), pendingPts, 0)
+                        val durationUs = (fed * 1_000_000L) / (sampleRate * channels * 2)
+                        pendingPts += durationUs
                     }
                     if (!pendingBuf.hasRemaining()) {
                         // All pending data was consumed.
@@ -145,42 +147,47 @@ object AacTranscoder {
                     }
                 }
 
-                var decOut = decoder.dequeueOutputBuffer(decInfo, 0)
-                while (decOut >= 0) {
-                    if (decInfo.size > 0 &&
-                        decInfo.presentationTimeUs >= trimStartUs - 20_000 &&
-                        (trimEndUs <= 0 || decInfo.presentationTimeUs <= trimEndUs)
-                    ) {
-                        val pcm = decoder.getOutputBuffer(decOut)!!
-                        pcm.position(decInfo.offset)
-                        pcm.limit(decInfo.offset + decInfo.size)
-                        pcmBuf.clear()
-                        convertPcmToEncoder(pcm, decInfo.size, pcmBuf, srcChannels, channels)
-                        pcmBuf.flip()
-                        var pts = (decInfo.presentationTimeUs - trimStartUs).coerceAtLeast(0)
-                        if (pts <= lastPts) pts = lastPts + 1_000
-                        val inIndex = encoder.dequeueInputBuffer(TIMEOUT_US)
-                        if (inIndex >= 0) {
-                            val encBuf = encoder.getInputBuffer(inIndex)!!
-                            encBuf.clear()
-                            putLimited(encBuf, pcmBuf)
-                            lastPts = pts
-                            encoder.queueInputBuffer(inIndex, 0, encBuf.position(), pts, 0)
-                            pendingPcm = false
-                        } else {
-                            // Encoder has no free input buffer — save PCM for retry.
+                if (!pendingPcm) {
+                    var decOut = decoder.dequeueOutputBuffer(decInfo, 0)
+                    while (decOut >= 0) {
+                        if (decInfo.size > 0 &&
+                            decInfo.presentationTimeUs >= trimStartUs - 20_000 &&
+                            (trimEndUs <= 0 || decInfo.presentationTimeUs <= trimEndUs)
+                        ) {
+                            val pcm = decoder.getOutputBuffer(decOut)!!
+                            pcm.position(decInfo.offset)
+                            pcm.limit(decInfo.offset + decInfo.size)
+                            pcmBuf.clear()
+                            convertPcmToEncoder(pcm, decInfo.size, pcmBuf, srcChannels, channels)
+                            pcmBuf.flip()
+                            
+                            var pts = (decInfo.presentationTimeUs - trimStartUs).coerceAtLeast(0)
+                            if (pts <= lastPts) pts = lastPts + 1_000
+                            
+                            // Immediately store in pendingBuf to feed it safely through the while(pendingPcm) logic
                             pendingBuf.clear()
                             pendingBuf.put(pcmBuf)
                             pendingBuf.flip()
                             pendingPcm = true
                             pendingPts = pts
                         }
+                        
+                        val isEos = (decInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0)
+                        decoder.releaseOutputBuffer(decOut, false)
+                        
+                        if (isEos) {
+                            decoderEosSeen = true
+                            break
+                        }
+
+                        // Break the decode loop if we generated new PCM data. 
+                        // The next iterations of while(!encEos) will consume it.
+                        if (pendingPcm) {
+                            break
+                        }
+                        
+                        decOut = decoder.dequeueOutputBuffer(decInfo, 0)
                     }
-                    if (decInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
-                        decoderEosSeen = true
-                    }
-                    decoder.releaseOutputBuffer(decOut, false)
-                    decOut = decoder.dequeueOutputBuffer(decInfo, 0)
                 }
 
                 // Queue encoder EOS ONLY after all pending PCM has been fed.

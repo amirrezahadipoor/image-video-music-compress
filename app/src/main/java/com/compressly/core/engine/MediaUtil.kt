@@ -48,18 +48,25 @@ object MediaUtil {
         sourceChannels: Int,
         targetChannels: Int
     ) {
-        val ch = if (sourceChannels <= 2) sourceChannels else 2
-        val perSampleBytes = ch * 2
+        val perSampleBytes = sourceChannels * 2
         val samples = sourceSize / perSampleBytes
         for (i in 0 until samples) {
             var l = 0
             var r = 0
-            for (c in 0 until ch) {
+            for (c in 0 until sourceChannels) {
                 val v = source.getShort()
                 if (c == 0) l = v.toInt()
                 else if (c == 1) r = v.toInt()
-                else {
-                    // Downmix additional channels into L/R by averaging.
+                else if (c == 2) { // Center
+                    l = (l + v) / 2
+                    r = (r + v) / 2
+                } else if (c == 3) { // LFE (ignore or add slightly)
+                    // omit or just do nothing
+                } else if (c == 4) { // Rear Left
+                    l = (l + v) / 2
+                } else if (c == 5) { // Rear Right
+                    r = (r + v) / 2
+                } else {
                     l = (l + v) / 2
                     r = (r + v) / 2
                 }
