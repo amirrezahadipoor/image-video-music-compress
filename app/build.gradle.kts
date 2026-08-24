@@ -41,10 +41,18 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("../compressly.jks")
+            storePassword = "compressly123"
+            keyAlias = "compressly"
+            keyPassword = "compressly123"
+        }
+    }
+
     buildTypes {
         release {
-            // Publish-ready: shrink + obfuscate. Configure your signing keystore
-            // in a signingConfigs block before publishing to the Play Store.
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

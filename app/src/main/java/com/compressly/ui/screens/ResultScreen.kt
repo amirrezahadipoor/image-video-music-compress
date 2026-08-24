@@ -196,50 +196,6 @@ private fun SuccessContent(
             )
         }
 
-        if (siblings.size > 1) {
-            Spacer(Modifier.height(16.dp))
-            Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    val done = siblings.count { it.status == HistoryEntry.STATUS_DONE }
-                    Text(
-                        text = stringResource(R.string.result_items_success, done, siblings.size),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    siblings.forEach { s ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 3.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = s.fileName,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                modifier = Modifier.weight(1f)
-                            )
-                            if (s.status == HistoryEntry.STATUS_DONE) {
-                                Text(
-                                    text = stringResource(R.string.history_reduced, Formats.humanSize(s.savedBytes)),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            } else {
-                                Text(
-                                    text = stringResource(R.string.progress_failed),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         Spacer(Modifier.height(24.dp))
 
         ActionButton(
