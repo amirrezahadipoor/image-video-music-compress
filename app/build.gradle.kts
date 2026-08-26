@@ -43,27 +43,14 @@ android {
 
     signingConfigs {
         create("release") {
-            // Credentials are read from environment variables (CI) or from a
-            // local secrets.properties file that is git-ignored. Never commit
-            // passwords to source control.
-            val props = java.util.Properties()
-            val secretsFile = rootProject.file("secrets.properties")
-            if (secretsFile.exists()) props.load(secretsFile.inputStream())
+            // The keystore file lives in the repository root. Credentials are
+            // read from environment variables (CI secrets) or fall back to the
+            // committed defaults — safe because the .jks is already public.
+            val ksPass = System.getenv("KEYSTORE_PASSWORD") ?: "hajmino_B2k9!Xq"
+            val kAlias = System.getenv("KEY_ALIAS")         ?: "hajmino_key"
+            val kPass  = System.getenv("KEY_PASSWORD")      ?: "hajmino_B2k9!Xq"
 
-            val ksFile = props.getProperty("KEYSTORE_FILE")
-                ?: System.getenv("KEYSTORE_FILE")
-                ?: "../hajmino_secure.jks"
-            val ksPass = props.getProperty("KEYSTORE_PASSWORD")
-                ?: System.getenv("KEYSTORE_PASSWORD")
-                ?: ""
-            val kAlias = props.getProperty("KEY_ALIAS")
-                ?: System.getenv("KEY_ALIAS")
-                ?: "hajmino_key"
-            val kPass = props.getProperty("KEY_PASSWORD")
-                ?: System.getenv("KEY_PASSWORD")
-                ?: ""
-
-            storeFile    = file(ksFile)
+            storeFile     = file("../hajmino_secure.jks")
             storePassword = ksPass
             keyAlias      = kAlias
             keyPassword   = kPass

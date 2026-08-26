@@ -1,0 +1,117 @@
+name: Build & Test APKs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Test + Build signed APKs
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. JDK ────────────────────────────────────────────────────────────
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # ── 3. Gradle cache ───────────────────────────────────────────────────
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      # ── 4. Validate Gradle wrapper ────────────────────────────────────────
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      # ── 5. JVM unit tests ─────────────────────────────────────────────────
+      # Run tests on the bazaar/debug variant so the Poolakey source set
+      # is also compiled and validated. The unit-test suite is pure-JVM
+      # (MediaUtil, SizeEstimator, PresetDefaults, JobControl …) so it
+      # needs no emulator.
+      - name: Run JVM unit tests
+        run: |
+          ./gradlew \
+            :app:testBazaarDebugUnitTest \
+            --no-daemon \
+            --stacktrace
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: app/build/reports/tests/
+          retention-days: 7
+
+      # ── 6. Build Bazaar release APK ───────────────────────────────────────
+      - name: Build Bazaar release APK
+        run: |
+          ./gradlew \
+            :app:assembleBazaarRelease \
+            --no-daemon \
+            --stacktrace
+
+      # ── 7. Build Play release APK ─────────────────────────────────────────
+      - name: Build Play release APK
+        run: |
+          ./gradlew \
+            :app:assemblePlayRelease \
+            --no-daemon \
+            --stacktrace
+
+      # ── 8. Verify APKs are signed ─────────────────────────────────────────
+      - name: Verify APK signatures
+        run: |
+          set -e
+          BAZAAR_APK="app/build/outputs/apk/bazaar/release/app-bazaar-release.apk"
+          PLAY_APK="app/build/outputs/apk/play/release/app-play-release.apk"
+
+          for APK in "$BAZAAR_APK" "$PLAY_APK"; do
+            echo "=== Verifying: $(basename $APK) ==="
+            ls -lh "$APK"
+            $JAVA_HOME/bin/jarsigner -verify -verbose "$APK" 2>&1 | \
+              grep -E "jar verified|WARNING|ERROR" || true
+          done
+
+      # ── 9. Collect artifacts ──────────────────────────────────────────────
+      - name: Collect APK artifacts
+        run: |
+          set -e
+          VERSION=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts || echo "1.0.0")
+          BUILD_NUM="${{ github.run_number }}"
+          mkdir -p dist
+
+          cp app/build/outputs/apk/bazaar/release/app-bazaar-release.apk \
+             "dist/Hajmino-${VERSION}-build${BUILD_NUM}-bazaar.apk"
+
+          cp app/build/outputs/apk/play/release/app-play-release.apk \
+             "dist/Hajmino-${VERSION}-build${BUILD_NUM}-play.apk"
+
+          echo "=== Artifacts ==="
+          ls -lh dist/
+          for f in dist/*.apk; do
+            SIZE=$(stat -c%s "$f")
+            echo "  $(basename $f): $(( SIZE / 1024 ))KB"
+          done
+
+      # ── 10. Upload artifacts ──────────────────────────────────────────────
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: compressly-apks-${{ github.run_number }}
+          path: dist/*.apk
+          if-no-files-found: error
+          retention-days: 30

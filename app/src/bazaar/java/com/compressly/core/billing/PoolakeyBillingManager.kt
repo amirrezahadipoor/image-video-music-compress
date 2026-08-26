@@ -7,9 +7,13 @@ import ir.cafebazaar.poolakey.Payment
 import ir.cafebazaar.poolakey.config.PaymentConfiguration
 import ir.cafebazaar.poolakey.config.SecurityCheck
 import ir.cafebazaar.poolakey.request.PurchaseRequest
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 /**
  * Cafe Bazaar in-app billing via Poolakey 2.2.0.
@@ -21,7 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * 4. Replace BAZAAR_RSA_PUBLIC_KEY placeholder with your real key.
  *
  * This implementation handles:
- * - Connection lifecycle (connect / disconnect / reconnect on failure)
+ * - Connection lifecycle (connect / disconnect)
  * - One-time premium purchase (non-consumable)
  * - Purchase query on startup (so reinstalls restore premium)
  * - All error paths (cancelled, failed, store not installed)
@@ -42,8 +46,9 @@ class PoolakeyBillingManager(
          * IMPORTANT: never commit the real key to a public repository.
          * Store it in BuildConfig via secrets.properties or an environment variable.
          *
-         * In app/build.gradle.kts add:
-         *   buildConfigField("String", "BAZAAR_RSA_KEY", "\"${project.property("BAZAAR_RSA_KEY")}\"")
+         * In app/build.gradle.kts add (bazaar flavor only):
+         *   buildConfigField("String", "BAZAAR_RSA_KEY",
+         *       "\"${System.getenv("BAZAAR_RSA_KEY") ?: ""}\"")
          */
         const val BAZAAR_RSA_PUBLIC_KEY = "" // TODO: set via BuildConfig.BAZAAR_RSA_KEY
     }
@@ -54,10 +59,13 @@ class PoolakeyBillingManager(
     private val _conn = MutableStateFlow(BillingConnectionState.IDLE)
     override val connectionState: StateFlow<BillingConnectionState> = _conn.asStateFlow()
 
+    // Use a stable, supervised scope instead of MainScope() to avoid leaks.
+    // This scope lives as long as the BillingManager object (app lifetime).
+    private val billingScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
     private var payment: Payment? = null
     private var connection: Connection? = null
 
-    /** Must be called in Activity.onCreate before any purchase call. */
     override fun connect(activity: Activity) {
         if (_conn.value == BillingConnectionState.CONNECTED) return
         _conn.value = BillingConnectionState.CONNECTING
@@ -66,7 +74,7 @@ class PoolakeyBillingManager(
             localSecurityCheck = if (BAZAAR_RSA_PUBLIC_KEY.isNotBlank())
                 SecurityCheck.Enable(rsaPublicKey = BAZAAR_RSA_PUBLIC_KEY)
             else
-                SecurityCheck.Disable  // dev/test mode — DO NOT ship without a key!
+                SecurityCheck.Disable  // dev/test mode only — DO NOT ship without a key!
         )
 
         val p = Payment(context = activity, config = config)
@@ -75,8 +83,7 @@ class PoolakeyBillingManager(
         connection = p.connect {
             connectionSucceed {
                 _conn.value = BillingConnectionState.CONNECTED
-                // Immediately verify any existing purchase so the premium state
-                // is restored if the user reinstalls the app.
+                // Verify existing purchases immediately so reinstalls restore premium.
                 queryExistingPurchasesInternal(p)
             }
             connectionFailed {
@@ -99,27 +106,16 @@ class PoolakeyBillingManager(
                 payload = "premium_payload_${System.currentTimeMillis()}"
             )
         ) {
-            purchaseFlowBegan {
-                // UI is handled by Bazaar's bottom sheet; nothing extra needed.
-            }
+            purchaseFlowBegan { /* Bazaar bottom sheet is now showing */ }
             failedToBeginFlow {
-                // Bazaar app might need an update; let the user know via the
-                // connection state so the UI can show a helpful message.
                 _conn.value = BillingConnectionState.FAILED
             }
-            purchaseSucceed { purchaseInfo ->
-                // Mark premium immediately; persist asynchronously.
+            purchaseSucceed { _ ->
                 _premium.value = true
-                kotlinx.coroutines.MainScope().launch {
-                    persistPremium(true)
-                }
+                billingScope.launch { persistPremium(true) }
             }
-            purchaseCanceled {
-                // User tapped the back button — no action needed.
-            }
-            purchaseFailed {
-                // Network error or Bazaar-side issue; connection state unchanged.
-            }
+            purchaseCanceled { /* user tapped back — no action */ }
+            purchaseFailed { /* network error — state unchanged */ }
         }
     }
 
@@ -133,14 +129,10 @@ class PoolakeyBillingManager(
                 val hasPremium = purchasedItems.any { it.productId == PREMIUM_SKU }
                 if (hasPremium && !_premium.value) {
                     _premium.value = true
-                    kotlinx.coroutines.MainScope().launch {
-                        persistPremium(true)
-                    }
+                    billingScope.launch { persistPremium(true) }
                 }
             }
-            queryFailed {
-                // Non-fatal — premium state from DataStore is still valid.
-            }
+            queryFailed { /* non-fatal — DataStore state still valid */ }
         }
     }
 
@@ -151,10 +143,3 @@ class PoolakeyBillingManager(
         _conn.value = BillingConnectionState.IDLE
     }
 }
-
-private fun kotlinx.coroutines.MainScope() = kotlinx.coroutines.CoroutineScope(
-    kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main.immediate
-)
-
-private fun kotlinx.coroutines.CoroutineScope.launch(block: suspend () -> Unit) =
-    kotlinx.coroutines.launch { block() }

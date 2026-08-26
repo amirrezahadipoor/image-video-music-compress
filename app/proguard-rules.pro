@@ -35,3 +35,11 @@
 -dontwarn com.mbridge.**
 -dontwarn com.google.android.gms.ads.**
 -dontwarn com.google.android.gms.common.**
+
+# Poolakey (Cafe Bazaar IAP SDK)
+-keep class ir.cafebazaar.poolakey.** { *; }
+-dontwarn ir.cafebazaar.poolakey.**
+
+# Keep billing interfaces for reflection
+-keep interface com.compressly.core.billing.** { *; }
+-keep class com.compressly.core.billing.** { *; }
