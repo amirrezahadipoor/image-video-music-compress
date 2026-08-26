@@ -348,6 +348,5 @@
     <string name="premium_one_time_note">پرداخت یک‌بار — بدون اشتراک. تمام بروزرسانی‌های آینده شامل می‌شود.</string>
     <string name="premium_store_unavailable">اتصال به کافه‌بازار ناموفق بود. مطمئن شوید که بازار نصب و به‌روز است.</string>
     <string name="premium_active_badge">پریمیوم فعال است ✓</string>
-    <string name="premium_title">ارتقا به پریمیوم</string>
-    <string name="premium_desc">بدون تبلیغات — از توسعه حمایت کنید</string>
+
 </resources>
