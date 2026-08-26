@@ -5,6 +5,8 @@ import android.content.Context
 import coil.Coil
 import coil.ImageLoader
 import coil.decode.VideoFrameDecoder
+import com.compressly.core.billing.BillingManager
+import com.compressly.core.billing.NoopBillingManager
 import com.compressly.core.data.HistoryRepository
 import com.compressly.core.data.SettingsRepository
 import com.compressly.core.data.db.AppDatabase
@@ -82,6 +84,9 @@ class AppContainer(app: Application) {
     val jobCoordinator: JobCoordinator by lazy { JobCoordinator(context, historyRepository) }
     val navigationBus: NavigationBus = NavigationBus()
     val selection: SelectionHolder = SelectionHolder()
+    // Billing: NoopBillingManager in play/debug; the bazaar flavor overrides this
+    // by providing PoolakeyBillingManager via a flavor-specific AppContainer extension.
+    val billingManager: BillingManager by lazy { NoopBillingManager() }
 }
 
 /** Files chosen in the picker, held until the settings screen consumes them. */

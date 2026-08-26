@@ -315,4 +315,23 @@
     <string name="onboard_body_4">Smart mode automatically finds the best quality-to-size balance — always keeping perceptual quality above 70%.</string>
     <string name="onboard_next">Next</string>
     <string name="onboard_start">Let\'s start!</string>
+
+
+    <!-- Premium screen -->
+    <string name="premium_screen_title">Support &amp; Remove Ads</string>
+    <string name="premium_hero_title">Compressly Premium</string>
+    <string name="premium_hero_desc">One-time purchase — ad-free forever. Support the app\'s development.</string>
+    <string name="premium_already_title">You\'re Premium ✓</string>
+    <string name="premium_already_desc">Thank you for your support! All premium features are active.</string>
+    <string name="premium_benefits_title">What\'s included?</string>
+    <string name="premium_benefit_noads">No ads — forever</string>
+    <string name="premium_benefit_smart">Optimized Smart mode</string>
+    <string name="premium_benefit_batch">Unlimited batch compression</string>
+    <string name="premium_benefit_offline">100% offline — always</string>
+    <string name="premium_cta">Buy Premium on Bazaar</string>
+    <string name="premium_one_time_note">One-time payment — no subscription. All future updates included.</string>
+    <string name="premium_store_unavailable">Could not connect to Cafe Bazaar. Make sure the Bazaar app is installed and up to date.</string>
+    <string name="premium_active_badge">Premium is active ✓</string>
+    <string name="premium_title">Upgrade to Premium</string>
+    <string name="premium_desc">No ads — support development</string>
 </resources>

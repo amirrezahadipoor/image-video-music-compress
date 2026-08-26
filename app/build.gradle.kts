@@ -100,6 +100,14 @@ android {
         buildConfig = true
     }
 
+    sourceSets {
+        // The bazaar flavor has its own billing implementation (Poolakey).
+        // The play flavor falls back to the main sourceSet's NoopBillingManager.
+        getByName("bazaar") {
+            java.srcDirs("src/bazaar/java")
+        }
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -166,8 +174,12 @@ dependencies {
     // Offline metadata tagging (ID3v2 / MP4)
     implementation(libs.jaudiotagger)
 
-    // Adivery SDK for Bazaar
+    // Adivery SDK for Bazaar (ads)
     "bazaarImplementation"("com.adivery:sdk:4.9.0")
+
+    // Poolakey — Cafe Bazaar in-app billing SDK (version 2.2.0)
+    // Only included in the bazaar flavor; the play flavor uses Google's billing.
+    "bazaarImplementation"("com.github.cafebazaar.Poolakey:poolakey:2.2.0")
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

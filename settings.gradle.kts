@@ -11,6 +11,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Poolakey (Cafe Bazaar IAP SDK) is hosted on JitPack
+        maven { url = uri("https://jitpack.io") }
     }
 }
 

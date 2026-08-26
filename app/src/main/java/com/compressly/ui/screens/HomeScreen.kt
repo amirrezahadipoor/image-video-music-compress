@@ -82,6 +82,7 @@ fun HomeScreen(
     onOpenSettings: (MediaType) -> Unit,
     onOpenHistory: () -> Unit,
     onOpenAppSettings: () -> Unit,
+    onOpenPremium: () -> Unit,
     onOpenJob: (Long) -> Unit,
     onOpenEntry: (Long) -> Unit,
     viewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory)
@@ -184,7 +185,7 @@ fun HomeScreen(
             // UI-2 BEAUTY: Premium banner moved after module cards so it doesn't
             // block the primary call-to-action. Non-intrusive placement.
             if (!isPremium) {
-                item { PremiumBanner { viewModel.simulatePurchase(container) } }
+                item { PremiumBanner { onOpenPremium() } }
             }
             item {
                 AdSlot(Modifier.padding(horizontal = 20.dp, vertical = 8.dp))

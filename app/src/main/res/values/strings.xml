@@ -331,4 +331,23 @@
     <string name="onboard_body_4">حالت هوشمند به طور خودکار بهترین تعادل کیفیت و حجم را انتخاب می‌کند — همیشه بیش از ۷۰٪ کیفیت حفظ می‌شود.</string>
     <string name="onboard_next">بعدی</string>
     <string name="onboard_start">شروع کنید!</string>
+
+
+    <!-- Premium screen -->
+    <string name="premium_screen_title">حمایت مالی و حذف تبلیغات</string>
+    <string name="premium_hero_title">حجمینو پریمیوم</string>
+    <string name="premium_hero_desc">یک بار پرداخت — برای همیشه بدون تبلیغات. از توسعه اپ حمایت کنید.</string>
+    <string name="premium_already_title">شما پریمیوم هستید ✓</string>
+    <string name="premium_already_desc">ممنون از حمایت شما! تمام امکانات پریمیوم فعال است.</string>
+    <string name="premium_benefits_title">چه چیزی شامل می‌شود؟</string>
+    <string name="premium_benefit_noads">بدون تبلیغات — برای همیشه</string>
+    <string name="premium_benefit_smart">حالت هوشمند بهینه‌شده</string>
+    <string name="premium_benefit_batch">فشرده‌سازی دسته‌ای بدون محدودیت</string>
+    <string name="premium_benefit_offline">کاملاً آفلاین — همیشه</string>
+    <string name="premium_cta">خرید پریمیوم از بازار</string>
+    <string name="premium_one_time_note">پرداخت یک‌بار — بدون اشتراک. تمام بروزرسانی‌های آینده شامل می‌شود.</string>
+    <string name="premium_store_unavailable">اتصال به کافه‌بازار ناموفق بود. مطمئن شوید که بازار نصب و به‌روز است.</string>
+    <string name="premium_active_badge">پریمیوم فعال است ✓</string>
+    <string name="premium_title">ارتقا به پریمیوم</string>
+    <string name="premium_desc">بدون تبلیغات — از توسعه حمایت کنید</string>
 </resources>

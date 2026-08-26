@@ -5,6 +5,7 @@ object Routes {
     const val HOME           = "home"
     const val HISTORY        = "history"
     const val APP_SETTINGS   = "app_settings"
+    const val PREMIUM         = "premium"
     const val SETTINGS_PATTERN = "settings/{type}"
     fun settings(type: String) = "settings/$type"
     const val PROGRESS_PATTERN = "progress/{jobId}"

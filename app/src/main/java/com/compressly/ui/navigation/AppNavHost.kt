@@ -3,16 +3,18 @@ package com.compressly.ui.navigation
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import kotlinx.coroutines.launch
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.compressly.CompresslyApp
 import com.compressly.core.engine.model.MediaType
 import com.compressly.ui.screens.AppSettingsScreen
@@ -21,25 +23,38 @@ import com.compressly.ui.screens.HistoryScreen
 import com.compressly.ui.screens.HomeScreen
 import com.compressly.ui.screens.OnboardingScreen
 import com.compressly.ui.screens.ProgressScreen
+import com.compressly.ui.screens.PremiumScreen
 import com.compressly.ui.screens.ResultScreen
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 
 /**
  * App navigation. Core flow:
- * (Onboarding on first run) -> Home -> Settings -> Progress -> Result.
- * History and App Settings are top-level destinations.
+ * (Onboarding on first run) → Home → Settings → Progress → Result.
+ * History and AppSettings are top-level destinations.
+ *
+ * Onboarding logic:
+ * - DataStore emits false initially for new installs (never seen before).
+ * - We use initialValue = null to distinguish "loading" from "done/not-done",
+ *   preventing both the flash-to-onboarding for returning users and the
+ *   skip-onboarding-entirely for new users.
  */
 @Composable
 fun AppNavHost(navController: NavHostController) {
     val context = LocalContext.current
     val container = (context.applicationContext as CompresslyApp).container
+    val scope = rememberCoroutineScope()
+
+    // null = still loading from DataStore; false = not done; true = done
     val onboardingDone by container.settingsRepository.onboardingDone
-        .collectAsStateWithLifecycle(initialValue = true) // default true avoids flash
+        .collectAsStateWithLifecycle(initialValue = null)
+
+    // Don't render NavHost until we know the onboarding state.
+    // This avoids a visible flash from HOME → ONBOARDING on first launch.
+    if (onboardingDone == null) return
 
     NavHost(
         navController = navController,
-        startDestination = if (onboardingDone) Routes.HOME else Routes.ONBOARDING,
+        startDestination = if (onboardingDone == true) Routes.HOME else Routes.ONBOARDING,
         enterTransition = {
             fadeIn(tween(220)) + slideInHorizontally(tween(280)) { it / 5 }
         },
@@ -54,7 +69,8 @@ fun AppNavHost(navController: NavHostController) {
         composable(Routes.ONBOARDING) {
             OnboardingScreen(
                 onDone = {
-                    kotlinx.coroutines.MainScope().launch {
+                    // Use the composition-scoped coroutine — no leak.
+                    scope.launch {
                         container.settingsRepository.markOnboardingDone()
                     }
                     navController.navigate(Routes.HOME) {
@@ -69,6 +85,7 @@ fun AppNavHost(navController: NavHostController) {
                 onOpenSettings = { type -> navController.navigate(Routes.settings(type.name)) },
                 onOpenHistory = { navController.navigate(Routes.HISTORY) },
                 onOpenAppSettings = { navController.navigate(Routes.APP_SETTINGS) },
+                onOpenPremium = { navController.navigate(Routes.PREMIUM) },
                 onOpenJob = { jobId ->
                     navController.navigate(Routes.progress(jobId)) {
                         popUpTo(Routes.HOME) { inclusive = false }
@@ -143,6 +160,10 @@ fun AppNavHost(navController: NavHostController) {
 
         composable(Routes.APP_SETTINGS) {
             AppSettingsScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.PREMIUM) {
+            PremiumScreen(onBack = { navController.popBackStack() })
         }
     }
 }

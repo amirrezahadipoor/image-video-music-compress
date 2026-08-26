@@ -64,15 +64,19 @@ object PresetDefaults {
         CompressionPreset.SMART to AudioDefaults(192, 30, 85)
     )
 
-    fun reductionRange(preset: CompressionPreset, mediaType: MediaType): Pair<Int, Int> = when (mediaType) {
-        MediaType.PHOTO -> photoDefaults[preset]!!.let { it.reductionMin to it.reductionMax }
-        MediaType.VIDEO -> videoDefaults[preset]!!.let { it.reductionMin to it.reductionMax }
-        MediaType.AUDIO -> audioDefaults[preset]!!.let { it.reductionMin to it.reductionMax }
+    fun reductionRange(preset: CompressionPreset, mediaType: MediaType): Pair<Int, Int> {
+        // Safe access: every preset has an entry; the ?: fallback guards against
+        // future presets being added without a corresponding defaults entry.
+        return when (mediaType) {
+            MediaType.PHOTO -> photoDefaults[preset]?.let { it.reductionMin to it.reductionMax } ?: (0 to 50)
+            MediaType.VIDEO -> videoDefaults[preset]?.let { it.reductionMin to it.reductionMax } ?: (0 to 50)
+            MediaType.AUDIO -> audioDefaults[preset]?.let { it.reductionMin to it.reductionMax } ?: (0 to 50)
+        }
     }
 
     /** Default advanced settings for a given preset, used when the user opens a new job. */
     fun photoSettingsFor(preset: CompressionPreset): PhotoSettings {
-        val d = photoDefaults[preset]!!
+        val d = photoDefaults[preset] ?: photoDefaults[CompressionPreset.BALANCED]!!
         return PhotoSettings(
             quality = d.quality,
             resize = d.resize,
@@ -83,7 +87,7 @@ object PresetDefaults {
     }
 
     fun videoSettingsFor(preset: CompressionPreset): VideoSettings {
-        val d = videoDefaults[preset]!!
+        val d = videoDefaults[preset] ?: videoDefaults[CompressionPreset.BALANCED]!!
         return VideoSettings(
             resolution = d.resolution,
             frameRate = d.frameRate,
@@ -93,7 +97,7 @@ object PresetDefaults {
     }
 
     fun audioSettingsFor(preset: CompressionPreset): AudioSettings {
-        val d = audioDefaults[preset]!!
+        val d = audioDefaults[preset] ?: audioDefaults[CompressionPreset.BALANCED]!!
         return AudioSettings(
             format = AudioFormat.AAC,
             bitrate = d.bitrateKbps,
