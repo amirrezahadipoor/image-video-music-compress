@@ -100,7 +100,12 @@ class AudioCompressor(private val context: Context) {
             val inputMime = inputFormat.getString(MediaFormat.KEY_MIME)
                 ?: throw AudioCompressionException(KEY_DECODE)
             val sampleRate = inputFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
-            val channels = inputFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT).coerceIn(1, 2)
+            // AUDIO-1 FIX: read the actual source channel count separately from
+            // the LAME output channel count. LAME only supports mono/stereo, but
+            // the decoder may output 5.1 (6-channel) PCM for FLAC/AAC 5.1 sources.
+            // We need srcChannels to correctly downmix the PCM before feeding LAME.
+            val srcChannels = inputFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT).coerceIn(1, 8)
+            val channels = srcChannels.coerceAtMost(2)  // LAME output: mono or stereo
 
             decoder = MediaCodec.createDecoderByType(inputMime)
             decoder.configure(inputFormat, null, null, 0)
@@ -163,6 +168,28 @@ class AudioCompressor(private val context: Context) {
                                 if (pcmFloat) {
                                     val n = floatToPcm16(buf, info.size, pcmOut)
                                     if (n > 0) writer.writePcm(pcmOut, n)
+                                } else if (srcChannels > 2) {
+                                    // MP3-CHUNK-1 + AUDIO-1 FIX: decoder may output
+                                    // N-channel PCM (e.g. 6ch for 5.1 FLAC/AAC).
+                                    // Mp3Writer.encodeChunk assumes 16-bit stereo/mono,
+                                    // so feeding raw multi-channel PCM produces a
+                                    // completely wrong sample count and corrupt audio.
+                                    // Downmix to stereo first using MediaUtil.
+                                    val downmixed = java.nio.ByteBuffer
+                                        .allocateDirect(info.size / srcChannels * 2)
+                                        .order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                                    buf.order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                                    com.compressly.core.engine.MediaUtil.convertPcmToEncoder(
+                                        buf, info.size, downmixed, srcChannels, channels
+                                    )
+                                    downmixed.flip()
+                                    var remaining = downmixed.remaining()
+                                    while (remaining > 0 && downmixed.hasRemaining()) {
+                                        val chunk = minOf(remaining, pcmOut.size, downmixed.remaining())
+                                        downmixed.get(pcmOut, 0, chunk)
+                                        writer.writePcm(pcmOut, chunk)
+                                        remaining -= chunk
+                                    }
                                 } else {
                                     // Decoder output buffers can exceed our 32KB
                                     // scratch; feed the encoder in chunks so no

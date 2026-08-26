@@ -72,7 +72,11 @@ class MediaCodecTranscoder(private val context: Context) {
             ?: com.compressly.core.engine.estimate.SizeEstimator.targetVideoBitrate(info, settings, preset)
         val targetFps = settings.frameRate ?: 30
 
-        val tempVideo = File(context.cacheDir, "tmp_${System.currentTimeMillis()}_video.mp4")
+        // VID-TEMP-1 FIX: use nanoTime for uniqueness. currentTimeMillis() has
+        // millisecond resolution; two concurrent jobs that both start within the
+        // same millisecond would produce identical filenames and corrupt each other's
+        // temp files. nanoTime is monotonic and provides nanosecond uniqueness.
+        val tempVideo = File(context.cacheDir, "tmp_${System.nanoTime()}_video.mp4")
         var tempAudio: File? = null
         var tempAudioUri: Uri? = null
         try {
@@ -104,7 +108,7 @@ class MediaCodecTranscoder(private val context: Context) {
                 if (passthroughAac) {
                     tempAudioUri = inputUri // copy samples directly during merge
                 } else {
-                    tempAudio = File(context.cacheDir, "tmp_${System.currentTimeMillis()}_audio.m4a")
+                    tempAudio = File(context.cacheDir, "tmp_${System.nanoTime()}_audio.m4a")
                     val audioBitrate = when (settings.audioMode) {
                         VideoAudioMode.COMPRESS -> {
                             // Re-encode at ~55% of source, bounded to 96-192 kbps.

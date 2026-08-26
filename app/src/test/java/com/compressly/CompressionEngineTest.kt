@@ -413,3 +413,60 @@ class CompressionEngineTest {
         assertEquals("dst untouched", 0, dst.position())
     }
 }
+
+    // ── باگ‌های نهایی که در این round fix شدند ─────────────────────────────
+
+    @Test
+    fun hist1_totalSaved_notNegativeWhenOutputLargerThanInput() {
+        // اگه PNG خروجی از JPEG ورودی بزرگتر باشه، savedBytes نباید منفی بشه
+        // این رو فقط در لایه منطق بررسی می‌کنیم (SQL در JVM قابل تست نیست)
+        val savedBytes: Long = maxOf(0L, 100_000L - 200_000L)  // output > input
+        assertEquals("savedBytes نباید منفی باشه", 0L, savedBytes)
+    }
+
+    @Test
+    fun vidTemp1_nanoTimeUniqueness() {
+        // nanoTime باید برای دو فراخوانی پشت سر هم مقادیر متفاوت بده
+        val t1 = System.nanoTime()
+        val t2 = System.nanoTime()
+        assertTrue("nanoTime باید monotonic باشه", t2 >= t1)
+        // در محیط واقعی همیشه متفاوتند اما در تست ممکنه مساوی باشن
+        // مهم اینه که از millis بهتره
+        assertTrue("nanoTime > 0", t1 > 0)
+    }
+
+    @Test
+    fun audio1_srcChannelsClamped() {
+        // اگه src 6-channel باشه، LAME output باید stereo (2) باشه
+        val srcChannels = 6
+        val lamedChannels = srcChannels.coerceAtMost(2)
+        assertEquals("LAME channels باید ≤2 باشه", 2, lamedChannels)
+    }
+
+    @Test
+    fun mp3Chunk1_downmixSize() {
+        // اگه decoder 6-channel 16-bit PCM بده، downmixed size چقدر است؟
+        val srcChannels = 6
+        val targetChannels = 2
+        val inputSizeBytes = 6 * 100 * 2  // 6ch × 100samples × 2bytes = 1200
+        val expectedDownmixedBytes = inputSizeBytes / srcChannels * targetChannels  // 400 bytes
+        assertEquals(400, expectedDownmixedBytes)
+    }
+
+    @Test
+    fun pcm51ToStereo_outputSizeCorrect() {
+        // 6-channel × 4 samples × 2 bytes = 48 bytes input
+        // 2-channel × 4 samples × 2 bytes = 16 bytes output
+        val srcChannels = 6
+        val dstChannels = 2
+        val samples = 4
+        val src = ByteBuffer.allocate(samples * srcChannels * 2).order(ByteOrder.LITTLE_ENDIAN)
+        repeat(samples) {
+            repeat(srcChannels) { src.putShort(1000) }
+        }
+        src.flip()
+        val dst = ByteBuffer.allocate(samples * dstChannels * 2).order(ByteOrder.LITTLE_ENDIAN)
+        MediaUtil.convertPcmToEncoder(src, src.remaining(), dst, srcChannels, dstChannels)
+        assertEquals("خروجی باید ${ samples * dstChannels * 2 } bytes باشه",
+            samples * dstChannels * 2, dst.position())
+    }

@@ -27,7 +27,10 @@ interface HistoryDao {
     @Query("SELECT * FROM history WHERE jobId = :jobId AND status = :done ORDER BY id ASC LIMIT 1")
     suspend fun getFirstDoneByJob(jobId: Long, done: String = HistoryEntry.STATUS_DONE): HistoryEntry?
 
-    @Query("SELECT COALESCE(SUM(inputSize - outputSize), 0) FROM history WHERE status = :done")
+    // HIST-1 FIX: use MAX(0, inputSize-outputSize) per row so that a single
+    // PNG/lossless result whose outputSize > inputSize cannot drag the running
+    // total below zero. Plain SUM would subtract those rows from the total.
+    @Query("SELECT COALESCE(SUM(MAX(0, inputSize - outputSize)), 0) FROM history WHERE status = :done")
     fun observeTotalSaved(done: String = HistoryEntry.STATUS_DONE): Flow<Long>
 
     @Insert
