@@ -229,8 +229,16 @@ class PhotoCompressor(private val context: Context) {
 
     private fun outputExtension(sourceMime: String?, format: PhotoFormat): String =
         when (resolveCompressFormat(sourceMime, format)) {
-            Bitmap.CompressFormat.PNG -> "png"
-            else -> if (sourceMime == "image/webp" && format == PhotoFormat.SOURCE) "webp" else "jpg"
+            Bitmap.CompressFormat.PNG          -> "png"
+            // WEBP_LOSSY (API 30+) and the deprecated WEBP (API 26-29) both
+            // produce WebP-encoded bytes. The temp file must carry the correct
+            // .webp extension so ExifInterface can identify the format when
+            // preserveMetadata=true — using .jpg here caused silent EXIF loss
+            // for any JPEG/PNG→WEBP conversion (BUG-FMT-2 fix).
+            Bitmap.CompressFormat.WEBP_LOSSY,
+            @Suppress("DEPRECATION")
+            Bitmap.CompressFormat.WEBP         -> "webp"
+            else                               -> "jpg"
         }
 
     private fun fmtIsLossy(sourceMime: String?, format: PhotoFormat): Boolean =
