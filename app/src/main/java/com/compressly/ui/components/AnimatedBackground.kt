@@ -42,9 +42,10 @@ fun AnimatedBlobs(
         infiniteRepeatable(tween(24_000, easing = LinearEasing)), label = "a2")
     val a3 by t.animateFloat(0f, 360f,
         infiniteRepeatable(tween(31_000, easing = LinearEasing)), label = "a3")
+    // repeatMode belongs on infiniteRepeatable, not on tween
     val pulse by t.animateFloat(0.85f, 1.15f,
-        infiniteRepeatable(tween(4_000, easing = FastOutSlowInEasing,
-            repeatMode = RepeatMode.Reverse)), label = "pulse")
+        infiniteRepeatable(tween(4_000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse), label = "pulse")
 
     val alpha = if (dark) 0.08f else 0.06f
 

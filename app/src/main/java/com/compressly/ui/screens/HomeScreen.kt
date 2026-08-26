@@ -279,7 +279,6 @@ private fun HomeHeader(onOpenHistory: () -> Unit, onOpenAppSettings: () -> Unit)
 }
 
 @Composable
-@Composable
 private fun HeroCard(totalSaved: Long) {
     val onPrimary = Color.White
     // UI-1 BEAUTY: cleaner, more airy hero card — less text, bigger stat focus.

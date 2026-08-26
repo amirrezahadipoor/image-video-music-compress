@@ -1,6 +1,7 @@
 package com.compressly.core.billing
 
 import android.app.Activity
+import androidx.activity.ComponentActivity
 import ir.cafebazaar.poolakey.Connection
 import ir.cafebazaar.poolakey.ConnectionState
 import ir.cafebazaar.poolakey.Payment
@@ -98,9 +99,11 @@ class PoolakeyBillingManager(
     override fun purchasePremium(activity: Activity) {
         val p = payment ?: return
         if (_conn.value != BillingConnectionState.CONNECTED) return
+        // activityResultRegistry is only available on ComponentActivity (AppCompat/Compose).
+        val componentActivity = activity as? ComponentActivity ?: return
 
         p.purchaseProduct(
-            registry = activity.activityResultRegistry,
+            registry = componentActivity.activityResultRegistry,
             request = PurchaseRequest(
                 productId = PREMIUM_SKU,
                 payload = "premium_payload_${System.currentTimeMillis()}"

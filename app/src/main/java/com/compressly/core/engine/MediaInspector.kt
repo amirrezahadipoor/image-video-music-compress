@@ -32,13 +32,16 @@ object MediaInspector {
                 hasVideo = hasVideo,
                 hasAudio = hasAudio,
                 audioSampleRate = key(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)?.toIntOrNull() ?: 0,
-                // BUG-1 FIX: KEY_NUM_TRACKS returns the number of tracks in the
-                // container (audio+video), NOT the audio channel count. On a stereo
-                // MP4 it would return 2 (one video track + one audio track), which
-                // coincidentally matches — but on a mono AAC inside an MP4 with a
-                // video track it returns 2 instead of 1, breaking downmix logic.
-                // KEY_NUM_CHANNELS is the correct key for audio channel count.
-                audioChannels = key(MediaMetadataRetriever.METADATA_KEY_NUM_CHANNELS)?.toIntOrNull() ?: 0,
+                // BUG-1 FIX: KEY_NUM_TRACKS (always available) returns the number
+                // of tracks in the container, not the audio channel count.
+                // KEY_NUM_CHANNELS is the correct key but is only available on API 29+.
+                // On API 26-28 we fall back to 0 and let the engine read the channel
+                // count from MediaExtractor.getTrackFormat(KEY_CHANNEL_COUNT) directly.
+                audioChannels = if (android.os.Build.VERSION.SDK_INT >= 29) {
+                    key(MediaMetadataRetriever.METADATA_KEY_NUM_CHANNELS)?.toIntOrNull() ?: 0
+                } else {
+                    0 // engine reads from MediaExtractor on API 26-28
+                },
                 title = key(MediaMetadataRetriever.METADATA_KEY_TITLE),
                 artist = key(MediaMetadataRetriever.METADATA_KEY_ARTIST),
                 album = key(MediaMetadataRetriever.METADATA_KEY_ALBUM)

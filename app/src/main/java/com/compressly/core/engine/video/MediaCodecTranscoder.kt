@@ -234,11 +234,12 @@ class MediaCodecTranscoder(private val context: Context) {
             decoder.start()
 
             var muxer: MediaMuxer? = null
+            // Hoisted outside the inner try so the finally block can safely read it.
+            var muxerStarted = false
             try {
                 muxer = MediaMuxer(outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
                 muxer.setOrientationHint(rotation)
                 var videoMuxerTrack = -1
-                var muxerStarted = false
                 var encEos = false
                 var inputDone = false
                 var decoderEosSignalled = false
