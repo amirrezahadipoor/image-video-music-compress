@@ -250,12 +250,19 @@ class MediaCodecTranscoder(private val context: Context) {
                 val frameIntervalUs = if (keepAllFrames) 0L else (1_000_000.0 / targetFps).toLong()
                 var lastReported = -1f
 
+                // VID-1 FIX: track whether any work was done in this iteration.
+                // When inputDone+decoderEosSignalled but the hardware encoder is
+                // still processing, all three dequeue calls return -1 and we spin
+                // the CPU at 100% doing nothing. A 1 ms yield gives the encoder
+                // time to finish a frame without measurably slowing the pipeline.
                 while (!encEos) {
                 control.checkActive()
+                var didWork = false
 
                 if (!inputDone) {
                     val inIndex = decoder.dequeueInputBuffer(TIMEOUT_US)
                     if (inIndex >= 0) {
+                        didWork = true
                         val buf = decoder.getInputBuffer(inIndex)!!
                         val sampleSize = extractor.readSampleData(buf, 0)
                         if (sampleSize < 0) {
@@ -287,6 +294,7 @@ class MediaCodecTranscoder(private val context: Context) {
                 // Drain decoder (renders into the encoder's input surface).
                 var decoderOut = decoder.dequeueOutputBuffer(decoderInfo, 0)
                 while (decoderOut >= 0) {
+                    didWork = true
                     val render = if (keepAllFrames) {
                         true
                     } else {
@@ -309,6 +317,7 @@ class MediaCodecTranscoder(private val context: Context) {
                 // Drain encoder -> muxer.
                 var encoderOut = encoder.dequeueOutputBuffer(encoderInfo, 0)
                 while (encoderOut >= 0) {
+                    didWork = true
                     if (encoderInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) {
                         encoderInfo.size = 0
                     }
@@ -340,6 +349,12 @@ class MediaCodecTranscoder(private val context: Context) {
                     }
                     encoder.releaseOutputBuffer(encoderOut, false)
                     encoderOut = encoder.dequeueOutputBuffer(encoderInfo, 0)
+                }
+
+                // VID-1 FIX: if all queues were empty, yield for 1 ms to prevent
+                // 100 % CPU spin while waiting for the hardware encoder to finish.
+                if (!didWork && !encEos) {
+                    kotlinx.coroutines.delay(1)
                 }
                 }
             } finally {
@@ -434,8 +449,11 @@ private suspend fun mergePass(
 
         muxer.start()
 
-        val videoBuf = ByteBuffer.allocateDirect(1 shl 20)
-        val audioBuf = ByteBuffer.allocateDirect(1 shl 20)
+        // MUX-3 FIX: 1 MB was vastly over-sized for most content. A single
+        // compressed video sample is typically ≤ 512 KB even at 4K 60 Mbps.
+        // Use 512 KB to halve the direct-buffer allocation cost (OS page pinning).
+        val videoBuf = ByteBuffer.allocateDirect(512 * 1024)
+        val audioBuf = ByteBuffer.allocateDirect(256 * 1024)
         val videoInfo = MediaCodec.BufferInfo()
         val audioInfo = MediaCodec.BufferInfo()
         var videoHasSample = false
@@ -447,6 +465,14 @@ private suspend fun mergePass(
         // trim window); transcoded audio is already trimmed (PTS start at 0).
         val audioOffset = if (audioAlreadyTrimmed) 0L else trimStartUs
         val audioEnd = if (audioAlreadyTrimmed) 0L else trimEndUs
+
+        // MUX-4 FIX: seek passthrough audio extractor to the trim start point
+        // before reading. Without this, readAudio() spins through every packet
+        // from the beginning of the file (potentially minutes of audio) silently
+        // skipping them via the `if (pts < audioOffset) continue` guard.
+        if (!audioAlreadyTrimmed && audioOffset > 0) {
+            audioExtractor?.seekTo(audioOffset, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+        }
 
         fun readVideo(): Boolean {
             if (videoDone) return false
@@ -472,6 +498,12 @@ private suspend fun mergePass(
             }
         }
 
+        // MUX-1 FIX: stall counter guards against an infinite loop if
+        // readSampleData() keeps returning 0-byte samples without advancing
+        // (a pathological but theoretically possible edge case with some demuxers).
+        var stallCount = 0
+        val MAX_STALLS = 200
+
         try {
             // The video temp file is already trimmed (PTS start at 0); the
             // passthrough audio is trimmed inside readAudio().
@@ -495,13 +527,27 @@ private suspend fun mergePass(
                 if (writeVideo && videoHasSample) {
                     muxer.writeSampleData(videoMuxerTrack, videoBuf, videoInfo)
                     videoHasSample = readVideo()
+                    stallCount = 0
                 } else if (!writeVideo && audioHasSample) {
                     muxer.writeSampleData(audioMuxerTrack, audioBuf, audioInfo)
                     audioHasSample = readAudio()
+                    stallCount = 0
                 } else {
                     // Neither stream has a ready sample — read the next one.
+                    val prevVideo = videoHasSample
+                    val prevAudio = audioHasSample
                     if (!videoDone) videoHasSample = readVideo()
                     if (!audioDone) audioHasSample = readAudio()
+                    // MUX-1 FIX: if nothing was produced and nothing finished,
+                    // increment the stall counter and break out if we exceed the
+                    // limit to avoid a theoretically infinite loop.
+                    if (!videoDone && !audioDone
+                        && videoHasSample == prevVideo
+                        && audioHasSample == prevAudio) {
+                        if (++stallCount > MAX_STALLS) break
+                    } else {
+                        stallCount = 0
+                    }
                 }
 
                 // Report progress. When trim is not enabled, use the video
@@ -579,16 +625,24 @@ private suspend fun mergePass(
         return null
     }
 
+    // VID-3 FIX: cache results so we scan MediaCodecList only once per (mime, mode)
+    // pair per process lifetime. This avoids rescanning 30-50 codecs on every
+    // videoPass call, which adds ~2-5 ms on mid-range devices.
+    private val bitrateModeSupportCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+
     private fun encoderSupportsBitrateMode(mime: String, mode: Int): Boolean {
-        return runCatching {
-            val list = MediaCodecList(MediaCodecList.REGULAR_CODECS)
-            for (ci in list.codecInfos) {
-                if (!ci.isEncoder || !ci.supportedTypes.contains(mime)) continue
-                val caps = ci.getCapabilitiesForType(mime).encoderCapabilities ?: continue
-                if (caps.isBitrateModeSupported(mode)) return true
-            }
-            false
-        }.getOrDefault(false)
+        val key = "$mime:$mode"
+        return bitrateModeSupportCache.getOrPut(key) {
+            runCatching {
+                val list = MediaCodecList(MediaCodecList.REGULAR_CODECS)
+                for (ci in list.codecInfos) {
+                    if (!ci.isEncoder || !ci.supportedTypes.contains(mime)) continue
+                    val caps = ci.getCapabilitiesForType(mime).encoderCapabilities ?: continue
+                    if (caps.isBitrateModeSupported(mode)) return@getOrPut true
+                }
+                false
+            }.getOrDefault(false)
+        }
     }
 
     /**

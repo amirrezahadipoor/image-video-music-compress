@@ -48,30 +48,30 @@ object MediaUtil {
         sourceChannels: Int,
         targetChannels: Int
     ) {
-        val perSampleBytes = sourceChannels * 2
+        // UTIL-2 FIX: clamp channel counts defensively. If the caller passes an
+        // incorrect sourceChannels (e.g. from a buggy MediaMetadataRetriever key),
+        // perSampleBytes would be wrong and source.getShort() would throw
+        // BufferUnderflowException mid-loop. Guard both ends of the valid range.
+        val srcCh = sourceChannels.coerceIn(1, 8)
+        val dstCh = targetChannels.coerceIn(1, 2)
+        val perSampleBytes = srcCh * 2
         val samples = sourceSize / perSampleBytes
         for (i in 0 until samples) {
             var l = 0
             var r = 0
-            for (c in 0 until sourceChannels) {
-                val v = source.getShort()
-                if (c == 0) l = v.toInt()
-                else if (c == 1) r = v.toInt()
-                else if (c == 2) { // Center
-                    l = (l + v) / 2
-                    r = (r + v) / 2
-                } else if (c == 3) { // LFE (ignore or add slightly)
-                    // omit or just do nothing
-                } else if (c == 4) { // Rear Left
-                    l = (l + v) / 2
-                } else if (c == 5) { // Rear Right
-                    r = (r + v) / 2
-                } else {
-                    l = (l + v) / 2
-                    r = (r + v) / 2
+            for (c in 0 until srcCh) {
+                val v = source.getShort().toInt()
+                when (c) {
+                    0 -> l = v
+                    1 -> r = v
+                    2 -> { l = (l + v) / 2; r = (r + v) / 2 } // Center
+                    3 -> { /* LFE — perceptually negligible at 80 Hz, omit */ }
+                    4 -> l = (l + v) / 2                        // Rear Left
+                    5 -> r = (r + v) / 2                        // Rear Right
+                    else -> { l = (l + v) / 2; r = (r + v) / 2 }
                 }
             }
-            if (targetChannels == 1) {
+            if (dstCh == 1) {
                 target.putShort(((l + r) / 2).toShort())
             } else {
                 target.putShort(l.toShort())

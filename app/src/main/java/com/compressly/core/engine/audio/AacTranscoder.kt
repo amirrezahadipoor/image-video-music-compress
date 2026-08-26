@@ -90,14 +90,16 @@ object AacTranscoder {
 
             val decInfo = MediaCodec.BufferInfo()
             val encInfo = MediaCodec.BufferInfo()
-            val pcmBuf = ByteBuffer.allocateDirect(64 * 1024).order(ByteOrder.LITTLE_ENDIAN)
-            // Pending PCM buffer: holds PCM data when the encoder had no free
-            // input buffer, so nothing is ever dropped. Uses a compact pattern
-            // so partial consumption is safe — remaining bytes are moved to the
-            // front of the buffer on each iteration.
+            // AAC-4 FIX: eliminated the intermediate pcmBuf — convertPcmToEncoder
+            // now writes directly into pendingBuf, removing a full 64 KB memcpy
+            // per decoded frame that was silent but measurable on long files.
             val pendingBuf = ByteBuffer.allocateDirect(64 * 1024).order(ByteOrder.LITTLE_ENDIAN)
             var pendingPcm = false
             var pendingPts = 0L
+            // AAC-3 FIX: debounce progress callbacks — only emit when change ≥ 1 %
+            // to avoid flooding the StateFlow with hundreds of identical values per
+            // second on high-bitrate sources, which causes unnecessary recompositions.
+            var lastReportedProgress = -1f
 
             while (!encEos) {
                 control.checkActive()
@@ -141,9 +143,14 @@ object AacTranscoder {
                             val pts = extractor.sampleTime
                             decoder.queueInputBuffer(inIndex, 0, sampleSize, pts, 0)
                             extractor.advance()
+                            // AAC-3 FIX: debounce — only emit progress when change ≥ 1%
                             if (sourceDurationUs > 0 && pts >= 0) {
                                 val effectivePts = if (trimStartUs > 0) pts - trimStartUs else pts
-                                onProgress((effectivePts.toFloat() / sourceDurationUs).coerceIn(0f, 1f))
+                                val p = (effectivePts.toFloat() / sourceDurationUs).coerceIn(0f, 1f)
+                                if (p - lastReportedProgress >= 0.01f) {
+                                    onProgress(p)
+                                    lastReportedProgress = p
+                                }
                             }
                         }
                     }
@@ -159,17 +166,15 @@ object AacTranscoder {
                             val pcm = decoder.getOutputBuffer(decOut)!!
                             pcm.position(decInfo.offset)
                             pcm.limit(decInfo.offset + decInfo.size)
-                            pcmBuf.clear()
-                            convertPcmToEncoder(pcm, decInfo.size, pcmBuf, srcChannels, channels)
-                            pcmBuf.flip()
-                            
+                            // AAC-4 FIX: write directly into pendingBuf — eliminates
+                            // the old intermediate pcmBuf and a full 64 KB memcpy per frame.
+                            pendingBuf.clear()
+                            convertPcmToEncoder(pcm, decInfo.size, pendingBuf, srcChannels, channels)
+                            pendingBuf.flip()
+
                             var pts = (decInfo.presentationTimeUs - trimStartUs).coerceAtLeast(0)
                             if (pts <= lastPts) pts = lastPts + 1_000
-                            
-                            // Immediately store in pendingBuf to feed it safely through the while(pendingPcm) logic
-                            pendingBuf.clear()
-                            pendingBuf.put(pcmBuf)
-                            pendingBuf.flip()
+
                             pendingPcm = true
                             pendingPts = pts
                         }

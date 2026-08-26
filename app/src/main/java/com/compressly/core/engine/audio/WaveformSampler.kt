@@ -94,22 +94,25 @@ object WaveformSampler {
                         buf.order(ByteOrder.LITTLE_ENDIAN)
                         val pts = info.presentationTimeUs
                         if (pts <= MAX_PREVIEW_US) {
-                            val bucket = ((pts.toDouble() / MAX_PREVIEW_US) * buckets).toInt().coerceIn(0, buckets - 1)
-                            var peak = 0.0
+                            // WAV-3 FIX: use Float throughout — eliminates double→float
+                            // conversions in the inner loop. For ~176 k samples over
+                            // 4 s this saves ~700 k unnecessary float↔double casts.
+                            val bucket = ((pts.toFloat() / MAX_PREVIEW_US) * buckets).toInt().coerceIn(0, buckets - 1)
+                            var peak = 0f
                             if (pcmFloat) {
                                 val n = info.size / 4
                                 for (i in 0 until n) {
-                                    val v = abs(buf.float.toDouble())
-                                    peak = max(peak, v)
+                                    val v = abs(buf.float)
+                                    if (v > peak) peak = v
                                 }
                             } else {
                                 val n = info.size / 2
                                 for (i in 0 until n) {
-                                    val v = abs(buf.short.toDouble() / 32768.0)
-                                    peak = max(peak, v)
+                                    val v = abs(buf.short.toFloat()) * (1f / 32768f)
+                                    if (v > peak) peak = v
                                 }
                             }
-                            peaks[bucket] = max(peaks[bucket], peak.toFloat())
+                            if (peak > peaks[bucket]) peaks[bucket] = peak
                             sawAny = true
                         }
                     }
