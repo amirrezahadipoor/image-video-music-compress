@@ -32,15 +32,16 @@ object MediaInspector {
                 hasVideo = hasVideo,
                 hasAudio = hasAudio,
                 audioSampleRate = key(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)?.toIntOrNull() ?: 0,
-                // BUG-1 FIX: KEY_NUM_TRACKS (always available) returns the number
-                // of tracks in the container, not the audio channel count.
-                // KEY_NUM_CHANNELS is the correct key but is only available on API 29+.
-                // On API 26-28 we fall back to 0 and let the engine read the channel
-                // count from MediaExtractor.getTrackFormat(KEY_CHANNEL_COUNT) directly.
+                // Audio channel count: METADATA_KEY_NUM_CHANNELS (value=34) was added
+                // in API 29 and its symbol is not defined in the API 26 SDK, so using
+                // the named constant causes a compile error on minSdk 26.
+                // We use the raw integer value (34) with a runtime SDK guard so the
+                // compiler never sees the symbol on API 26-28. On API 26-28 we return 0
+                // and let each engine read KEY_CHANNEL_COUNT from MediaExtractor instead.
                 audioChannels = if (android.os.Build.VERSION.SDK_INT >= 29) {
-                    key(MediaMetadataRetriever.METADATA_KEY_NUM_CHANNELS)?.toIntOrNull() ?: 0
+                    key(34 /* METADATA_KEY_NUM_CHANNELS */)?.toIntOrNull() ?: 0
                 } else {
-                    0 // engine reads from MediaExtractor on API 26-28
+                    0
                 },
                 title = key(MediaMetadataRetriever.METADATA_KEY_TITLE),
                 artist = key(MediaMetadataRetriever.METADATA_KEY_ARTIST),
