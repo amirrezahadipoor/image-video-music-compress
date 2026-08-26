@@ -76,7 +76,9 @@ class CompressionJobService : Service() {
                     notifiedResults += job.jobId
                     // Use a single constant ID (1001) for the result notification so they don't pile up.
                     NotificationManagerCompat.from(this)
-                        .notify(1001, NotificationHelper.buildResultNotification(this, job))
+                        // BUG-9 FIX: use NOTIF_RESULT_ID (1002) so the result
+                        // notification does not overwrite the active job notification.
+                        .notify(NotificationHelper.NOTIF_RESULT_ID, NotificationHelper.buildResultNotification(this, job))
                 }
             }
             // Prune: only keep IDs still in the live jobs map (bounded growth).

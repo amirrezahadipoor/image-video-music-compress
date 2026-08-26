@@ -124,8 +124,36 @@ fun CompressionSettingsScreen(
         }
     }
 
+    // UI-3 FIX: Compress button is now pinned to the bottom of the screen via
+    // Scaffold's bottomBar slot so it is always visible without scrolling.
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        bottomBar = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+            ) {
+                GradientSummaryBar(
+                    count = state.items.size,
+                    estimatedSize = if (state.estimatedSize > 0)
+                        Formats.humanSize(state.estimatedSize)
+                    else stringResource(R.string.unknown),
+                    onClick = ::requestCompression
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(
+                        if (mediaType == MediaType.VIDEO) R.string.processing_warning_long_video
+                        else R.string.progress_will_keep_running
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
+        }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -243,23 +271,9 @@ fun CompressionSettingsScreen(
                     }
                 }
 
+                // Bottom padding so content is not hidden behind the sticky
+                // compress bar added by the Scaffold's bottomBar slot.
                 Spacer(Modifier.height(24.dp))
-                GradientSummaryBar(
-                    count = state.items.size,
-                    estimatedSize = stringResource(R.string.settings_estimated_size) +
-                        "  " + Formats.humanSize(state.estimatedSize),
-                    onClick = ::requestCompression
-                )
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = stringResource(
-                        if (mediaType == MediaType.VIDEO) R.string.processing_warning_long_video
-                        else R.string.progress_will_keep_running
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 24.dp)
-                )
             }
         }
     }

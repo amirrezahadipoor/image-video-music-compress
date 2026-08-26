@@ -104,8 +104,18 @@ class PhotoCompressor(private val context: Context) {
                 val targetBytes = if (settings.smart) {
                     (sourceBytes * 0.5).toLong().coerceAtLeast(60_000)
                 } else 0L
-                val qualities = if (settings.smart) intArrayOf(85, 75, 65)
-                else intArrayOf(settings.quality.coerceIn(1, 100))
+                // BUG-7 FIX: PNG is lossless — the quality parameter has no effect.
+                // Running the adaptive quality loop on PNG is wasteful (3 identical
+                // encodes) and will never reach targetBytes for already-compressed PNGs.
+                // For PNG/smart, encode once at quality=0 (ignored by the codec anyway)
+                // then resize-only reduces the file size via the already-applied bitmap scale.
+                val isPng = fmt == Bitmap.CompressFormat.PNG
+                val qualities = when {
+                    isPng -> intArrayOf(0)  // quality is ignored for PNG
+                    settings.smart -> intArrayOf(85, 75, 65)
+                    else -> intArrayOf(settings.quality.coerceIn(1, 100))
+                }
+                val effectiveSmart = settings.smart && !isPng
 
                 var encoded = false
                 for (q in qualities) {
@@ -119,7 +129,7 @@ class PhotoCompressor(private val context: Context) {
                         }
                     }
                     encoded = true
-                    if (!settings.smart) break
+                    if (!effectiveSmart) break
                     if (tempOut.length() <= targetBytes) break
                 }
                 if (!encoded) throw PhotoCompressionException(KEY_ENCODE)

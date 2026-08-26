@@ -32,7 +32,13 @@ object MediaInspector {
                 hasVideo = hasVideo,
                 hasAudio = hasAudio,
                 audioSampleRate = key(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)?.toIntOrNull() ?: 0,
-                audioChannels = key(MediaMetadataRetriever.METADATA_KEY_NUM_TRACKS)?.toIntOrNull() ?: 0,
+                // BUG-1 FIX: KEY_NUM_TRACKS returns the number of tracks in the
+                // container (audio+video), NOT the audio channel count. On a stereo
+                // MP4 it would return 2 (one video track + one audio track), which
+                // coincidentally matches — but on a mono AAC inside an MP4 with a
+                // video track it returns 2 instead of 1, breaking downmix logic.
+                // KEY_NUM_CHANNELS is the correct key for audio channel count.
+                audioChannels = key(MediaMetadataRetriever.METADATA_KEY_NUM_CHANNELS)?.toIntOrNull() ?: 0,
                 title = key(MediaMetadataRetriever.METADATA_KEY_TITLE),
                 artist = key(MediaMetadataRetriever.METADATA_KEY_ARTIST),
                 album = key(MediaMetadataRetriever.METADATA_KEY_ALBUM)

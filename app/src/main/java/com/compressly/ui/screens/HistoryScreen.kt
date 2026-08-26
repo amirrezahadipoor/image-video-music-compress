@@ -144,9 +144,17 @@ fun HistoryScreen(
                     modifier = Modifier.weight(1f)
                 )
             } else if (visibleEntries.isEmpty()) {
+                // UI-5 FIX: Show a filter-aware empty message so the user
+                // understands why the list is empty (active filter, not no history).
+                val filterLabel = when (filter) {
+                    MediaType.PHOTO -> stringResource(R.string.history_filter_photos)
+                    MediaType.VIDEO -> stringResource(R.string.history_filter_videos)
+                    MediaType.AUDIO -> stringResource(R.string.history_filter_audio)
+                    null -> ""
+                }
                 EmptyState(
                     title = stringResource(R.string.history_empty_title),
-                    description = stringResource(R.string.history_empty_desc),
+                    description = stringResource(R.string.history_filter_empty_desc, filterLabel),
                     modifier = Modifier.weight(1f)
                 )
             } else {

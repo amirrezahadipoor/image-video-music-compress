@@ -29,8 +29,9 @@
 
     <!-- Home -->
     <string name="home_greeting">کاربر گرامی، خوش آمدید</string>
-    <string name="home_hero_title">فشرده‌سازی هوشمند تصاویر و ویدیوها</string>
-    <string name="home_hero_subtitle">تمامی پردازش‌ها به صورت کاملاً امن و آفلاین روی دستگاه شما انجام می‌شود.</string>
+    <string name="home_hero_title">عکس. ویدیو. موسیقی. کوچک‌تر.</string>
+    <string name="home_hero_subtitle">پردازش کاملاً آفلاین روی دستگاه. بدون اینترنت، بدون آپلود.</string>
+    <string name="hero_offline_badge">کاملاً آفلاین</string>
     <string name="home_compress_photo">فشرده‌سازی عکس</string>
     <string name="home_compress_video">فشرده‌سازی ویدیو</string>
     <string name="home_compress_audio">فشرده‌سازی فایل صوتی</string>
@@ -288,6 +289,7 @@
     <string name="history_filter_photos">عکس‌ها</string>
     <string name="history_filter_videos">ویدیوها</string>
     <string name="history_filter_audio">صداها</string>
+    <string name="history_filter_empty_desc">هیچ فایل %1$s فشرده‌شده‌ای یافت نشد. فیلتر را تغییر دهید یا سابقه همه را ببینید.</string>
 
     <!-- Job not found -->
     <string name="job_not_found">فشرده‌سازی پیدا نشد</string>

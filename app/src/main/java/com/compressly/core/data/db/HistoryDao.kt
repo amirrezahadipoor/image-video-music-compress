@@ -36,8 +36,14 @@ interface HistoryDao {
     @Update
     suspend fun update(entry: HistoryEntry)
 
-    @Query("UPDATE history SET status = :status, error = :error WHERE status = 'RUNNING'")
-    suspend fun markInterrupted(status: String, error: String?)
+    // BUG-4 FIX: Use the STATUS_RUNNING constant instead of a raw string literal
+    // so this query stays correct if the constant value is ever changed.
+    @Query("UPDATE history SET status = :status, error = :error WHERE status = :running")
+    suspend fun markInterrupted(
+        status: String,
+        error: String?,
+        running: String = HistoryEntry.STATUS_RUNNING
+    )
 
     @Query("DELETE FROM history")
     suspend fun clear()

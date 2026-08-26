@@ -172,12 +172,8 @@ fun HomeScreen(
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
             item { HomeHeader(onOpenHistory, onOpenAppSettings) }
-            
-            if (!isPremium) {
-                item { PremiumBanner { viewModel.simulatePurchase(container) } }
-            }
-            
             item { HeroCard(totalSaved) }
+            // UI-2 BEAUTY: Active jobs banner takes priority over everything else when visible.
             if (activeJobs.isNotEmpty()) {
                 item { ActiveJobsBanner(activeJobs.size) { onOpenJob(activeJobs.first().jobId) } }
             }
@@ -185,6 +181,11 @@ fun HomeScreen(
                 SectionTitle(stringResource(R.string.home_tap_to_choose))
             }
             item { ModuleCards(onPick = ::pick) }
+            // UI-2 BEAUTY: Premium banner moved after module cards so it doesn't
+            // block the primary call-to-action. Non-intrusive placement.
+            if (!isPremium) {
+                item { PremiumBanner { viewModel.simulatePurchase(container) } }
+            }
             item {
                 AdSlot(Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
             }
@@ -270,59 +271,82 @@ private fun HomeHeader(onOpenHistory: () -> Unit, onOpenAppSettings: () -> Unit)
 }
 
 @Composable
+@Composable
 private fun HeroCard(totalSaved: Long) {
     val onPrimary = Color.White
+    // UI-1 BEAUTY: cleaner, more airy hero card — less text, bigger stat focus.
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 8.dp)
-            .clip(RoundedCornerShape(26.dp))
+            .clip(RoundedCornerShape(28.dp))
             .background(Brush.linearGradient(GradientHero))
-            .padding(22.dp)
+            .padding(horizontal = 24.dp, vertical = 26.dp)
     ) {
-        // Soft decorative circles for depth.
+        // Layered decorative circles for depth.
         Box(
             modifier = Modifier
-                .size(130.dp)
+                .size(160.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.06f))
+                .background(Color.White.copy(alpha = 0.055f))
                 .align(Alignment.TopEnd)
-                .offset(x = 44.dp, y = (-44).dp)
+                .offset(x = 54.dp, y = (-54).dp)
         )
         Box(
             modifier = Modifier
-                .size(70.dp)
+                .size(90.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.05f))
+                .background(Color.White.copy(alpha = 0.04f))
                 .align(Alignment.BottomStart)
-                .offset(x = (-24).dp, y = 24.dp)
+                .offset(x = (-30).dp, y = 30.dp)
+        )
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.07f))
+                .align(Alignment.TopEnd)
+                .offset(x = 16.dp, y = 24.dp)
         )
         Column {
+            // Show the offline badge as a subtle pill — privacy-first branding.
+            Box(
+                modifier = Modifier
+                    .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(50))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = "🔒 " + stringResource(R.string.hero_offline_badge),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = onPrimary.copy(alpha = 0.9f)
+                )
+            }
+            Spacer(Modifier.height(14.dp))
             Text(
                 text = stringResource(R.string.home_hero_title),
                 style = MaterialTheme.typography.headlineSmall,
                 color = onPrimary
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(4.dp))
             Text(
                 text = stringResource(R.string.home_hero_subtitle),
-                style = MaterialTheme.typography.bodyMedium,
-                color = onPrimary.copy(alpha = 0.85f)
+                style = MaterialTheme.typography.bodySmall,
+                color = onPrimary.copy(alpha = 0.80f)
             )
-            Spacer(Modifier.height(18.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
-                Column {
-                    Text(
-                        text = stringResource(R.string.home_total_saved),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = onPrimary.copy(alpha = 0.8f)
-                    )
-                    Text(
-                        text = Formats.humanSize(totalSaved),
-                        style = MaterialTheme.typography.displaySmall,
-                        color = onPrimary
-                    )
-                }
+            Spacer(Modifier.height(20.dp))
+            // Total saved stat — the single most impressive number in the whole app.
+            if (totalSaved > 0) {
+                Text(
+                    text = stringResource(R.string.home_total_saved),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = onPrimary.copy(alpha = 0.75f)
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = Formats.humanSize(totalSaved),
+                    style = MaterialTheme.typography.displaySmall,
+                    color = onPrimary
+                )
             }
         }
     }

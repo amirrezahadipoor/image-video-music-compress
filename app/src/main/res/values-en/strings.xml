@@ -29,8 +29,9 @@
 
     <!-- Home -->
     <string name="home_greeting">Welcome</string>
-    <string name="home_hero_title">Make your media smaller, without losing quality</string>
-    <string name="home_hero_subtitle">Everything runs on your device. No internet needed, ever.</string>
+    <string name="home_hero_title">Photo. Video. Audio. Smaller.</string>
+    <string name="home_hero_subtitle">100% offline processing on your device. No upload, no account.</string>
+    <string name="hero_offline_badge">100% Offline</string>
     <string name="home_compress_photo">Compress Photo</string>
     <string name="home_compress_video">Compress Video</string>
     <string name="home_compress_audio">Compress Audio</string>
@@ -287,6 +288,7 @@
     <string name="history_filter_photos">Photos</string>
     <string name="history_filter_videos">Videos</string>
     <string name="history_filter_audio">Audio</string>
+    <string name="history_filter_empty_desc">No %1$s compressions found. Try a different filter or view all history.</string>
 
     <!-- Job not found -->
     <string name="job_not_found">Job not found</string>

@@ -19,6 +19,11 @@ object NotificationHelper {
     const val CHANNEL_JOBS = "compression_jobs"
     const val CHANNEL_RESULTS = "compression_results"
     const val NOTIF_ID = 1001
+    // BUG-9 FIX: result notification must use a DIFFERENT ID from the ongoing
+    // job notification (NOTIF_ID=1001). Using the same ID caused the result
+    // notification to silently overwrite the active job notification while
+    // another job was still running. 1002 is reserved for results.
+    const val NOTIF_RESULT_ID = 1002
 
     fun createChannels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)

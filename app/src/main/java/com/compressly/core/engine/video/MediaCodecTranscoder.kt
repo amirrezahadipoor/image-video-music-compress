@@ -217,11 +217,16 @@ class MediaCodecTranscoder(private val context: Context) {
             // dimensions AND set the muxer rotation hint -> double rotation /
             // distorted portrait videos. Forcing rotation 0 makes decoder output,
             // encoder input size and muxer hint all consistent.
-            val decoderFormat = MediaFormat(inputFormat).apply {
-                setInteger(MediaFormat.KEY_ROTATION, 0)
-            }
+            //
+            // BUG-2 FIX: MediaFormat(MediaFormat) copy constructor does NOT exist on
+            // Android — calling it compiles but produces an empty MediaFormat object,
+            // discarding all the source track parameters (codec, width, height…) and
+            // causing an IllegalArgumentException in decoder.configure().
+            // The correct approach is to keep the original inputFormat and override
+            // only the rotation key directly on it before passing to configure().
+            inputFormat.setInteger(MediaFormat.KEY_ROTATION, 0)
             val decoder = MediaCodec.createDecoderByType(inputMime)
-            decoder.configure(decoderFormat, inputSurface, null, 0)
+            decoder.configure(inputFormat, inputSurface, null, 0)
             decoder.start()
 
             var muxer: MediaMuxer? = null
@@ -343,7 +348,12 @@ class MediaCodecTranscoder(private val context: Context) {
                 runCatching { decoder.release() }
                 runCatching { encoder.stop() }
                 runCatching { encoder.release() }
-                runCatching { muxer?.stop() }
+                // BUG-10 FIX: MediaMuxer.stop() throws IllegalStateException if
+                // start() was never called (e.g. the encoder only emitted a
+                // CODEC_CONFIG frame then EOS with no real video data).
+                // The runCatching swallows the crash but leaves an empty file.
+                // Guard with muxerStarted to skip stop() in that case.
+                if (muxerStarted) runCatching { muxer?.stop() }
                 runCatching { muxer?.release() }
             }
         } finally {
@@ -400,7 +410,12 @@ private suspend fun mergePass(
         val videoIndex = findTrack(videoExtractor, "video/")
             ?: throw VideoCompressionException(ERR_NO_VIDEO)
         videoExtractor.selectTrack(videoIndex)
-        val videoMuxerTrack = muxer.addTrack(videoExtractor.getTrackFormat(videoIndex))
+        // BUG-8 FIX: Cache the track format once here instead of calling
+        // getTrackFormat(videoIndex) again inside the hot progress loop.
+        // Calling getTrackFormat in a tight loop is wasteful; caching it
+        // also guarantees consistent results if the extractor state changes.
+        val videoTrackFormat = videoExtractor.getTrackFormat(videoIndex)
+        val videoMuxerTrack = muxer.addTrack(videoTrackFormat)
 
         var audioExtractor: MediaExtractor? = null
         var audioMuxerTrack = -1
@@ -490,10 +505,10 @@ private suspend fun mergePass(
                 }
 
                 // Report progress. When trim is not enabled, use the video
-                // duration from the extractor as the denominator.
+                // duration from the cached track format as the denominator.
                 if (videoInfo.presentationTimeUs > lastPts) {
                     val totalUs = if (trimEndUs > trimStartUs) trimEndUs - trimStartUs
-                    else runCatching { videoExtractor.getTrackFormat(videoIndex).getLong(MediaFormat.KEY_DURATION) }.getOrDefault(0L)
+                    else runCatching { videoTrackFormat.getLong(MediaFormat.KEY_DURATION) }.getOrDefault(0L)
                     if (totalUs > 0) {
                         val p = (videoInfo.presentationTimeUs.toFloat() / totalUs).coerceIn(0f, 1f)
                         onProgress(p)

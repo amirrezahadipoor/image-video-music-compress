@@ -120,7 +120,10 @@ class Compressor(private val context: Context) {
             )
             val uri = OutputStore.publishTempFile(context, MediaType.VIDEO, temp, item.displayName, "video/mp4")
             val codecName = if (settings.codec == com.compressly.core.engine.model.VideoCodec.H265) "H.265" else "H.264"
-            val summary = "${codecName}, ${stats.durationMs / 1000}s"
+            // BUG-5 FIX: Integer division of durationMs < 1000 produces "0s".
+            // Use humanDuration for a proper "0:XX" display for short clips.
+            val durationLabel = com.compressly.core.util.Formats.humanDuration(stats.durationMs)
+            val summary = "$codecName, $durationLabel"
             return EngineOutput(uri, sizeOf(uri), summary)
         } finally {
             Storage.deleteQuietly(temp)
