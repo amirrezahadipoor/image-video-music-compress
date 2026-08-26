@@ -153,7 +153,7 @@ private fun SuccessContent(
         ) {
             Icon(
                 imageVector = Icons.Outlined.Check,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.result_title_success),
                 tint = androidx.compose.ui.graphics.Color.White,
                 modifier = Modifier.size(48.dp)
             )
@@ -196,6 +196,29 @@ private fun SuccessContent(
             )
         }
 
+        // Batch summary: when this entry is part of a multi-file job show a
+        // compact summary card so the user knows the full picture at a glance.
+        if (siblings.size > 1) {
+            Spacer(Modifier.height(12.dp))
+            BatchSummaryCard(siblings)
+        }
+
+        // Settings summary chip (codec, quality, duration…)
+        if (entry.settingsSummary.isNotBlank()) {
+            Spacer(Modifier.height(10.dp))
+            androidx.compose.material3.Surface(
+                shape = RoundedCornerShape(50),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Text(
+                    text = entry.settingsSummary,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                )
+            }
+        }
+
         Spacer(Modifier.height(24.dp))
 
         ActionButton(
@@ -221,6 +244,51 @@ private fun SuccessContent(
         Spacer(Modifier.height(20.dp))
         AdSlot()
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun BatchSummaryCard(siblings: List<HistoryEntry>) {
+    val doneCount   = siblings.count { it.status == HistoryEntry.STATUS_DONE }
+    val totalSaved  = siblings.sumOf { it.savedBytes }
+    val surface     = MaterialTheme.colorScheme.surface
+    val primary     = MaterialTheme.colorScheme.primary
+    val onSurface   = MaterialTheme.colorScheme.onSurface
+    val onSurfaceVar = MaterialTheme.colorScheme.onSurfaceVariant
+
+    androidx.compose.material3.Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = surface
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = stringResource(R.string.result_batch_files, doneCount, siblings.size),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = onSurfaceVar
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = stringResource(R.string.result_batch_saved, Formats.humanSize(totalSaved)),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = onSurface
+                )
+            }
+            Text(
+                text = if (siblings.size > 0)
+                    Formats.percent(totalSaved.toDouble() /
+                        siblings.sumOf { it.inputSize }.coerceAtLeast(1))
+                else "0%",
+                style = MaterialTheme.typography.titleMedium,
+                color = primary
+            )
+        }
     }
 }
 

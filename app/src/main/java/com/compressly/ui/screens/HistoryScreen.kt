@@ -298,7 +298,7 @@ private fun HistoryThumb(entry: HistoryEntry) {
         when (type) {
             MediaType.PHOTO -> AsyncImage(
                 model = uri,
-                contentDescription = null,
+                contentDescription = entry.fileName,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.size(56.dp)
             )
@@ -307,13 +307,13 @@ private fun HistoryThumb(entry: HistoryEntry) {
                     .data(uri)
                     .videoFrameMillis(1000)
                     .build(),
-                contentDescription = null,
+                contentDescription = entry.fileName,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.size(56.dp)
             )
             MediaType.AUDIO -> Icon(
                 imageVector = Icons.Outlined.MusicNote,
-                contentDescription = null,
+                contentDescription = entry.fileName,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(28.dp)
             )

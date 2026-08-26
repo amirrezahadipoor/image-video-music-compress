@@ -428,6 +428,7 @@ private fun ModuleCards(onPick: (MediaType) -> Unit) {
 }
 
 @Composable
+@Composable
 private fun ModuleCard(
     title: String,
     subtitle: String,
@@ -441,7 +442,11 @@ private fun ModuleCard(
             .shadow(6.dp, RoundedCornerShape(22.dp), clip = false)
             .clip(RoundedCornerShape(22.dp))
             .background(Brush.linearGradient(gradient))
-            .clickable(onClick = onClick)
+            // Accessibility: semantics role = button, label = card title
+            .clickable(
+                onClick = onClick,
+                onClickLabel = title
+            )
             .padding(horizontal = 20.dp, vertical = 22.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -454,6 +459,7 @@ private fun ModuleCard(
         ) {
             Icon(
                 imageVector = icon,
+                // Decorative — title text already describes the action
                 contentDescription = null,
                 tint = Color.White,
                 modifier = Modifier.size(28.dp)
@@ -555,7 +561,7 @@ private fun Thumbnail(entry: HistoryEntry) {
         when (mediaType) {
             MediaType.PHOTO -> AsyncImage(
                 model = uri,
-                contentDescription = null,
+                contentDescription = entry.fileName,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.size(52.dp)
             )
@@ -564,13 +570,13 @@ private fun Thumbnail(entry: HistoryEntry) {
                     .data(uri)
                     .videoFrameMillis(1000)
                     .build(),
-                contentDescription = null,
+                contentDescription = entry.fileName,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.size(52.dp)
             )
             MediaType.AUDIO -> Icon(
                 imageVector = Icons.Outlined.MusicNote,
-                contentDescription = null,
+                contentDescription = entry.fileName,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(26.dp)
             )

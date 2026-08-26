@@ -181,6 +181,8 @@
     <string name="result_error_detail">%1$s</string>
     <string name="result_items_success">%1$d از %2$d فایل با موفقیت فشرده شد</string>
     <string name="result_share_sheet_title">اشتراک‌گذاری فایل فشرده</string>
+    <string name="result_batch_files">%1$d از %2$d فایل موفق</string>
+    <string name="result_batch_saved">مجموع صرفه‌جویی: %1$s</string>
 
     <!-- History -->
     <string name="history_title">تاریخچه</string>
@@ -314,4 +316,19 @@
     <string name="app_fal">فال حافظ</string>
     <string name="app_policy">سیاست حریم خصوصی و قوانین</string>
 
+
+
+    <!-- Onboarding -->
+    <string name="onboard_title_0">کاملاً آفلاین — کاملاً امن</string>
+    <string name="onboard_body_0">هیچ فایلی آپلود نمی‌شود. همه پردازش‌ها روی خود دستگاه شما انجام می‌شود. بدون اینترنت، بدون حساب کاربری، بدون نگرانی.</string>
+    <string name="onboard_title_1">فشرده‌سازی عکس</string>
+    <string name="onboard_body_1">JPEG، PNG، WebP و HEIC پشتیبانی می‌شود. کیفیت رنگ حفظ می‌شود. متادیتا و اطلاعات دوربین به دلخواه نگه داشته می‌شود.</string>
+    <string name="onboard_title_2">فشرده‌سازی ویدیو</string>
+    <string name="onboard_body_2">کدک H.264 و H.265 با شتاب‌دهنده سخت‌افزاری. برش ویدیو، انتخاب رزولوشن، مدیریت صدا — همه آفلاین.</string>
+    <string name="onboard_title_3">فشرده‌سازی صدا</string>
+    <string name="onboard_body_3">MP3، AAC، FLAC، OGG و WAV پشتیبانی می‌شود. برچسب‌های ID3 و کاور آلبوم حفظ می‌شود.</string>
+    <string name="onboard_title_4">حالت هوشمند</string>
+    <string name="onboard_body_4">حالت هوشمند به طور خودکار بهترین تعادل کیفیت و حجم را انتخاب می‌کند — همیشه بیش از ۷۰٪ کیفیت حفظ می‌شود.</string>
+    <string name="onboard_next">بعدی</string>
+    <string name="onboard_start">شروع کنید!</string>
 </resources>

@@ -173,7 +173,10 @@ fun PresetGauge(
                                 Brush.horizontalGradient(listOf(lit, lit))
                             }
                         )
-                        .clickable(enabled = !smartSelected) { onSelect(preset) }
+                        .clickable(
+                            enabled = !smartSelected,
+                            onClickLabel = preset.name,
+                        ) { onSelect(preset) }
                 )
             }
         }

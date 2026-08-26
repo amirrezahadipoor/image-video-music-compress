@@ -74,3 +74,15 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it[keyPremium] = value }
     }
 }
+
+// ----- Onboarding -----------------------------------------------------------
+
+    private val keyOnboardingDone = booleanPreferencesKey("onboarding_done")
+
+    val onboardingDone: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[keyOnboardingDone] ?: false
+    }
+
+    suspend fun markOnboardingDone() {
+        context.dataStore.edit { it[keyOnboardingDone] = true }
+    }

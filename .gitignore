@@ -20,3 +20,9 @@ local.properties
 
 # OS
 Thumbs.db
+secrets.properties
+*.jks
+# Signing credentials — never commit these
+secrets.properties
+*.jks
+*.keystore

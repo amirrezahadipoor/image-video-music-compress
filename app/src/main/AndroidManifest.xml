@@ -2,23 +2,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!--
-        Permissions: only what the app genuinely needs. No INTERNET, no network
-        state, no ads, no analytics. The app is 100% offline by design.
-    -->
-    <!-- Foreground service: long video/audio/photo-batch jobs survive backgrounding -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission
         android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"
         tools:targetApi="34" />
-    <!-- Notification permission (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Legacy storage write only for Android 8.0-8.1 devices (API < 29).
-         API 29+ uses scoped storage / MediaStore exclusively. -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28"
         tools:ignore="ScopedStorage" />
+    <!-- WAKELOCK: prevents Xiaomi/Huawei/OnePlus from killing the service mid-compression -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:name="com.compressly.CompresslyApp"
@@ -43,11 +37,6 @@
             </intent-filter>
         </activity>
 
-        <!--
-            Foreground service that hosts long-running compression jobs.
-            type dataSync is the correct type for local on-device data
-            processing and is required on Android 14+.
-        -->
         <service
             android:name="com.compressly.core.service.CompressionJobService"
             android:exported="false"

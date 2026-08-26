@@ -187,11 +187,12 @@ fun GradientSummaryBar(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val compressLabel = stringResource(R.string.action_compress)
     Box(
         modifier = modifier
             .fillMaxWidth()
             .background(Brush.horizontalGradient(GradientPrimary), RoundedCornerShape(22.dp))
-            .clickable { onClick() }
+            .clickable(onClickLabel = compressLabel) { onClick() }
             .padding(horizontal = 18.dp, vertical = 16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

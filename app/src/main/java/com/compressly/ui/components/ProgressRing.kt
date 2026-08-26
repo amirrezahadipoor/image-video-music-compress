@@ -17,15 +17,13 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/**
- * Animated circular progress with a percentage in the middle. Used for the
- * overall job progress on the Progress screen and for per-item indicators.
- */
 @Composable
 fun ProgressRing(
     progress: Float,
@@ -43,28 +41,29 @@ fun ProgressRing(
     val primary = MaterialTheme.colorScheme.primary
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
     val onSurface = MaterialTheme.colorScheme.onSurface
+    val percent = (animated * 100).toInt()
+    val a11yDesc = label?.let { "$it — $percent%" } ?: "$percent%"
 
-    Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .semantics { contentDescription = a11yDesc },
+        contentAlignment = Alignment.Center
+    ) {
         Canvas(Modifier.size(size)) {
             val stroke = strokeWidth.toPx()
             val inset = stroke / 2
             val arcSize = Size(size.toPx() - stroke, size.toPx() - stroke)
             drawArc(
                 color = surfaceVariant,
-                startAngle = 0f,
-                sweepAngle = 360f,
-                useCenter = false,
-                topLeft = Offset(inset, inset),
-                size = arcSize,
+                startAngle = 0f, sweepAngle = 360f, useCenter = false,
+                topLeft = Offset(inset, inset), size = arcSize,
                 style = Stroke(width = stroke, cap = StrokeCap.Round)
             )
             drawArc(
                 color = primary,
-                startAngle = -90f,
-                sweepAngle = 360f * animated,
-                useCenter = false,
-                topLeft = Offset(inset, inset),
-                size = arcSize,
+                startAngle = -90f, sweepAngle = 360f * animated, useCenter = false,
+                topLeft = Offset(inset, inset), size = arcSize,
                 style = Stroke(width = stroke, cap = StrokeCap.Round)
             )
         }
@@ -88,7 +87,6 @@ fun ProgressRing(
     }
 }
 
-/** Small inline progress bar used for per-item rows. */
 @Composable
 fun InlineProgress(
     fraction: Float,

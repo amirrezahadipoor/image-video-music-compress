@@ -43,10 +43,30 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("../hajmino_secure.jks")
-            storePassword = "hajmino_B2k9!Xq"
-            keyAlias = "hajmino_key"
-            keyPassword = "hajmino_B2k9!Xq"
+            // Credentials are read from environment variables (CI) or from a
+            // local secrets.properties file that is git-ignored. Never commit
+            // passwords to source control.
+            val props = java.util.Properties()
+            val secretsFile = rootProject.file("secrets.properties")
+            if (secretsFile.exists()) props.load(secretsFile.inputStream())
+
+            val ksFile = props.getProperty("KEYSTORE_FILE")
+                ?: System.getenv("KEYSTORE_FILE")
+                ?: "../hajmino_secure.jks"
+            val ksPass = props.getProperty("KEYSTORE_PASSWORD")
+                ?: System.getenv("KEYSTORE_PASSWORD")
+                ?: ""
+            val kAlias = props.getProperty("KEY_ALIAS")
+                ?: System.getenv("KEY_ALIAS")
+                ?: "hajmino_key"
+            val kPass = props.getProperty("KEY_PASSWORD")
+                ?: System.getenv("KEY_PASSWORD")
+                ?: ""
+
+            storeFile    = file(ksFile)
+            storePassword = ksPass
+            keyAlias      = kAlias
+            keyPassword   = kPass
         }
     }
 
@@ -118,6 +138,9 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
+    // Foundation — includes HorizontalPager for the onboarding carousel.
+    // Pulled from the BOM so version is always in sync.
+    implementation("androidx.compose.foundation:foundation")
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     // Navigation
