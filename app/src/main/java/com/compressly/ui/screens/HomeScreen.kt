@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -165,11 +166,16 @@ fun HomeScreen(
         }
     }
 
+    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            // Animated ambient background — behind all content
+            com.compressly.ui.components.AnimatedBlobs(
+                modifier = Modifier.fillMaxSize(),
+                dark = isDark
+            )
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
             item { HomeHeader(onOpenHistory, onOpenAppSettings) }
@@ -222,7 +228,8 @@ fun HomeScreen(
                     )
                 }
             }
-        }
+        } // end LazyColumn
+        } // end Box (AnimatedBlobs container)
     }
 }
 
@@ -367,12 +374,8 @@ private fun ActiveJobsBanner(count: Int, onOpenJob: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .clip(CircleShape)
-                .background(primary)
-        )
+        // Pulsing live indicator instead of static dot
+        com.compressly.ui.components.PulsingDot(color = primary, size = 10.dp)
         Spacer(Modifier.width(12.dp))
         Text(
             text = stringResource(R.string.home_jobs_active, count),
@@ -429,7 +432,6 @@ private fun ModuleCards(onPick: (MediaType) -> Unit) {
 }
 
 @Composable
-@Composable
 private fun ModuleCard(
     title: String,
     subtitle: String,
@@ -437,17 +439,16 @@ private fun ModuleCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit
 ) {
+    com.compressly.ui.components.PressableCard(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp)
+    ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(22.dp), clip = false)
-            .clip(RoundedCornerShape(22.dp))
             .background(Brush.linearGradient(gradient))
-            // Accessibility: semantics role = button, label = card title
-            .clickable(
-                onClick = onClick,
-                onClickLabel = title
-            )
+            .clickable(onClick = onClick, onClickLabel = title)
             .padding(horizontal = 20.dp, vertical = 22.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -487,6 +488,7 @@ private fun ModuleCard(
             modifier = Modifier.size(26.dp)
         )
     }
+    } // end PressableCard
 }
 
 @Composable

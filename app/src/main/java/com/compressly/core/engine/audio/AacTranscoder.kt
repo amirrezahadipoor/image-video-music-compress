@@ -43,6 +43,8 @@ object AacTranscoder {
         var decoder: MediaCodec? = null
         var encoder: MediaCodec? = null
         var muxer: MediaMuxer? = null
+        // Hoisted outside try so finally block can read it safely.
+        var muxerStarted = false
         try {
             extractor.setDataSource(context, inputUri, null)
             val audioIndex = findTrack(extractor, "audio/") ?: return false
@@ -69,7 +71,7 @@ object AacTranscoder {
 
             muxer = MediaMuxer(outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
             var audioMuxerTrack = -1
-            var muxerStarted = false
+            // muxerStarted is declared at the outer scope so finally can access it.
             var encEos = false
             var encEosQueued = false
             var decoderEosSeen = false
@@ -231,7 +233,10 @@ object AacTranscoder {
             runCatching { decoder?.release() }
             runCatching { encoder?.stop() }
             runCatching { encoder?.release() }
-            runCatching { muxer?.stop() }
+            // Guard: muxer.stop() throws ISE if start() was never called.
+            // This can happen if the encoder only output CODEC_CONFIG then EOS
+            // with no real audio data (e.g. 0-byte input file or corrupt source).
+            if (muxerStarted) runCatching { muxer?.stop() }
             runCatching { muxer?.release() }
         }
     }

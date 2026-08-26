@@ -49,7 +49,9 @@ object SizeEstimator {
         val quality = (if (settings.smart) 85 else settings.quality).coerceIn(1, 100)
         val bytesPerPixel = when (format) {
             "png" -> 2.6 // PNG is lossless; roughly 8-12 bits/px for photos
-            "webp" -> 0.12 * (quality / 82.0)
+            // WebP lossy is ~30% smaller than JPEG at the same quality setting.
+            // Real-world bpp for WebP lossy ≈ 0.07; JPEG ≈ 0.10.
+            "webp" -> 0.07 * (quality / 82.0)
             else -> 0.10 * (quality / 82.0) // JPEG heuristic
         }
         // Baseline estimate, then blend toward a sane JPEG real-world result.
