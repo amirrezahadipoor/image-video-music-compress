@@ -70,9 +70,11 @@ class PhotoCompressor(private val context: Context) {
             val (targetW, targetH) = targetDims(bounds, rotation, settings)
 
             // 5. Decode — preserving ICC/wide-gamut color space on API 26+.
+            // PHOTO-L1 FIX: pass the already-computed bounds to decodeSampled so
+            // it doesn't call decodeBounds() again internally (two file-open passes).
             val lossy = fmtIsLossy(sourceMime, settings.outputFormat)
             val use565 = lossy && (settings.smart || settings.quality < 90)
-            var bitmap = decodeSampled(tempSource, targetW, targetH, use565)
+            var bitmap = decodeSampled(tempSource, targetW, targetH, use565, bounds)
 
             try {
                 if (rotation != 0) {
@@ -181,8 +183,20 @@ class PhotoCompressor(private val context: Context) {
 
     // ── Sampled decode (ICC-preserving) ─────────────────────────────────────
 
-    private fun decodeSampled(file: File, targetW: Int, targetH: Int, use565: Boolean): Bitmap {
-        val bounds = decodeBounds(file)
+    // PHOTO-L1 FIX: accept pre-computed bounds so the caller does not pay for
+    // a second full BitmapFactory.decodeFile(inJustDecodeBounds=true) pass.
+    // The original signature is kept as an internal overload for the OOM-retry
+    // path where we don't have the bounds readily available.
+    private fun decodeSampled(file: File, targetW: Int, targetH: Int, use565: Boolean): Bitmap =
+        decodeSampled(file, targetW, targetH, use565, decodeBounds(file))
+
+    private fun decodeSampled(
+        file: File,
+        targetW: Int,
+        targetH: Int,
+        use565: Boolean,
+        bounds: Bounds
+    ): Bitmap {
         var sample = 1
         var w = bounds.w
         var h = bounds.h

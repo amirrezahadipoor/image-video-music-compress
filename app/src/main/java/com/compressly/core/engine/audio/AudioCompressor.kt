@@ -35,7 +35,11 @@ class AudioCompressor(private val context: Context) {
     ): File = withContext(Dispatchers.Default) {
         val tempDir = context.cacheDir.resolve("compress").apply { mkdirs() }
         val ext = if (settings.format == AudioFormat.AAC) "m4a" else "mp3"
-        val tempOut = File(tempDir, "out_${System.currentTimeMillis()}.$ext")
+        // MP3-L2 FIX: use nanoTime for uniqueness. currentTimeMillis() has
+        // millisecond resolution; two concurrent audio jobs starting within the
+        // same millisecond would produce identical filenames and overwrite each
+        // other's output. nanoTime() is monotonic and nanosecond-unique.
+        val tempOut = File(tempDir, "out_${System.nanoTime()}.$ext")
         try {
             when (settings.format) {
                 AudioFormat.AAC -> {

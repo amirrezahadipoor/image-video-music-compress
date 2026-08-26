@@ -101,12 +101,20 @@ class JobCoordinator(
         var anySuccess = false
         var anyFailure = false
         var anyCancelled = false
-        val cancelled = cancelledItems[jobId] ?: emptySet()
+        // COORD-L1 FIX: use a live lookup instead of a snapshot.
+        // A snapshot taken here is stale once cancelItem() adds an ID after
+        // the snapshot is captured but before the item is processed —  the
+        // subsequent CompressionCancelledException is then misrouted as a
+        // whole-job cancel (jobCancelled=true) instead of a single-item cancel.
+        // isItemCancelled() reads the live ConcurrentHashMap on every call,
+        // which is safe because ConcurrentHashMap.newKeySet() is thread-safe.
+        fun isItemCancelled(itemId: Long) =
+            cancelledItems[jobId]?.contains(itemId) == true
         try {
             val compressor = Compressor(context)
             for (item in items) {
                 // Items individually cancelled while queued are skipped.
-                if (item.itemId in cancelled) {
+                if (isItemCancelled(item.itemId)) {
                     anyCancelled = true
                     updateItem(jobId, item.itemId) { it.copy(phase = ItemPhase.CANCELLED) }
                     historyRepository.insert(
@@ -122,7 +130,7 @@ class JobCoordinator(
                         updateItem(jobId, item.itemId) { it.copy(phase = phase, fraction = frac) }
                     }
                 } catch (e: CompressionCancelledException) {
-                    if (item.itemId in cancelled) {
+                    if (isItemCancelled(item.itemId)) {
                         // Only this item was cancelled; keep the rest of the batch.
                         anyCancelled = true
                         updateItem(jobId, item.itemId) { it.copy(phase = ItemPhase.CANCELLED) }

@@ -159,18 +159,52 @@ object AacTranscoder {
                 if (!pendingPcm) {
                     var decOut = decoder.dequeueOutputBuffer(decInfo, 0)
                     while (decOut >= 0) {
+                        // AAC-L3 FIX: tighten the pre-roll grace window.
+                        // The old check (pts >= trimStartUs - 20_000) let pre-roll
+                        // frames pass with presentationTimeUs < trimStartUs, converting
+                        // them to pts = 0 via coerceAtLeast(0). Multiple such frames
+                        // all land at pts=0 and are bumped by +1000µs each iteration,
+                        // injecting ~20 ms of silence/garbage at the start of the clip.
+                        // Accept a frame only when its PTS is at or past the trim point,
+                        // matching the same check used in the video encoder drain.
+                        val framePts = decInfo.presentationTimeUs
+                        val inTrimWindow = trimStartUs == 0L || framePts >= trimStartUs
                         if (decInfo.size > 0 &&
-                            decInfo.presentationTimeUs >= trimStartUs - 20_000 &&
-                            (trimEndUs <= 0 || decInfo.presentationTimeUs <= trimEndUs)
+                            inTrimWindow &&
+                            (trimEndUs <= 0 || framePts <= trimEndUs)
                         ) {
                             val pcm = decoder.getOutputBuffer(decOut)!!
                             pcm.position(decInfo.offset)
                             pcm.limit(decInfo.offset + decInfo.size)
-                            // AAC-4 FIX: write directly into pendingBuf — eliminates
-                            // the old intermediate pcmBuf and a full 64 KB memcpy per frame.
-                            pendingBuf.clear()
-                            convertPcmToEncoder(pcm, decInfo.size, pendingBuf, srcChannels, channels)
-                            pendingBuf.flip()
+
+                            // AAC-L2 FIX: pendingBuf is 64 KB but a decoder frame
+                            // (e.g. mono FLAC at high sample rates) can exceed that.
+                            // convertPcmToEncoder writes directly to the target without
+                            // a bounds check, so a too-small pendingBuf would cause
+                            // BufferOverflowException. Compute the exact output size
+                            // and allocate a larger buffer on demand.
+                            val srcCh = srcChannels.coerceIn(1, 8)
+                            val dstCh = channels.coerceIn(1, 2)
+                            val outBytes = (decInfo.size / (srcCh * 2)) * dstCh * 2
+                            val targetBuf = if (outBytes <= pendingBuf.capacity()) {
+                                pendingBuf
+                            } else {
+                                ByteBuffer.allocateDirect(outBytes).order(ByteOrder.LITTLE_ENDIAN)
+                            }
+                            targetBuf.clear()
+                            convertPcmToEncoder(pcm, decInfo.size, targetBuf, srcChannels, channels)
+                            targetBuf.flip()
+                            // If we used a temporary oversized buffer, copy it into
+                            // pendingBuf in chunks (the encoder-feed loop handles chunking).
+                            if (targetBuf !== pendingBuf) {
+                                pendingBuf.clear()
+                                val copyN = pendingBuf.remaining().coerceAtMost(targetBuf.remaining())
+                                val savedLimit = targetBuf.limit()
+                                targetBuf.limit(targetBuf.position() + copyN)
+                                pendingBuf.put(targetBuf)
+                                targetBuf.limit(savedLimit)
+                                pendingBuf.flip()
+                            }
 
                             var pts = (decInfo.presentationTimeUs - trimStartUs).coerceAtLeast(0)
                             if (pts <= lastPts) pts = lastPts + 1_000
