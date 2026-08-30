@@ -6,24 +6,113 @@ on:
   pull_request:
   workflow_dispatch:
 
-jobs:
-  build:
-    name: Test + Build signed APKs
-    runs-on: ubuntu-latest
+env:
+  # One place to change the JVM sizing for every job.
+  GRADLE_OPTS: >-
+    -Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m
+    -Dorg.gradle.workers.max=2 -Dfile.encoding=UTF-8
 
+jobs:
+  # ── Universal APK ──────────────────────────────────────────────────────
+  # A single signed release APK that installs on any Android 8.0+ device:
+  # every ABI and every density in one file (the app declares no splits), and
+  # no store-specific SDK - no Cafe Bazaar IAP, no ad network. This is the
+  # build to hand to a tester or sideload directly.
+  universal:
+    name: Universal APK
+    runs-on: ubuntu-latest
     steps:
-      # ── 1. Checkout ────────────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── 2. JDK ────────────────────────────────────────────────────────────
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      # ── 3. Gradle cache ───────────────────────────────────────────────────
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      # Gate: never publish an APK from a tree whose tests are red.
+      - name: Run JVM unit tests
+        run: ./gradlew :app:testPlayDebugUnitTest --no-daemon --stacktrace
+
+      - name: Build universal release APK
+        run: ./gradlew :app:assemblePlayRelease --no-daemon --stacktrace
+
+      - name: Verify the APK is signed and truly universal
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/play/release/app-play-release.apk"
+          test -f "$APK" || { echo "APK not produced"; exit 1; }
+
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "=== Using build-tools: $BT ==="
+
+          echo "--- signature ---"
+          "$BT/apksigner" verify --print-certs --verbose "$APK" | head -12
+
+          echo "--- badging ---"
+          "$BT/aapt" dump badging "$APK" \
+            | grep -E "^package|^sdkVersion|^targetSdkVersion|^native-code|^densities" || true
+
+          echo "--- ABIs inside the APK ---"
+          # No `native-code` line above means the APK carries no split-only
+          # native libs; list whatever is present so a future split is visible.
+          unzip -l "$APK" | awk '/lib\//{print $4}' | cut -d/ -f2 | sort -u || true
+
+          echo "--- no split metadata (a universal APK must not be a split) ---"
+          if unzip -l "$APK" | grep -q "META-INF/.*\.kotlin_module.*split"; then
+            echo "unexpected split metadata"; exit 1
+          fi
+          echo "OK: single self-contained APK"
+
+      - name: Collect artifact
+        run: |
+          set -euo pipefail
+          VERSION=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts || echo "1.0.0")
+          mkdir -p dist
+          cp app/build/outputs/apk/play/release/app-play-release.apk \
+             "dist/Compressly-${VERSION}-universal.apk"
+          ls -lh dist/
+          sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
+
+      - name: Upload universal APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Compressly-universal-apk
+          path: |
+            dist/Compressly-*-universal.apk
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 90
+
+  # ── Store builds ───────────────────────────────────────────────────────
+  build:
+    name: Test + Build signed APKs
+    runs-on: ubuntu-latest
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. JDK ─────────────────────────────────────────────────────────
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # ── 3. Gradle cache ────────────────────────────────────────────────
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -32,11 +121,11 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      # ── 4. Validate Gradle wrapper ────────────────────────────────────────
+      # ── 4. Validate Gradle wrapper ─────────────────────────────────────
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
 
-      # ── 5. JVM unit tests ─────────────────────────────────────────────────
+      # ── 5. JVM unit tests ──────────────────────────────────────────────
       # Run tests on the bazaar/debug variant so the Poolakey source set
       # is also compiled and validated. The unit-test suite is pure-JVM
       # (MediaUtil, SizeEstimator, PresetDefaults, JobControl …) so it
@@ -56,7 +145,7 @@ jobs:
           path: app/build/reports/tests/
           retention-days: 7
 
-      # ── 6. Build Bazaar release APK ───────────────────────────────────────
+      # ── 6. Build Bazaar release APK ────────────────────────────────────
       - name: Build Bazaar release APK
         run: |
           ./gradlew \
@@ -64,7 +153,7 @@ jobs:
             --no-daemon \
             --stacktrace
 
-      # ── 7. Build Play release APK ─────────────────────────────────────────
+      # ── 7. Build Play release APK ──────────────────────────────────────
       - name: Build Play release APK
         run: |
           ./gradlew \
@@ -72,7 +161,7 @@ jobs:
             --no-daemon \
             --stacktrace
 
-      # ── 8. Verify APKs are signed ─────────────────────────────────────────
+      # ── 8. Verify APKs are signed ──────────────────────────────────────
       - name: Verify APK signatures
         run: |
           set -e
@@ -86,7 +175,7 @@ jobs:
               grep -E "jar verified|WARNING|ERROR" || true
           done
 
-      # ── 9. Collect artifacts ──────────────────────────────────────────────
+      # ── 9. Collect artifacts ───────────────────────────────────────────
       - name: Collect APK artifacts
         run: |
           set -e
@@ -107,7 +196,7 @@ jobs:
             echo "  $(basename $f): $(( SIZE / 1024 ))KB"
           done
 
-      # ── 10. Upload artifacts ──────────────────────────────────────────────
+      # ── 10. Upload artifacts ───────────────────────────────────────────
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
