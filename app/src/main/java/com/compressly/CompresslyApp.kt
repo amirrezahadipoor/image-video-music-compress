@@ -84,9 +84,27 @@ class AppContainer(app: Application) {
     val jobCoordinator: JobCoordinator by lazy { JobCoordinator(context, historyRepository) }
     val navigationBus: NavigationBus = NavigationBus()
     val selection: SelectionHolder = SelectionHolder()
-    // Billing: NoopBillingManager in play/debug; the bazaar flavor overrides this
-    // by providing PoolakeyBillingManager via a flavor-specific AppContainer extension.
-    val billingManager: BillingManager by lazy { NoopBillingManager() }
+    /**
+     * Billing. The bazaar flavor ships [com.compressly.core.billing.PoolakeyBillingManager]
+     * in its own source set, so main cannot reference it directly - it is resolved
+     * by name, the same way Ads resolves its provider.
+     *
+     * This used to be a hardcoded NoopBillingManager with a comment claiming the
+     * bazaar flavor "overrides" it. A `val by lazy` with an initializer cannot be
+     * overridden by an extension, so PoolakeyBillingManager was never constructed
+     * anywhere in the app and the real purchase flow was unreachable in every
+     * build. Falls back to Noop when the flavor provides nothing.
+     */
+    val billingManager: BillingManager by lazy {
+        runCatching {
+            val clazz = Class.forName("com.compressly.core.billing.PoolakeyBillingManager")
+            val repo = settingsRepository
+            // suspend (Boolean) -> Unit erases to kotlin.jvm.functions.Function2.
+            val persist: suspend (Boolean) -> Unit = { value -> repo.setPremium(value) }
+            val ctor = clazz.getDeclaredConstructor(kotlin.jvm.functions.Function2::class.java)
+            ctor.newInstance(persist) as BillingManager
+        }.getOrDefault(NoopBillingManager())
+    }
 }
 
 /** Files chosen in the picker, held until the settings screen consumes them. */
