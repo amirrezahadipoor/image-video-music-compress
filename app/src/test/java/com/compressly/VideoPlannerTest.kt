@@ -428,4 +428,93 @@ class VideoPlannerTest {
         )
         assertEquals(com.compressly.core.engine.model.VideoAudioMode.COMPRESS, after.audioMode)
     }
+
+    // ---- bits-per-pixel ceiling -------------------------------------------
+
+    @Test
+    fun everyTierHasABppCeiling() {
+        for (preset in CompressionPreset.entries) {
+            val bpp = PresetDefaults.videoDefaults[preset]?.bpp ?: 0.0
+            assertTrue("$preset has no bpp ceiling", bpp > 0.0)
+        }
+    }
+
+    @Test
+    fun theCeilingSqueezesABloatedSource() {
+        // 4K at 60 Mbps: the old source-share rule for MAXIMUM_COMPRESSION
+        // produced ~1.3 Mbps, which is still enormous for a 720p output.
+        val settings = PresetDefaults.videoSettingsFor(CompressionPreset.MAXIMUM_COMPRESSION)
+        val target = VideoPlanner.targetVideoBitrate(uhd, settings, CompressionPreset.MAXIMUM_COMPRESSION)
+        val (w, h) = VideoPlanner.outputDims(uhd, settings, CompressionPreset.MAXIMUM_COMPRESSION)
+        val ceiling = (w.toLong() * h * VideoPlanner.resolvedFps(settings, uhd) *
+            PresetDefaults.videoDefaults[CompressionPreset.MAXIMUM_COMPRESSION]!!.bpp).toInt()
+        assertTrue("target $target should sit at the ceiling $ceiling", target <= ceiling)
+        assertTrue("target $target is not aggressive enough", target < 1_000_000)
+    }
+
+    @Test
+    fun theCeilingOnlyEverMakesItMoreAggressive() {
+        // Compare against the pre-ceiling rule: source share, pixel-scaled.
+        for ((label, info) in sources) {
+            for (preset in CompressionPreset.ordered) {
+                val settings = PresetDefaults.videoSettingsFor(preset)
+                val d = PresetDefaults.videoDefaults[preset]!!
+                val (w, h) = VideoPlanner.outputDims(info, settings, preset)
+                val srcArea = info.effectiveWidth.toLong() * info.effectiveHeight.coerceAtLeast(1)
+                val outArea = w.toLong() * h
+                var oldRule = VideoPlanner.effectiveSourceBitrate(info) * d.bitrateFactor
+                if (srcArea > 0 && outArea < srcArea) oldRule *= outArea.toDouble() / srcArea
+                val now = VideoPlanner.targetVideoBitrate(info, settings, preset)
+                assertTrue(
+                    "$label / $preset got $now but the old rule allowed ${oldRule.toInt()}",
+                    now <= oldRule.toInt().coerceAtLeast(VideoPlanner.MIN_BITRATE)
+                )
+            }
+        }
+    }
+
+    @Test
+    fun theCeilingDoesNotOverCompressACleanSource() {
+        // A 1080p clip already encoded at 2 Mbps should not be crushed to the
+        // ceiling; the source-share term is lower and wins.
+        val clean = fhd60Portrait.copy(videoBitrate = 2_000_000, audioBitrate = 0, frameRate = 30)
+        val settings = PresetDefaults.videoSettingsFor(CompressionPreset.MAXIMUM_QUALITY)
+        val target = VideoPlanner.targetVideoBitrate(clean, settings, CompressionPreset.MAXIMUM_QUALITY)
+        assertTrue("target $target", target <= 2_000_000)
+        assertTrue("target $target is needlessly harsh", target > 1_000_000)
+    }
+
+    @Test
+    fun h265StillBeatsH264UnderTheCeiling() {
+        val settings264 = PresetDefaults.videoSettingsFor(CompressionPreset.BALANCED)
+        val settings265 = settings264.copy(codec = VideoCodec.H265)
+        val a = VideoPlanner.targetVideoBitrate(uhd, settings264, CompressionPreset.BALANCED)
+        val b = VideoPlanner.targetVideoBitrate(uhd, settings265, CompressionPreset.BALANCED)
+        assertTrue("H265 $b should beat H264 $a", b < a)
+    }
+
+    @Test
+    fun theEncoderIsNeverToldARateItCannotReceive() {
+        // MAXIMUM_COMPRESSION asks for 30 fps; a 24 fps film cannot supply it.
+        val film = fhd60Portrait.copy(frameRate = 24)
+        val settings = PresetDefaults.videoSettingsFor(CompressionPreset.MAXIMUM_COMPRESSION)
+        assertEquals(30, settings.frameRate)
+        assertEquals(24, VideoPlanner.resolvedFps(settings, film))
+        assertFalse("and no frames are dropped", VideoPlanner.dropsFrames(settings, film))
+    }
+
+    @Test
+    fun anUnknownSourceRateHonoursTheRequest() {
+        assertEquals(
+            60,
+            VideoPlanner.resolvedFps(VideoSettings(frameRate = 60), fhd60Portrait.copy(frameRate = 0))
+        )
+    }
+
+    @Test
+    fun theKeyFrameIntervalFollowsTheCorrectedRate() {
+        val first = VideoPlanner.iFrameIntervalSeconds(4_000_000, 1280, 720)
+        val corrected = VideoPlanner.iFrameIntervalSeconds(600_000, 1280, 720)
+        assertTrue("first=$first corrected=$corrected", corrected > first)
+    }
 }

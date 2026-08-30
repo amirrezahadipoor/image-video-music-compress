@@ -32,6 +32,17 @@ object PresetDefaults {
     data class VideoDefaults(
         /** Multiplier applied to the source bitrate before resolution scaling. */
         val bitrateFactor: Double,
+        /**
+         * Bits per pixel per frame this tier is willing to spend, as a ceiling.
+         *
+         * A share of the source rate alone is arbitrary: a badly encoded 20 Mbps
+         * clip and a clean 4 Mbps one at the same resolution got wildly
+         * different targets from the same tier, and a bloated source was never
+         * squeezed below its own bloat. This ceiling is content-independent, so
+         * the tier means the same thing whatever it is fed. The final target is
+         * the lower of the two, i.e. always at least as aggressive as before.
+         */
+        val bpp: Double,
         val resolution: VideoResolution,
         val frameRate: Int?,
         /**
@@ -52,16 +63,16 @@ object PresetDefaults {
         // their video rates the original track is a large share of the file.
         // Capped at the source rate by VideoPlanner, so this can never inflate.
         CompressionPreset.MAXIMUM_QUALITY to
-            VideoDefaults(0.9, VideoResolution.ORIGINAL, null, VideoAudioMode.KEEP, 192, 5, 20),
+            VideoDefaults(0.9, 0.13, VideoResolution.ORIGINAL, null, VideoAudioMode.KEEP, 192, 5, 20),
         CompressionPreset.BALANCED to
-            VideoDefaults(0.6, VideoResolution.ORIGINAL, null, VideoAudioMode.KEEP, 192, 30, 50),
+            VideoDefaults(0.6, 0.080, VideoResolution.ORIGINAL, null, VideoAudioMode.KEEP, 192, 30, 50),
         CompressionPreset.HIGH_COMPRESSION to
-            VideoDefaults(0.35, VideoResolution.R1080, null, VideoAudioMode.COMPRESS, 112, 55, 72),
+            VideoDefaults(0.35, 0.050, VideoResolution.R1080, null, VideoAudioMode.COMPRESS, 112, 55, 72),
         CompressionPreset.MAXIMUM_COMPRESSION to
-            VideoDefaults(0.2, VideoResolution.R720, 30, VideoAudioMode.COMPRESS, 80, 75, 90),
+            VideoDefaults(0.2, 0.028, VideoResolution.R720, 30, VideoAudioMode.COMPRESS, 80, 75, 90),
         // Smart: bitrate chosen by a quality-aware formula (see VideoPlanner).
         CompressionPreset.SMART to
-            VideoDefaults(0.0, VideoResolution.ORIGINAL, null, VideoAudioMode.KEEP, 128, 30, 85)
+            VideoDefaults(0.0, 0.085, VideoResolution.ORIGINAL, null, VideoAudioMode.KEEP, 128, 30, 85)
     )
 
     // ---- Audio ----------------------------------------------------------

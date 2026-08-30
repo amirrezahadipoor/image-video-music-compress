@@ -105,8 +105,15 @@ object VideoPlanner {
      * is used instead, and only an explicit user choice overrides it.
      */
     fun resolvedFps(settings: VideoSettings, info: MediaInfo): Int {
-        val source = info.frameRate.takeIf { it > 0 } ?: 30
-        return (settings.frameRate ?: source).coerceIn(1, 240)
+        val source = info.frameRate.takeIf { it > 0 }
+        val requested = settings.frameRate ?: source ?: 30
+        // An encoder cannot invent frames. Asking for 30 on a 24 fps film - which
+        // is exactly what the MAXIMUM_COMPRESSION tier does - used to configure
+        // the rate controller for 25% more frames than it ever received, so the
+        // output missed its target. When the source rate is unknown there is
+        // nothing to clamp against and the request stands.
+        val effective = if (source != null) minOf(requested, source) else requested
+        return effective.coerceIn(1, 240)
     }
 
     /**
@@ -243,11 +250,27 @@ object VideoPlanner {
         outH: Int,
         source: Int
     ): Int {
-        val factor = PresetDefaults.videoDefaults[preset]?.bitrateFactor ?: 0.6
-        var bitrate = source * factor
+        val defaults = PresetDefaults.videoDefaults[preset]
+        val factor = defaults?.bitrateFactor ?: 0.6
+        val bpp = defaults?.bpp ?: 0.080
+        val fps = resolvedFps(settings, info)
+
         val srcArea = info.effectiveWidth.toLong() * info.effectiveHeight.coerceAtLeast(1)
         val outArea = outW.toLong() * outH.coerceAtLeast(1)
-        if (srcArea > 0 && outArea < srcArea) bitrate *= outArea.toDouble() / srcArea
+
+        // (a) A share of what the source carries, scaled by the pixel reduction.
+        var fromSource = source * factor
+        if (srcArea > 0 && outArea < srcArea) fromSource *= outArea.toDouble() / srcArea
+
+        // (b) A content-independent ceiling: what this tier is willing to spend
+        // per pixel per frame at the size and rate actually being written.
+        val ceiling = outArea * fps.coerceIn(1, 240) * bpp
+
+        // The lower of the two. min() means this can only ever be more
+        // aggressive than the old source-share rule, never less - the ceiling
+        // is what finally squeezes a bloated source instead of reproducing its
+        // bloat at 60%.
+        var bitrate = minOf(fromSource, ceiling)
         if (settings.codec == VideoCodec.H265) bitrate *= 0.62
         return bitrate.toInt()
     }

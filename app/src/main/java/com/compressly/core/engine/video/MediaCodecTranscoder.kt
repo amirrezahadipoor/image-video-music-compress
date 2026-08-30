@@ -125,7 +125,13 @@ class MediaCodecTranscoder(private val context: Context) {
                     settings = settings,
                     encoderName = choice.name,
                     encoderMime = choice.mime,
-                    plan = plan.copy(bitrate = correction),
+                    // The key-frame interval has to follow the corrected rate:
+                    // the GOP that fitted the first pass is too short for the
+                    // lower one, and short GOPs are exactly what eats the budget.
+                    plan = plan.copy(
+                        bitrate = correction,
+                        iFrameInterval = VideoPlanner.iFrameIntervalSeconds(correction, plan.width, plan.height)
+                    ),
                     rotation = rotation,
                     trimStartUs = trimStartUs,
                     trimEndUs = trimEndUs,
