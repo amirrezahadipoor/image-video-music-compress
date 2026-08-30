@@ -23,6 +23,16 @@ object Mime {
     fun isPhoto(mime: String?): Boolean =
         mime?.startsWith("image/") == true && mime != "image/gif"
 
+    /** File extension for a video container, so a passthrough copy keeps its type. */
+    fun videoExtension(mime: String?): String = when (mime?.lowercase()) {
+        "video/webm" -> "webm"
+        "video/x-matroska" -> "mkv"
+        "video/3gpp" -> "3gp"
+        "video/3gpp2" -> "3g2"
+        "video/x-msvideo" -> "avi"
+        else -> "mp4"
+    }
+
     fun isVideo(mime: String?): Boolean = mime?.startsWith("video/") == true
 
     fun isAudio(mime: String?): Boolean = mime?.startsWith("audio/") == true

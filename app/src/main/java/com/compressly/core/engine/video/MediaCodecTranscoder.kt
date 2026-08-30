@@ -67,10 +67,18 @@ class MediaCodecTranscoder(private val context: Context) {
         val requestedMime = if (settings.codec == VideoCodec.H265) MIME_H265 else MIME_H264
         val choice = resolveEncoder(requestedMime)
 
-        val (outW, outH) = computeOutputDims(info, settings, preset)
-        val targetBitrate = settings.bitrate
-            ?: com.compressly.core.engine.estimate.SizeEstimator.targetVideoBitrate(info, settings, preset)
-        val targetFps = settings.frameRate ?: 30
+        // MediaInspector normally supplies the frame rate, but some containers
+        // only report it on the track itself. Reading the header once here keeps
+        // the plan and the encoder in agreement.
+        val plannedInfo = if (info.frameRate > 0) info else info.copy(frameRate = trackFrameRate(inputUri))
+        // One planner decides the dimensions, the rate and the frame rate, so
+        // the encoder is configured with exactly the numbers the live estimate
+        // in the UI was computed from.
+        val plan = VideoPlanner.plan(plannedInfo, settings, preset)
+        val outW = plan.width
+        val outH = plan.height
+        val targetBitrate = plan.bitrate
+        val targetFps = plan.fps
 
         // VID-TEMP-1 FIX: use nanoTime for uniqueness. currentTimeMillis() has
         // millisecond resolution; two concurrent jobs that both start within the
@@ -84,14 +92,11 @@ class MediaCodecTranscoder(private val context: Context) {
             videoPass(
                 inputUri = inputUri,
                 outputPath = tempVideo.absolutePath,
-                info = info,
+                info = plannedInfo,
                 settings = settings,
                 encoderName = choice.name,
                 encoderMime = choice.mime,
-                outW = outW,
-                outH = outH,
-                targetBitrate = targetBitrate,
-                targetFps = targetFps,
+                plan = plan,
                 rotation = rotation,
                 trimStartUs = trimStartUs,
                 trimEndUs = trimEndUs,
@@ -172,16 +177,17 @@ class MediaCodecTranscoder(private val context: Context) {
         settings: VideoSettings,
         encoderName: String,
         encoderMime: String,
-        outW: Int,
-        outH: Int,
-        targetBitrate: Int,
-        targetFps: Int,
+        plan: VideoPlanner.Plan,
         rotation: Int,
         trimStartUs: Long,
         trimEndUs: Long,
         control: JobControl,
         onProgress: (Float) -> Unit
     ) {
+        val outW = plan.width
+        val outH = plan.height
+        val targetBitrate = plan.bitrate
+        val targetFps = plan.fps
         val extractor = MediaExtractor()
         try {
             extractor.setDataSource(context, inputUri, null)
@@ -196,7 +202,9 @@ class MediaCodecTranscoder(private val context: Context) {
             val encFormat = MediaFormat.createVideoFormat(encoderMime, outW, outH).apply {
                 setInteger(MediaFormat.KEY_BIT_RATE, targetBitrate)
                 setInteger(MediaFormat.KEY_FRAME_RATE, targetFps)
-                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2)
+                // A fixed 2 s GOP at a very low bitrate lets single key frames
+                // eat the whole budget; the planner widens it instead.
+                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, plan.iFrameInterval)
                 setInteger(
                     MediaFormat.KEY_COLOR_FORMAT,
                     MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface
@@ -251,7 +259,9 @@ class MediaCodecTranscoder(private val context: Context) {
                 val decoderInfo = MediaCodec.BufferInfo()
                 val encoderInfo = MediaCodec.BufferInfo()
                 val lastKeptPts = longArrayOf(Long.MIN_VALUE)
-                val keepAllFrames = settings.frameRate == null
+                // Frames are dropped only when the requested rate is below the
+                // source rate - the planner already decided this.
+                val keepAllFrames = !plan.dropFrames
                 val frameIntervalUs = if (keepAllFrames) 0L else (1_000_000.0 / targetFps).toLong()
                 var lastReported = -1f
 
@@ -651,43 +661,24 @@ private suspend fun mergePass(
     }
 
     /**
-     * Computes output dimensions in the STORED orientation (rotation applied
-     * via muxer hint). Smart mode caps very large footage at 1920px wide:
-     * perceptually that keeps >70% quality while saving a lot of space.
+     * Frame rate reported on the video track itself. MediaInspector usually
+     * supplies this already; this is the fallback for containers that only put
+     * it on the track. Returns 0 when it is not reported, in which case the
+     * planner falls back to 30 fps.
      */
-    private fun computeOutputDims(
-        info: MediaInfo,
-        settings: VideoSettings,
-        preset: com.compressly.core.engine.model.CompressionPreset
-    ): Pair<Int, Int> {
-        val storedW = info.width.takeIf { it > 0 } ?: return 1280 to 720
-        val storedH = info.height.takeIf { it > 0 } ?: return 1280 to 720
-        val rotated = info.rotation == 90 || info.rotation == 270
-        val displayW = if (rotated) storedH else storedW
-        val displayH = if (rotated) storedW else storedH
-
-        var (capW, capH) = when (settings.resolution) {
-            VideoResolution.ORIGINAL -> displayW to displayH
-            VideoResolution.R1080 -> 1920 to 1080
-            VideoResolution.R720 -> 1280 to 720
-            VideoResolution.R480 -> 854 to 480
-            VideoResolution.CUSTOM ->
-                settings.customWidth.coerceAtLeast(64) to settings.customHeight.coerceAtLeast(64)
+    private fun trackFrameRate(uri: Uri): Int {
+        val extractor = MediaExtractor()
+        return try {
+            extractor.setDataSource(context, uri, null)
+            val index = findTrack(extractor, "video/") ?: return 0
+            val format = extractor.getTrackFormat(index)
+            if (!format.containsKey(MediaFormat.KEY_FRAME_RATE)) 0
+            else format.getInteger(MediaFormat.KEY_FRAME_RATE).coerceIn(0, 240)
+        } catch (t: Throwable) {
+            0
+        } finally {
+            runCatching { extractor.release() }
         }
-        if (preset == com.compressly.core.engine.model.CompressionPreset.SMART && displayW > 1920) {
-            val ratio = 1920.0 / displayW
-            capW = 1920
-            capH = (displayH * ratio).toInt().coerceAtLeast(2)
-        }
-        val scale = minOf(1.0, capW.toDouble() / displayW, capH.toDouble() / displayH)
-        var w = (storedW * scale).toInt()
-        var h = (storedH * scale).toInt()
-        
-        // Video encoders perform best and are most stable when dimensions are multiples of 16.
-        w -= (w % 16)
-        h -= (h % 16)
-        
-        return w.coerceAtLeast(16) to h.coerceAtLeast(16)
     }
 
     private fun trimmedDurationMs(originalMs: Long, startUs: Long, endUs: Long): Long {

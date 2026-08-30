@@ -21,6 +21,8 @@ import com.compressly.core.util.Storage
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Dispatches a single file to the right engine, then publishes the result to
@@ -107,6 +109,16 @@ class Compressor(private val context: Context) {
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
         val info = mediaInfoOf(item.uri, fallbackHasVideo = true)
+        // Nothing is being changed about the video AND re-encoding would not
+        // shrink it: hand the original file straight back instead of spending a
+        // decode+encode pass (and a generation of quality) for nothing.
+        val estimate = com.compressly.core.engine.estimate.SizeEstimator
+            .estimateVideo(info, settings, preset)
+        if (com.compressly.core.engine.video.VideoPlanner.isNoOpTranscode(info, settings, preset) &&
+            com.compressly.core.engine.video.VideoPlanner.shouldKeepOriginal(estimate, item.sizeBytes)
+        ) {
+            return keepOriginal(item, onProgress)
+        }
         val temp = File.createTempFile("out_", ".mp4", context.cacheDir)
         try {
             val stats = MediaCodecTranscoder(context).transcode(
@@ -125,6 +137,30 @@ class Compressor(private val context: Context) {
             val durationLabel = com.compressly.core.util.Formats.humanDuration(stats.durationMs)
             val summary = "$codecName, $durationLabel"
             return EngineOutput(uri, sizeOf(uri), summary)
+        } finally {
+            Storage.deleteQuietly(temp)
+        }
+    }
+
+    /**
+     * Publishes the input file unchanged. Used when the planned transcode would
+     * not shrink it: re-encoding at the rate the source already carries only
+     * costs quality, so the file is copied through and reported honestly.
+     */
+    private suspend fun keepOriginal(
+        item: InputItem,
+        onProgress: (ItemPhase, Float) -> Unit
+    ): EngineOutput = withContext(Dispatchers.IO) {
+        val mime = context.contentResolver.getType(item.uri) ?: "video/mp4"
+        val ext = com.compressly.core.util.Mime.videoExtension(mime)
+        val temp = File.createTempFile("keep_", ".$ext", context.cacheDir)
+        try {
+            context.contentResolver.openInputStream(item.uri)?.use { input ->
+                temp.outputStream().use { out -> input.copyTo(out, 256 * 1024) }
+            } ?: throw FileNotFoundException("Cannot read source")
+            onProgress(ItemPhase.COMPRESSING, 1f)
+            val uri = OutputStore.publishTempFile(context, MediaType.VIDEO, temp, item.displayName, mime)
+            EngineOutput(uri, sizeOf(uri), context.getString(ir.siliksama.hajmino.R.string.video_already_optimized))
         } finally {
             Storage.deleteQuietly(temp)
         }

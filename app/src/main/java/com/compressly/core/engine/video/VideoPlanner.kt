@@ -3,6 +3,7 @@ package com.compressly.core.engine.video
 import com.compressly.core.engine.model.CompressionPreset
 import com.compressly.core.engine.model.MediaInfo
 import com.compressly.core.engine.model.PresetDefaults
+import com.compressly.core.engine.model.VideoAudioMode
 import com.compressly.core.engine.model.VideoCodec
 import com.compressly.core.engine.model.VideoResolution
 import com.compressly.core.engine.model.VideoSettings
@@ -244,6 +245,43 @@ object VideoPlanner {
     }
 
     // ------------------------------------------------------------------
+    // Plan
+    // ------------------------------------------------------------------
+
+    /** Everything the encoder needs to be configured with, decided in one place. */
+    data class Plan(
+        val width: Int,
+        val height: Int,
+        /** Target video bitrate in bits/second. */
+        val bitrate: Int,
+        /** Frame rate the encoder is driven at. */
+        val fps: Int,
+        /** Whether frames must be dropped to reach [fps]. */
+        val dropFrames: Boolean,
+        /** Seconds between key frames. */
+        val iFrameInterval: Int
+    )
+
+    /**
+     * Resolves the full encode plan for a job. The transcoder and the live size
+     * estimate both call this, so the number shown to the user before they press
+     * "compress" is the number the encoder is actually configured with.
+     */
+    fun plan(info: MediaInfo, settings: VideoSettings, preset: CompressionPreset): Plan {
+        val (w, h) = outputDims(info, settings, preset)
+        val bitrate = targetVideoBitrate(info, settings, preset)
+        val fps = resolvedFps(settings, info)
+        return Plan(
+            width = w,
+            height = h,
+            bitrate = bitrate,
+            fps = fps,
+            dropFrames = dropsFrames(settings, info),
+            iFrameInterval = iFrameIntervalSeconds(bitrate, w, h)
+        )
+    }
+
+    // ------------------------------------------------------------------
     // "Would this even help?"
     // ------------------------------------------------------------------
 
@@ -263,6 +301,25 @@ object VideoPlanner {
         if (source <= 0) return false
         return targetVideoBitrate(info, settings, preset) >= (source * NO_GAIN_RATIO).toInt()
     }
+
+    /**
+     * True when the job asks for nothing the file does not already have: same
+     * resolution, same frame rate, audio kept, no trim. Combined with
+     * [shouldKeepOriginal] this is the "leave the file alone" decision — an
+     * explicit resize, re-rate, trim or audio strip is always honoured even if
+     * it does not shrink the file, because the user asked for that change.
+     */
+    fun isNoOpTranscode(info: MediaInfo, settings: VideoSettings, preset: CompressionPreset): Boolean {
+        if (settings.trimEnabled) return false
+        if (settings.audioMode == VideoAudioMode.STRIP) return false
+        if (settings.resolution != VideoResolution.ORIGINAL) return false
+        if (dropsFrames(settings, info)) return false
+        val (w, h) = outputDims(info, settings, preset)
+        if (w != align16(info.width) || h != align16(info.height)) return false
+        return true
+    }
+
+    private fun align16(value: Int): Int = if (value <= 0) 0 else (value - value % 16).coerceAtLeast(16)
 
     /**
      * Key-frame interval that fits the target rate. A fixed 2 s interval at a
