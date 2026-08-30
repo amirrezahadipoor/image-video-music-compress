@@ -36,15 +36,25 @@ class PremiumViewModel(
      */
     fun purchase(activity: Activity? = null) {
         if (billingManager is NoopBillingManager) {
-            // Dev / play build: simulate a purchase for testing.
-            billingManager.simulatePurchase()
-            viewModelScope.launch {
-                container.settingsRepository.setPremium(true)
+            // Debug builds only. This used to run in every build, so the
+            // published app handed out premium for free the moment anyone tapped
+            // "buy" - no store call, no payment, straight to unlocked.
+            if (ir.siliksama.hajmino.BuildConfig.DEBUG) {
+                billingManager.simulatePurchase()
+                viewModelScope.launch {
+                    container.settingsRepository.setPremium(true)
+                }
             }
             return
         }
-        // activity is required for Poolakey; if null caller should pass it.
-        // In production this is always non-null because the composable passes it.
+        // A real store needs the foreground Activity to launch its purchase UI.
+        // Without one there is nothing to launch, and silently doing nothing is
+        // how this path went unnoticed.
+        if (activity != null) {
+            billingManager.purchasePremium(activity)
+        } else {
+            billingManager.queryExistingPurchases()
+        }
     }
 
     fun retryConnection() {

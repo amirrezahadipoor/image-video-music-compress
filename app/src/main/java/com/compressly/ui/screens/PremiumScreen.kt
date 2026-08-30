@@ -57,6 +57,9 @@ import com.compressly.ui.components.GhostButton
 import com.compressly.ui.theme.GradientHero
 import com.compressly.ui.theme.GradientSuccess
 import com.compressly.ui.viewmodels.PremiumViewModel
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.ui.platform.LocalContext
 
 /**
@@ -76,6 +79,7 @@ fun PremiumScreen(
         )
     )
 ) {
+    val context = LocalContext.current
     val isPremium    by viewModel.isPremium.collectAsStateWithLifecycle()
     val connState    by viewModel.connectionState.collectAsStateWithLifecycle()
     val isConnecting  = connState == BillingConnectionState.CONNECTING
@@ -230,7 +234,7 @@ fun PremiumScreen(
                     else -> {
                         ActionButton(
                             text = stringResource(R.string.premium_cta),
-                            onClick = { viewModel.purchase() },
+                            onClick = { viewModel.purchase(context.findActivity()) },
                             enabled = isConnected,
                             gradient = GradientHero
                         )
@@ -275,4 +279,11 @@ private fun BenefitRow(icon: ImageVector, text: String) {
             color = MaterialTheme.colorScheme.onSurface
         )
     }
+}
+
+/** Walks a ContextWrapper chain up to the hosting Activity (Poolakey needs one). */
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
