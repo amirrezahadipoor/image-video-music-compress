@@ -724,9 +724,20 @@ private suspend fun mergePass(
                 return runCatching { format.getInteger(key) }.getOrNull() ?: 0
             }
 
+            fun longAt(index: Int?, key: String): Long {
+                if (index == null || index < 0) return 0L
+                val format = extractor.getTrackFormat(index)
+                if (!format.containsKey(key)) return 0L
+                return runCatching { format.getLong(key) }.getOrNull() ?: 0L
+            }
+
             val video = findTrack(extractor, "video/")
             val audio = findTrack(extractor, "audio/")
             info.copy(
+                // Without a duration the corrective pass cannot measure the
+                // first encode at all, so it silently never runs.
+                durationMs = info.durationMs.takeIf { it > 0 }
+                    ?: longAt(video, MediaFormat.KEY_DURATION) / 1000L,
                 width = info.width.takeIf { it > 0 } ?: intAt(video, MediaFormat.KEY_WIDTH),
                 height = info.height.takeIf { it > 0 } ?: intAt(video, MediaFormat.KEY_HEIGHT),
                 rotation = info.rotation.takeIf { it != 0 }
