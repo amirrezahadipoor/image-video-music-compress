@@ -30,8 +30,8 @@
     <!-- Home -->
     <string name="home_greeting">Welcome</string>
     <string name="home_hero_title">Photo. Video. Audio. Smaller.</string>
-    <string name="home_hero_subtitle">100% offline processing on your device. No upload, no account.</string>
-    <string name="hero_offline_badge">100% Offline</string>
+    <string name="home_hero_subtitle" formatted="false">100% offline processing on your device. No upload, no account.</string>
+    <string name="hero_offline_badge" formatted="false">100% Offline</string>
     <string name="home_compress_photo">Compress Photo</string>
     <string name="home_compress_video">Compress Video</string>
     <string name="home_compress_audio">Compress Audio</string>
@@ -124,7 +124,7 @@
     <string name="video_codec_h264">H.264 (AVC)</string>
     <string name="video_codec_h264_desc">Plays everywhere. Larger files.</string>
     <string name="video_codec_h265">H.265 (HEVC)</string>
-    <string name="video_codec_h265_desc">Up to 40%% smaller, same quality. Newer devices only.</string>
+    <string name="video_codec_h265_desc" formatted="false">Up to 40% smaller, same quality. Newer devices only.</string>
     <string name="video_codec_unavailable">H.265 encoder not available on this device. Using H.264.</string>
     <string name="video_audio_track">Audio track</string>
     <string name="video_audio_keep">Keep original audio</string>
@@ -216,7 +216,7 @@
     <string name="default_metadata">Metadata handling</string>
     <string name="default_metadata_desc">Applies to photos and audio files.</string>
     <string name="settings_section_about">About</string>
-    <string name="about_offline_title">100%% offline</string>
+    <string name="about_offline_title" formatted="false">100% offline</string>
     <string name="about_offline_desc">All compression happens on your device. No accounts, no uploads, no internet needed.</string>
     <string name="about_version">Version %1$s</string>
     <string name="about_build">Built with Kotlin and Jetpack Compose</string>
@@ -307,7 +307,7 @@
 
 
     <!-- Onboarding -->
-    <string name="onboard_title_0">100% Offline — 100% Private</string>
+    <string name="onboard_title_0" formatted="false">100% Offline — 100% Private</string>
     <string name="onboard_body_0">No file is ever uploaded. All processing happens on your device. No internet, no account, no worry.</string>
     <string name="onboard_title_1">Photo Compression</string>
     <string name="onboard_body_1">Supports JPEG, PNG, WebP and HEIC. Colors and ICC profiles preserved. Keep or strip EXIF metadata as you choose.</string>
@@ -316,7 +316,7 @@
     <string name="onboard_title_3">Audio Compression</string>
     <string name="onboard_body_3">Supports MP3, AAC, FLAC, OGG and WAV. ID3 tags and album art are preserved.</string>
     <string name="onboard_title_4">Smart Mode</string>
-    <string name="onboard_body_4">Smart mode automatically finds the best quality-to-size balance — always keeping perceptual quality above 70%.</string>
+    <string name="onboard_body_4" formatted="false">Smart mode automatically finds the best quality-to-size balance — always keeping perceptual quality above 70%.</string>
     <string name="onboard_next">Next</string>
     <string name="onboard_start">Let\'s start!</string>
 
@@ -331,7 +331,7 @@
     <string name="premium_benefit_noads">No ads — forever</string>
     <string name="premium_benefit_smart">Optimized Smart mode</string>
     <string name="premium_benefit_batch">Unlimited batch compression</string>
-    <string name="premium_benefit_offline">100% offline — always</string>
+    <string name="premium_benefit_offline" formatted="false">100% offline — always</string>
     <string name="premium_cta">Buy Premium on Bazaar</string>
     <string name="premium_one_time_note">One-time payment — no subscription. All future updates included.</string>
     <string name="premium_store_unavailable">Could not connect to Cafe Bazaar. Make sure the Bazaar app is installed and up to date.</string>
