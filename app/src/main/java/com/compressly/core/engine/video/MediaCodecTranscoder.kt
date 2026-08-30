@@ -322,11 +322,16 @@ class MediaCodecTranscoder(private val context: Context) {
                         didWork = true
                         val buf = decoder.getInputBuffer(inIndex)!!
                         val sampleSize = extractor.readSampleData(buf, 0)
-                        if (sampleSize < 0) {
+                        val pts = if (sampleSize >= 0) extractor.sampleTime else -1L
+                        // Stop at the end of the trim window. Without this the
+                        // video track ran to the end of the source while the
+                        // audio pass DID honour trimEndUs, so a trimmed export
+                        // came out full-length with the tail playing silent.
+                        val pastTrimEnd = trimEndUs > 0 && pts > trimEndUs
+                        if (sampleSize < 0 || pastTrimEnd) {
                             decoder.queueInputBuffer(inIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                             inputDone = true
                         } else {
-                            val pts = extractor.sampleTime
                             decoder.queueInputBuffer(inIndex, 0, sampleSize, pts, 0)
                             extractor.advance()
                             // Report progress: use trim window when trimming,
