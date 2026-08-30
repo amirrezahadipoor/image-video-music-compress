@@ -91,10 +91,17 @@ class SettingsViewModel(private val container: AppContainer, private val context
         if (selection != null) {
             val sel = selection!!
             _state.update { it.copy(mediaType = sel.mediaType, items = sel.items, ready = true) }
-            // Apply the user's saved default preset (Smart unless changed).
+            // Apply the user's saved defaults (Smart unless changed).
             viewModelScope.launch {
                 val def = container.settingsRepository.defaultPreset.first()
-                applyPreset(def)
+                // "Preserve metadata by default" from app settings. This used to
+                // be read, stored and shown as a toggle, but photoSettingsFor()
+                // and audioSettingsFor() both hardcode preserveMetadata = true,
+                // so the switch did nothing: a user who asked for location and
+                // camera data to be stripped by default got it kept on every
+                // single compression.
+                val preserve = container.settingsRepository.preserveMetadataDefault.first()
+                applyPreset(def, preserveMetadata = preserve)
             }
             loadMetadata()
         } else {
@@ -134,18 +141,27 @@ class SettingsViewModel(private val container: AppContainer, private val context
 
     fun selectPreset(preset: CompressionPreset) = applyPreset(preset)
 
-    private fun applyPreset(preset: CompressionPreset) {
+    private fun applyPreset(preset: CompressionPreset, preserveMetadata: Boolean? = null) {
         val s = _state.value
         val smart = preset == CompressionPreset.SMART
+        // The level owns quality and rate, not the metadata choice. On first
+        // load it comes from the user's saved default; after that, changing the
+        // level carries the current choice across instead of resetting it.
+        val photoMeta = preserveMetadata ?: s.photo.preserveMetadata
+        val audioMeta = preserveMetadata ?: s.audio.preserveMetadata
         _state.update {
             it.copy(
                 preset = preset,
                 smart = smart,
-                photo = if (s.mediaType == MediaType.PHOTO) PresetDefaults.photoSettingsFor(preset) else it.photo,
+                photo = if (s.mediaType == MediaType.PHOTO)
+                    PresetDefaults.photoSettingsFor(preset).copy(preserveMetadata = photoMeta)
+                else it.photo,
                 // Pass the current video settings so codec / custom size / trim
                 // survive a level change instead of being silently reset.
                 video = if (s.mediaType == MediaType.VIDEO) PresetDefaults.videoSettingsFor(preset, it.video) else it.video,
-                audio = if (s.mediaType == MediaType.AUDIO) PresetDefaults.audioSettingsFor(preset) else it.audio
+                audio = if (s.mediaType == MediaType.AUDIO)
+                    PresetDefaults.audioSettingsFor(preset).copy(preserveMetadata = audioMeta)
+                else it.audio
             )
         }
         refreshEstimate()
