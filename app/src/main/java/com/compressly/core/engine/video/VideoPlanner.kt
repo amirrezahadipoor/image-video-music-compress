@@ -312,6 +312,14 @@ object VideoPlanner {
     /** Never correct below this share of the target, however bad the first pass was. */
     const val MIN_CORRECTION_RATIO = 0.45
 
+    /**
+     * Below this, the measurement is not trustworthy. A short clip carries the
+     * same few kilobytes of container overhead as a long one, so bytes/duration
+     * overstates its rate badly enough to trigger a pointless re-encode.
+     */
+    const val MIN_CORRECTABLE_DURATION_MS = 1_500L
+    const val MIN_CORRECTABLE_BYTES = 64_000L
+
     /** Measured rate of an encoded file, in bits/second. */
     fun measuredBitrate(bytes: Long, durationMs: Long): Int {
         if (bytes <= 0 || durationMs <= 0) return 0
@@ -332,6 +340,8 @@ object VideoPlanner {
      */
     fun correctedBitrate(targetBitrate: Int, actualBytes: Long, durationMs: Long): Int? {
         if (targetBitrate <= 0) return null
+        if (durationMs < MIN_CORRECTABLE_DURATION_MS) return null
+        if (actualBytes < MIN_CORRECTABLE_BYTES) return null
         val actual = measuredBitrate(actualBytes, durationMs)
         if (actual <= 0) return null
         if (actual <= (targetBitrate * OVERSHOOT_TOLERANCE).toLong()) return null

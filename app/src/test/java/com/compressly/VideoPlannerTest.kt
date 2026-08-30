@@ -517,4 +517,30 @@ class VideoPlannerTest {
         val corrected = VideoPlanner.iFrameIntervalSeconds(600_000, 1280, 720)
         assertTrue("first=$first corrected=$corrected", corrected > first)
     }
+
+    @Test
+    fun shortClipsAreNotReEncodedOnMeasurementNoise() {
+        // A 1 s clip carries the same container overhead as a long one, so
+        // bytes/duration overstates its rate. Correcting on that is wasted work.
+        assertEquals(
+            null,
+            VideoPlanner.correctedBitrate(2_000_000, bytesFor(6_000_000, 1), 1_000)
+        )
+        // ...and a long clip with a moderate overshoot still gets corrected
+        // proportionally (4 Mbps against a 2 Mbps target -> 1 Mbps).
+        assertEquals(
+            1_000_000,
+            VideoPlanner.correctedBitrate(2_000_000, bytesFor(4_000_000), 60_000)
+        )
+        // A 6x overshoot would ask for 333 kbps; the clamp holds it at 45%.
+        assertEquals(
+            900_000,
+            VideoPlanner.correctedBitrate(2_000_000, bytesFor(6_000_000), 60_000)
+        )
+    }
+
+    @Test
+    fun aTinyOutputIsNotReEncoded() {
+        assertEquals(null, VideoPlanner.correctedBitrate(2_000_000, 10_000, 60_000))
+    }
 }
