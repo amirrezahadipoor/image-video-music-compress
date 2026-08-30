@@ -226,37 +226,49 @@ class PhotoCompressor(private val context: Context) {
 
     // ── Format helpers ───────────────────────────────────────────────────────
 
+    /**
+     * The output container kind, decided without touching any
+     * [Bitmap.CompressFormat] constant.
+     *
+     * This used to be a `when` over CompressFormat, which is a crash on
+     * Android 8-9: Kotlin compiles an enum `when` into a static switch-mapping
+     * table that reads *every* referenced constant at class-init, and
+     * `CompressFormat.WEBP_LOSSY` only exists from API 30. Any photo compressed
+     * on a minSdk-26 device therefore died with NoSuchFieldError before it ever
+     * wrote a byte. Resolving to a plain string first keeps the API-30 constant
+     * behind the runtime SDK check where it belongs.
+     */
+    private fun outputKind(sourceMime: String?, format: PhotoFormat): String = when (format) {
+        PhotoFormat.PNG  -> KIND_PNG
+        PhotoFormat.WEBP -> KIND_WEBP
+        PhotoFormat.JPEG -> KIND_JPEG
+        PhotoFormat.SOURCE -> when (sourceMime) {
+            "image/png"  -> KIND_PNG
+            "image/webp" -> KIND_WEBP
+            else         -> KIND_JPEG
+        }
+    }
+
     private fun resolveCompressFormat(sourceMime: String?, format: PhotoFormat): Bitmap.CompressFormat =
-        when (format) {
-            PhotoFormat.PNG  -> Bitmap.CompressFormat.PNG
-            PhotoFormat.WEBP -> if (Build.VERSION.SDK_INT >= 30) Bitmap.CompressFormat.WEBP_LOSSY
-                                else @Suppress("DEPRECATION") Bitmap.CompressFormat.WEBP
-            PhotoFormat.JPEG -> Bitmap.CompressFormat.JPEG
-            PhotoFormat.SOURCE -> when {
-                sourceMime == "image/png"  -> Bitmap.CompressFormat.PNG
-                sourceMime == "image/webp" ->
-                    if (Build.VERSION.SDK_INT >= 30) Bitmap.CompressFormat.WEBP_LOSSY
-                    else @Suppress("DEPRECATION") Bitmap.CompressFormat.WEBP
-                else -> Bitmap.CompressFormat.JPEG
-            }
+        when (outputKind(sourceMime, format)) {
+            KIND_PNG -> Bitmap.CompressFormat.PNG
+            KIND_WEBP -> if (Build.VERSION.SDK_INT >= 30) Bitmap.CompressFormat.WEBP_LOSSY
+                         else @Suppress("DEPRECATION") Bitmap.CompressFormat.WEBP
+            else -> Bitmap.CompressFormat.JPEG
         }
 
     private fun outputExtension(sourceMime: String?, format: PhotoFormat): String =
-        when (resolveCompressFormat(sourceMime, format)) {
-            Bitmap.CompressFormat.PNG          -> "png"
+        when (outputKind(sourceMime, format)) {
+            KIND_PNG -> "png"
             // WEBP_LOSSY (API 30+) and the deprecated WEBP (API 26-29) both
-            // produce WebP-encoded bytes. The temp file must carry the correct
-            // .webp extension so ExifInterface can identify the format when
-            // preserveMetadata=true — using .jpg here caused silent EXIF loss
-            // for any JPEG/PNG→WEBP conversion (BUG-FMT-2 fix).
-            Bitmap.CompressFormat.WEBP_LOSSY,
-            @Suppress("DEPRECATION")
-            Bitmap.CompressFormat.WEBP         -> "webp"
-            else                               -> "jpg"
+            // produce WebP bytes, so the temp file must carry .webp for
+            // ExifInterface to recognise it (BUG-FMT-2).
+            KIND_WEBP -> "webp"
+            else -> "jpg"
         }
 
     private fun fmtIsLossy(sourceMime: String?, format: PhotoFormat): Boolean =
-        resolveCompressFormat(sourceMime, format) != Bitmap.CompressFormat.PNG
+        outputKind(sourceMime, format) != KIND_PNG
 
     // ── EXIF ─────────────────────────────────────────────────────────────────
 
@@ -287,12 +299,10 @@ class PhotoCompressor(private val context: Context) {
         srcH: Int,
         settings: PhotoSettings
     ): Long {
-        val fmt = resolveCompressFormat(sourceMime, settings.outputFormat)
-        return when (fmt) {
-            Bitmap.CompressFormat.PNG ->
-                (srcW.toLong() * srcH * 3 * 0.6).toLong().coerceAtLeast(4_000)
-            else ->
-                (srcW.toLong() * srcH * settings.quality / 100.0 * 0.5).toLong().coerceAtLeast(2_000)
+        return if (outputKind(sourceMime, settings.outputFormat) == KIND_PNG) {
+            (srcW.toLong() * srcH * 3 * 0.6).toLong().coerceAtLeast(4_000)
+        } else {
+            (srcW.toLong() * srcH * settings.quality / 100.0 * 0.5).toLong().coerceAtLeast(2_000)
         }
     }
 
@@ -339,6 +349,9 @@ class PhotoCompressor(private val context: Context) {
 
     companion object {
         const val KEY_HEIC_UNSUPPORTED = "heic_old_device"
+        const val KIND_PNG = "png"
+        const val KIND_WEBP = "webp"
+        const val KIND_JPEG = "jpg"
         const val KEY_DECODE = "decode_failed"
         const val KEY_ENCODE = "encode_failed"
     }
