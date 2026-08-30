@@ -207,10 +207,10 @@ class Compressor(private val context: Context) {
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
         val info = mediaInfoOf(item.uri, fallbackHasVideo = false)
-        val estimate = com.compressly.core.engine.estimate.SizeEstimator.estimateAudio(info, settings)
-        if (com.compressly.core.engine.audio.AudioPlanner.shouldKeepOriginal(estimate, item.sizeBytes)) {
-            return keepOriginal(item, MediaType.AUDIO, onProgress)
-        }
+        // No rate-based pre-check here on purpose: unlike a video transcode an
+        // audio encode costs seconds, and the user may be changing container
+        // (MP3 -> M4A) rather than chasing bytes. publishOrKeepOriginal() below
+        // still guarantees a bigger file is never handed back.
         val temp = AudioCompressor(context).compress(item.uri, info, settings, control) {
             onProgress(ItemPhase.COMPRESSING, it)
         }
