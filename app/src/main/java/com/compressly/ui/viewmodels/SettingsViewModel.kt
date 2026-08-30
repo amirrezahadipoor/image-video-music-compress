@@ -147,7 +147,9 @@ class SettingsViewModel(private val container: AppContainer, private val context
                 preset = preset,
                 smart = smart,
                 photo = if (s.mediaType == MediaType.PHOTO) PresetDefaults.photoSettingsFor(preset) else it.photo,
-                video = if (s.mediaType == MediaType.VIDEO) PresetDefaults.videoSettingsFor(preset) else it.video,
+                // Pass the current video settings so codec / custom size / trim
+                // survive a level change instead of being silently reset.
+                video = if (s.mediaType == MediaType.VIDEO) PresetDefaults.videoSettingsFor(preset, it.video) else it.video,
                 audio = if (s.mediaType == MediaType.AUDIO) PresetDefaults.audioSettingsFor(preset) else it.audio
             )
         }

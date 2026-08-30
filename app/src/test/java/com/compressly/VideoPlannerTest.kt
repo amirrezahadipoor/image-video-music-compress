@@ -274,4 +274,37 @@ class VideoPlannerTest {
         )
         assertTrue(strip < keep)
     }
+
+    // ---- "leave the file alone" decision ----------------------------------
+
+    @Test
+    fun smartOnAnUnchangedSmallClipIsANoOp() {
+        val settings = PresetDefaults.videoSettingsFor(CompressionPreset.SMART)
+        assertTrue(
+            "same resolution, same rate, audio kept, no trim => nothing to do",
+            VideoPlanner.isNoOpTranscode(messenger720, settings, CompressionPreset.SMART)
+        )
+    }
+
+    @Test
+    fun anExplicitChangeIsNeverTreatedAsANoOp() {
+        val settings = PresetDefaults.videoSettingsFor(CompressionPreset.SMART)
+        assertFalse(VideoPlanner.isNoOpTranscode(messenger720, settings.copy(trimEnabled = true), CompressionPreset.SMART))
+        assertFalse(VideoPlanner.isNoOpTranscode(messenger720, settings.copy(audioMode = VideoAudioMode.STRIP), CompressionPreset.SMART))
+        assertFalse(VideoPlanner.isNoOpTranscode(
+            messenger720,
+            settings.copy(resolution = com.compressly.core.engine.model.VideoResolution.R480),
+            CompressionPreset.SMART
+        ))
+        assertFalse(VideoPlanner.isNoOpTranscode(messenger720, settings.copy(frameRate = 15), CompressionPreset.SMART))
+    }
+
+    @Test
+    fun smartDownscalingLargeFootageIsNotANoOp() {
+        val settings = PresetDefaults.videoSettingsFor(CompressionPreset.SMART)
+        assertFalse(
+            "Smart still resizes 4K down to 1920, so it must transcode",
+            VideoPlanner.isNoOpTranscode(uhd, settings, CompressionPreset.SMART)
+        )
+    }
 }

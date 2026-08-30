@@ -86,13 +86,31 @@ object PresetDefaults {
         )
     }
 
-    fun videoSettingsFor(preset: CompressionPreset): VideoSettings {
+    fun videoSettingsFor(preset: CompressionPreset): VideoSettings = videoSettingsFor(preset, null)
+
+    /**
+     * Video settings for a compression level.
+     *
+     * The level owns the resolution, the frame rate and the bitrate; everything
+     * else it does not define is carried over from [keepFrom]. Picking a level
+     * used to build a blank VideoSettings, which silently reverted H.265 back to
+     * H.264, wiped a custom size and threw away the trim window the user had
+     * just set. A manual bitrate is deliberately cleared: the level now owns
+     * the rate, and a stale one would override it completely.
+     */
+    fun videoSettingsFor(preset: CompressionPreset, keepFrom: VideoSettings?): VideoSettings {
         val d = videoDefaults[preset] ?: videoDefaults[CompressionPreset.BALANCED]!!
         return VideoSettings(
             resolution = d.resolution,
+            customWidth = keepFrom?.customWidth ?: 1280,
+            customHeight = keepFrom?.customHeight ?: 720,
+            bitrate = null,
             frameRate = d.frameRate,
-            audioMode = VideoAudioMode.KEEP,
-            trimEnabled = false
+            codec = keepFrom?.codec ?: VideoCodec.H264,
+            audioMode = keepFrom?.audioMode ?: VideoAudioMode.KEEP,
+            trimEnabled = keepFrom?.trimEnabled ?: false,
+            trimStartMs = keepFrom?.trimStartMs ?: 0L,
+            trimEndMs = keepFrom?.trimEndMs ?: 0L
         )
     }
 

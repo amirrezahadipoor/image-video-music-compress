@@ -60,4 +60,46 @@ class PresetDefaultsTest {
         val orders = CompressionPreset.ordered.map { it.order }
         assertEquals(listOf(0, 1, 2, 3), orders)
     }
+
+    @Test
+    fun switchingLevelKeepsTheChoicesItDoesNotOwn() {
+        val before = com.compressly.core.engine.model.VideoSettings(
+            codec = com.compressly.core.engine.model.VideoCodec.H265,
+            customWidth = 900,
+            customHeight = 500,
+            audioMode = com.compressly.core.engine.model.VideoAudioMode.STRIP,
+            trimEnabled = true,
+            trimStartMs = 1_500,
+            trimEndMs = 9_000,
+            bitrate = 4_000_000
+        )
+        val after = PresetDefaults.videoSettingsFor(CompressionPreset.HIGH_COMPRESSION, before)
+        // Carried over.
+        assertEquals(com.compressly.core.engine.model.VideoCodec.H265, after.codec)
+        assertEquals(900, after.customWidth)
+        assertEquals(500, after.customHeight)
+        assertEquals(com.compressly.core.engine.model.VideoAudioMode.STRIP, after.audioMode)
+        assertTrue(after.trimEnabled)
+        assertEquals(1_500L, after.trimStartMs)
+        assertEquals(9_000L, after.trimEndMs)
+        // Owned by the level.
+        assertEquals(
+            com.compressly.core.engine.model.VideoResolution.R1080,
+            after.resolution
+        )
+        assertEquals(
+            PresetDefaults.videoDefaults[CompressionPreset.HIGH_COMPRESSION]?.frameRate,
+            after.frameRate
+        )
+        // A stale manual bitrate must not survive: the level owns the rate.
+        assertEquals(null, after.bitrate)
+    }
+
+    @Test
+    fun videoSettingsWithoutAPreviousStateUsesDefaults() {
+        val v = PresetDefaults.videoSettingsFor(CompressionPreset.MAXIMUM_COMPRESSION, null)
+        assertEquals(com.compressly.core.engine.model.VideoCodec.H264, v.codec)
+        assertEquals(com.compressly.core.engine.model.VideoAudioMode.KEEP, v.audioMode)
+        assertEquals(false, v.trimEnabled)
+    }
 }
