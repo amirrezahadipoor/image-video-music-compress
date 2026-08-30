@@ -67,10 +67,12 @@ class MediaCodecTranscoder(private val context: Context) {
         val requestedMime = if (settings.codec == VideoCodec.H265) MIME_H265 else MIME_H264
         val choice = resolveEncoder(requestedMime)
 
-        // MediaInspector normally supplies the frame rate, but some containers
-        // only report it on the track itself. Reading the header once here keeps
-        // the plan and the encoder in agreement.
-        val plannedInfo = if (info.frameRate > 0) info else info.copy(frameRate = trackFrameRate(inputUri))
+        // MediaInspector normally supplies everything, but it can fail on exotic
+        // or partly corrupt containers, and Compressor then falls back to an
+        // empty MediaInfo. Planning from that would silently crush a 4K clip to
+        // 1280x720, drop its audio track and tell the encoder 30 fps - so fill in
+        // whatever is missing from the track itself before deciding anything.
+        val plannedInfo = recoverInfo(inputUri, info)
         // One planner decides the dimensions, the rate and the frame rate, so
         // the encoder is configured with exactly the numbers the live estimate
         // in the UI was computed from.
@@ -691,21 +693,53 @@ private suspend fun mergePass(
     }
 
     /**
-     * Frame rate reported on the video track itself. MediaInspector usually
-     * supplies this already; this is the fallback for containers that only put
-     * it on the track. Returns 0 when it is not reported, in which case the
-     * planner falls back to 30 fps.
+     * Fills in whatever [info] is missing from the tracks themselves, in one
+     * extractor pass.
+     *
+     * MediaInspector usually supplies all of it. When it cannot, the alternative
+     * is planning from an empty MediaInfo, which means: output forced to
+     * 1280x720 regardless of the source, no audio in the output, encoder told
+     * 30 fps, and a guessed 4 Mbps source rate. Every one of those is a silent,
+     * irreversible degradation of the user's file, so it is worth one header
+     * read to avoid.
      */
-    private fun trackFrameRate(uri: Uri): Int {
+    private fun recoverInfo(uri: Uri, info: MediaInfo): MediaInfo {
+        val complete = info.width > 0 && info.height > 0 && info.frameRate > 0 &&
+            info.videoBitrate > 0 && info.hasAudio
+        if (complete) return info
+
         val extractor = MediaExtractor()
         return try {
             extractor.setDataSource(context, uri, null)
-            val index = findTrack(extractor, "video/") ?: return 0
-            val format = extractor.getTrackFormat(index)
-            if (!format.containsKey(MediaFormat.KEY_FRAME_RATE)) 0
-            else format.getInteger(MediaFormat.KEY_FRAME_RATE).coerceIn(0, 240)
+
+            fun intAt(index: Int?, key: String): Int {
+                if (index == null || index < 0) return 0
+                val format = extractor.getTrackFormat(index)
+                if (!format.containsKey(key)) return 0
+                return runCatching { format.getInteger(key) }.getOrNull() ?: 0
+            }
+
+            val video = findTrack(extractor, "video/")
+            val audio = findTrack(extractor, "audio/")
+            info.copy(
+                width = info.width.takeIf { it > 0 } ?: intAt(video, MediaFormat.KEY_WIDTH),
+                height = info.height.takeIf { it > 0 } ?: intAt(video, MediaFormat.KEY_HEIGHT),
+                rotation = info.rotation.takeIf { it != 0 }
+                    ?: intAt(video, MediaFormat.KEY_ROTATION),
+                frameRate = info.frameRate.takeIf { it > 0 }
+                    ?: intAt(video, MediaFormat.KEY_FRAME_RATE).coerceIn(0, 240),
+                videoBitrate = info.videoBitrate.takeIf { it > 0 }
+                    ?: intAt(video, MediaFormat.KEY_BIT_RATE),
+                audioBitrate = info.audioBitrate.takeIf { it > 0 }
+                    ?: intAt(audio, MediaFormat.KEY_BIT_RATE),
+                hasVideo = info.hasVideo || video != null,
+                // Only trust a positive answer here: a container the retriever
+                // could not parse may still carry audio, and dropping it is not
+                // recoverable after the encode.
+                hasAudio = info.hasAudio || audio != null
+            )
         } catch (t: Throwable) {
-            0
+            info
         } finally {
             runCatching { extractor.release() }
         }
