@@ -136,11 +136,17 @@ object AacTranscoder {
                     if (inIndex >= 0) {
                         val buf = decoder.getInputBuffer(inIndex)!!
                         val sampleSize = extractor.readSampleData(buf, 0)
-                        if (sampleSize < 0) {
+                        val pts = if (sampleSize >= 0) extractor.sampleTime else -1L
+                        // Stop reading at the end of the trim window. Frames past
+                        // it were already discarded on the output side, so the
+                        // result was correct - but the whole file was still
+                        // decoded and thrown away. Trimming one minute out of a
+                        // two-hour recording decoded all two hours.
+                        val pastTrimEnd = trimEndUs > 0 && pts > trimEndUs
+                        if (sampleSize < 0 || pastTrimEnd) {
                             decoder.queueInputBuffer(inIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                             inputDone = true
                         } else {
-                            val pts = extractor.sampleTime
                             decoder.queueInputBuffer(inIndex, 0, sampleSize, pts, 0)
                             extractor.advance()
                             // AAC-3 FIX: debounce — only emit progress when change ≥ 1%
