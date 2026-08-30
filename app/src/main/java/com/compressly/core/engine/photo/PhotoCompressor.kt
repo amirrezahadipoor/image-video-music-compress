@@ -3,6 +3,8 @@ package com.compressly.core.engine.photo
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.ColorSpace
 import android.graphics.Matrix
 import androidx.exifinterface.media.ExifInterface
@@ -73,7 +75,11 @@ class PhotoCompressor(private val context: Context) {
             // PHOTO-L1 FIX: pass the already-computed bounds to decodeSampled so
             // it doesn't call decodeBounds() again internally (two file-open passes).
             val lossy = fmtIsLossy(sourceMime, settings.outputFormat)
-            val use565 = lossy && (settings.smart || settings.quality < 90)
+            // PNG and WebP can carry an alpha channel. RGB_565 cannot represent
+            // one, so decoding such a source into 565 throws the transparency
+            // away at decode time and there is nothing left to composite later.
+            val mayHaveAlpha = mime == "image/png" || mime == "image/webp"
+            val use565 = lossy && !mayHaveAlpha && (settings.smart || settings.quality < 90)
             var bitmap = decodeSampled(tempSource, targetW, targetH, use565, bounds)
 
             try {
@@ -97,6 +103,23 @@ class PhotoCompressor(private val context: Context) {
                 } catch (oom2: OutOfMemoryError) {
                     throw e
                 }
+            }
+
+            // JPEG and lossy WebP have no alpha channel, and Android's encoder
+            // resolves transparent pixels to BLACK rather than to the background.
+            // Converting a logo, a sticker or a screenshot with a transparent
+            // background therefore produced an image on solid black. Composite
+            // over white first, which is what every other image tool does.
+            if (lossy && bitmap.hasAlpha()) {
+                val flattened = Bitmap.createBitmap(
+                    bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888
+                )
+                Canvas(flattened).apply {
+                    drawColor(Color.WHITE)
+                    drawBitmap(bitmap, 0f, 0f, null)
+                }
+                bitmap.recycle()
+                bitmap = flattened
             }
 
             try {
