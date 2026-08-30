@@ -108,6 +108,8 @@ object OutputStore {
     /** Thread-safe date format cache — one SimpleDateFormat per locale. */
     private val dateFormatCache = ConcurrentHashMap<String, SimpleDateFormat>()
 
+    private val nameSequence = java.util.concurrent.atomic.AtomicInteger(0)
+
     fun uniqueNameFor(displayName: String, mimeType: String): String {
         val dot = displayName.lastIndexOf('.')
         val name = if (dot > 0) displayName.substring(0, dot) else displayName
@@ -124,9 +126,16 @@ object OutputStore {
         }
         
         val fmt = dateFormatCache.getOrPut("stamp") {
-            SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
+            // Milliseconds, not seconds. A batch of photos finishes several
+            // within the same second, and every one of them got the same
+            // DISPLAY_NAME - MediaStore then had to rename them out of the way,
+            // so the gallery ended up full of "name (1).jpg", "name (2).jpg".
+            SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US)
         }
         val stamp: String = synchronized(fmt) { fmt.format(Date()) }
-        return "${name}_compressed_$stamp$ext"
+        // Two files can still land in the same millisecond on a fast batch, so a
+        // monotonic sequence guarantees uniqueness rather than hoping.
+        val seq = nameSequence.incrementAndGet()
+        return "${name}_compressed_${stamp}_$seq$ext"
     }
 }
