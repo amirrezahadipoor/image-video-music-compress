@@ -275,7 +275,7 @@
     <!-- Misc -->
     <string name="estimate_note">تخمین‌ها بر اساس نوع فایل و تنظیمات است. نتیجه واقعی ممکن است کمی متفاوت باشد.</string>
     <string name="advanced_hint">کیفیت، رزولوشن، بیت‌ریت و موارد دیگر را دقیق تنظیم کنید.</string>
-    <string name="video_already_optimized">این فایل از قبل بهینه بود؛ بدون تغییر ذخیره شد</string>
+    <string name="already_optimized">این فایل از قبل بهینه بود؛ بدون تغییر ذخیره شد</string>
     <string name="processing_warning_long_video">ویدیوهای بزرگ ممکن است مدتی طول بکشند. می‌توانید این صفحه را ترک کنید؛ فشرده‌سازی ادامه می‌یابد.</string>
     <!-- App language -->
     <string name="settings_language">زبان برنامه</string>

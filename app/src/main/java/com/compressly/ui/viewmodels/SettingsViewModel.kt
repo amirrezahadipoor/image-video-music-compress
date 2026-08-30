@@ -231,7 +231,7 @@ class SettingsViewModel(private val container: AppContainer, private val context
                 info.effectiveWidth, info.effectiveHeight, s.originalSize, s.photo
             )
             MediaType.VIDEO -> SizeEstimator.estimateVideo(info, s.video, s.preset)
-            MediaType.AUDIO -> SizeEstimator.estimateAudio(info.durationMs, s.audio)
+            MediaType.AUDIO -> SizeEstimator.estimateAudio(info, s.audio)
         }
         _state.update { it.copy(estimatedSize = estimate) }
     }

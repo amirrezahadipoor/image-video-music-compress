@@ -78,6 +78,32 @@ class Compressor(private val context: Context) {
 
     private data class EngineOutput(val uri: Uri, val size: Long, val summary: String)
 
+    /**
+     * Publishes the engine's temp file - unless it did not actually shrink, in
+     * which case the original is handed back untouched.
+     *
+     * This is the last line of defence for all three engines and it works on the
+     * real encoded byte count rather than an estimate, so it can never wrongly
+     * skip a compression: it only ever fires when re-encoding demonstrably made
+     * the file no smaller.
+     */
+    private suspend fun publishOrKeepOriginal(
+        item: InputItem,
+        mediaType: MediaType,
+        temp: File,
+        mime: String,
+        summary: String,
+        onProgress: (ItemPhase, Float) -> Unit
+    ): EngineOutput {
+        val encoded = temp.length()
+        if (item.sizeBytes > 0 && encoded >= (item.sizeBytes * 0.95).toLong()) {
+            Storage.deleteQuietly(temp)
+            return keepOriginal(item, mediaType, onProgress)
+        }
+        val uri = OutputStore.publishTempFile(context, mediaType, temp, item.displayName, mime)
+        return EngineOutput(uri, sizeOf(uri), summary)
+    }
+
     private suspend fun compressPhoto(
         item: InputItem,
         settings: PhotoSettings,
@@ -96,9 +122,8 @@ class Compressor(private val context: Context) {
             mime == "image/webp" -> "image/webp"
             else -> "image/jpeg"
         }
-        val uri = OutputStore.publishTempFile(context, MediaType.PHOTO, temp, item.displayName, outMime)
         val summary = "${settings.quality}% quality, ${outMime.removePrefix("image/").uppercase()}"
-        return EngineOutput(uri, sizeOf(uri), summary)
+        return publishOrKeepOriginal(item, MediaType.PHOTO, temp, outMime, summary, onProgress)
     }
 
     private suspend fun compressVideo(
@@ -117,7 +142,7 @@ class Compressor(private val context: Context) {
         if (com.compressly.core.engine.video.VideoPlanner.isNoOpTranscode(info, settings, preset) &&
             com.compressly.core.engine.video.VideoPlanner.shouldKeepOriginal(estimate, item.sizeBytes)
         ) {
-            return keepOriginal(item, onProgress)
+            return keepOriginal(item, MediaType.VIDEO, onProgress)
         }
         val temp = File.createTempFile("out_", ".mp4", context.cacheDir)
         try {
@@ -130,13 +155,12 @@ class Compressor(private val context: Context) {
                 control = control,
                 onProgress = { onProgress(ItemPhase.COMPRESSING, it) }
             )
-            val uri = OutputStore.publishTempFile(context, MediaType.VIDEO, temp, item.displayName, "video/mp4")
             val codecName = if (settings.codec == com.compressly.core.engine.model.VideoCodec.H265) "H.265" else "H.264"
             // BUG-5 FIX: Integer division of durationMs < 1000 produces "0s".
             // Use humanDuration for a proper "0:XX" display for short clips.
             val durationLabel = com.compressly.core.util.Formats.humanDuration(stats.durationMs)
             val summary = "$codecName, $durationLabel"
-            return EngineOutput(uri, sizeOf(uri), summary)
+            return publishOrKeepOriginal(item, MediaType.VIDEO, temp, "video/mp4", summary, onProgress)
         } finally {
             Storage.deleteQuietly(temp)
         }
@@ -149,18 +173,28 @@ class Compressor(private val context: Context) {
      */
     private suspend fun keepOriginal(
         item: InputItem,
+        mediaType: MediaType,
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput = withContext(Dispatchers.IO) {
-        val mime = context.contentResolver.getType(item.uri) ?: "video/mp4"
-        val ext = com.compressly.core.util.Mime.videoExtension(mime)
+        val fallbackMime = when (mediaType) {
+            MediaType.PHOTO -> "image/jpeg"
+            MediaType.VIDEO -> "video/mp4"
+            MediaType.AUDIO -> "audio/mpeg"
+        }
+        val mime = context.contentResolver.getType(item.uri) ?: fallbackMime
+        val ext = when (mediaType) {
+            MediaType.VIDEO -> com.compressly.core.util.Mime.videoExtension(mime)
+            MediaType.PHOTO -> com.compressly.core.util.Mime.photoExtension(mime)
+            MediaType.AUDIO -> if (mime.contains("mp4") || mime.contains("m4a")) "m4a" else "mp3"
+        }
         val temp = File.createTempFile("keep_", ".$ext", context.cacheDir)
         try {
             context.contentResolver.openInputStream(item.uri)?.use { input ->
                 temp.outputStream().use { out -> input.copyTo(out, 256 * 1024) }
             } ?: throw FileNotFoundException("Cannot read source")
             onProgress(ItemPhase.COMPRESSING, 1f)
-            val uri = OutputStore.publishTempFile(context, MediaType.VIDEO, temp, item.displayName, mime)
-            EngineOutput(uri, sizeOf(uri), context.getString(ir.siliksama.hajmino.R.string.video_already_optimized))
+            val uri = OutputStore.publishTempFile(context, mediaType, temp, item.displayName, mime)
+            EngineOutput(uri, sizeOf(uri), context.getString(ir.siliksama.hajmino.R.string.already_optimized))
         } finally {
             Storage.deleteQuietly(temp)
         }
@@ -173,15 +207,20 @@ class Compressor(private val context: Context) {
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
         val info = mediaInfoOf(item.uri, fallbackHasVideo = false)
+        val estimate = com.compressly.core.engine.estimate.SizeEstimator.estimateAudio(info, settings)
+        if (com.compressly.core.engine.audio.AudioPlanner.shouldKeepOriginal(estimate, item.sizeBytes)) {
+            return keepOriginal(item, MediaType.AUDIO, onProgress)
+        }
         val temp = AudioCompressor(context).compress(item.uri, info, settings, control) {
             onProgress(ItemPhase.COMPRESSING, it)
         }
         val isAac = settings.format == AudioFormat.AAC
         val outMime = if (isAac) "audio/mp4" else "audio/mpeg"
-        val uri = OutputStore.publishTempFile(context, MediaType.AUDIO, temp, item.displayName, outMime)
         val formatName = if (isAac) "AAC" else "MP3"
-        val summary = "$formatName ${settings.bitrate} kbps"
-        return EngineOutput(uri, sizeOf(uri), summary)
+        val usedKbps = com.compressly.core.engine.audio.AudioPlanner
+            .targetBitrateKbps(settings.bitrate, info.audioBitrate)
+        val summary = "$formatName $usedKbps kbps"
+        return publishOrKeepOriginal(item, MediaType.AUDIO, temp, outMime, summary, onProgress)
     }
 
     private fun sizeOf(uri: Uri): Long =

@@ -128,13 +128,26 @@ object SizeEstimator {
 
     // ---- Audio ----------------------------------------------------------
 
-    fun estimateAudio(durationMs: Long, settings: AudioSettings): Long {
+    fun estimateAudio(durationMs: Long, settings: AudioSettings): Long =
+        estimateAudio(durationMs, settings, 0)
+
+    /**
+     * Size estimate that knows the source rate. Without it the estimate - and
+     * the encode - could aim above what the file already carries, which is how a
+     * 64 kbps voice memo came back three times larger on the Smart preset.
+     */
+    fun estimateAudio(info: MediaInfo, settings: AudioSettings): Long =
+        estimateAudio(info.durationMs, settings, info.audioBitrate)
+
+    private fun estimateAudio(durationMs: Long, settings: AudioSettings, sourceBitrateBps: Int): Long {
         if (durationMs <= 0) return 0L
-        val bitrate = settings.bitrate.coerceIn(32, 320)
-        val factor = if (settings.bitrateMode == com.compressly.core.engine.model.AudioBitrateMode.VBR) 0.92 else 1.0
-        // bitrate in kbps, duration in ms -> bytes.
-        val bytes = durationMs * bitrate / 8L
-        return (bytes * factor).toLong().coerceAtLeast(2_000)
+        val bitrate = com.compressly.core.engine.audio.AudioPlanner
+            .targetBitrateKbps(settings.bitrate, sourceBitrateBps)
+        return com.compressly.core.engine.audio.AudioPlanner.estimatedBytes(
+            bitrate,
+            durationMs,
+            vbr = settings.bitrateMode == com.compressly.core.engine.model.AudioBitrateMode.VBR
+        )
     }
 
     // ---- Preset-only helpers for the gauge ------------------------------

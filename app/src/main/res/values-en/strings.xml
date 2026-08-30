@@ -274,7 +274,7 @@
     <!-- Misc -->
     <string name="estimate_note">Estimates are based on file type and settings. The real result may differ slightly.</string>
     <string name="advanced_hint">Fine-tune quality, resolution, bitrate and more.</string>
-    <string name="video_already_optimized">Already optimized - saved unchanged</string>
+    <string name="already_optimized">Already optimized - saved unchanged</string>
     <string name="processing_warning_long_video">Large videos may take a while. You can leave this screen; compression keeps running.</string>
     <!-- App language -->
     <string name="settings_language">App language</string>

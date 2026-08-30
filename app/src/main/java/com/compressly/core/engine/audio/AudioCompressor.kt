@@ -47,7 +47,9 @@ class AudioCompressor(private val context: Context) {
                         context = context,
                         inputUri = uri,
                         outputPath = tempOut.absolutePath,
-                        bitrate = settings.bitrate.coerceIn(32, 320) * 1000,
+                        // Capped at the source rate: encoding above it only
+                        // makes the file bigger, it cannot recover quality.
+                        bitrate = AudioPlanner.targetBitrateKbps(settings.bitrate, info.audioBitrate) * 1000,
                         trimStartUs = 0,
                         trimEndUs = 0,
                         control = control,
@@ -56,7 +58,8 @@ class AudioCompressor(private val context: Context) {
                     if (!ok) throw AudioCompressionException(KEY_UNSUPPORTED)
                 }
                 AudioFormat.MP3 -> {
-                    encodeMp3(uri, tempOut, settings, info.durationMs, control) { p -> onProgress(p * 0.9f) }
+                    val kbps = AudioPlanner.targetBitrateKbps(settings.bitrate, info.audioBitrate)
+                    encodeMp3(uri, tempOut, settings, kbps, info.durationMs, control) { p -> onProgress(p * 0.9f) }
                 }
             }
 
@@ -89,6 +92,7 @@ class AudioCompressor(private val context: Context) {
         uri: Uri,
         outFile: File,
         settings: AudioSettings,
+        bitrateKbps: Int,
         durationMs: Long,
         control: JobControl,
         onProgress: (Float) -> Unit
@@ -129,7 +133,7 @@ class AudioCompressor(private val context: Context) {
                 val writer = Mp3Writer(
                     sampleRate = sampleRate,
                     channels = channels,
-                    bitrateKbps = settings.bitrate.coerceIn(32, 320),
+                    bitrateKbps = bitrateKbps.coerceIn(AudioPlanner.MIN_BITRATE_KBPS, AudioPlanner.MAX_BITRATE_KBPS),
                     vbr = settings.bitrateMode == AudioBitrateMode.VBR,
                     out = fos,
                     control = control
@@ -169,7 +173,31 @@ class AudioCompressor(private val context: Context) {
                                 val buf = decoder.getOutputBuffer(outIndex)!!
                                 buf.position(info.offset)
                                 buf.limit(info.offset + info.size)
-                                if (pcmFloat) {
+                                if (pcmFloat && srcChannels > 2) {
+                                    // Convert to 16-bit first, then downmix: the
+                                    // multi-channel branch below only understands
+                                    // 16-bit samples, and a 5.1 FLAC decodes to
+                                    // float. Skipping the downmix here fed 6-channel
+                                    // PCM to a stereo encoder and corrupted the MP3.
+                                    val n = floatToPcm16(buf, info.size, pcmOut)
+                                    if (n > 0) {
+                                        val src = ByteBuffer.wrap(pcmOut, 0, n).order(ByteOrder.LITTLE_ENDIAN)
+                                        val downmixed = ByteBuffer
+                                            .allocateDirect(n / srcChannels * channels)
+                                            .order(ByteOrder.LITTLE_ENDIAN)
+                                        com.compressly.core.engine.MediaUtil.convertPcmToEncoder(
+                                            src, n, downmixed, srcChannels, channels
+                                        )
+                                        downmixed.flip()
+                                        var remaining = downmixed.remaining()
+                                        while (remaining > 0) {
+                                            val chunk = minOf(remaining, pcmOut.size, downmixed.remaining())
+                                            downmixed.get(pcmOut, 0, chunk)
+                                            writer.writePcm(pcmOut, chunk)
+                                            remaining -= chunk
+                                        }
+                                    }
+                                } else if (pcmFloat) {
                                     val n = floatToPcm16(buf, info.size, pcmOut)
                                     if (n > 0) writer.writePcm(pcmOut, n)
                                 } else if (srcChannels > 2) {
