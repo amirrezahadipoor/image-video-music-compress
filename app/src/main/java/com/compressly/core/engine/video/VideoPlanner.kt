@@ -275,6 +275,43 @@ object VideoPlanner {
         return bitrate.toInt()
     }
 
+    /**
+     * Decides which decoded frames to render when the rate is being reduced.
+     *
+     * The schedule is absolute - frame n is due at firstPts + n * interval - and
+     * deliberately does NOT measure from the last frame that was kept. Doing
+     * that re-anchored the gap to a frame which was already late, so a 30 fps
+     * source asked for 24 fps dropped every other frame and delivered roughly
+     * 15 fps. Anchoring to the ideal timeline gives 25 fps from the same source,
+     * which is what "24" is supposed to mean on material that has no 24 fps
+     * frames to begin with.
+     */
+    class FrameGate(intervalUs: Long) {
+        private val intervalUs = intervalUs.coerceAtLeast(1L)
+        private var nextDueUs = Long.MIN_VALUE
+
+        /** True when the frame timestamped [ptsUs] should be kept. */
+        fun shouldKeep(ptsUs: Long): Boolean {
+            if (nextDueUs == Long.MIN_VALUE) {
+                nextDueUs = ptsUs + intervalUs
+                return true
+            }
+            if (ptsUs < nextDueUs) return false
+            // Catch the schedule up after an irregular gap so a burst of frames
+            // is not let through immediately afterwards.
+            while (nextDueUs <= ptsUs) nextDueUs += intervalUs
+            return true
+        }
+
+        /** Frames kept out of [count] evenly spaced source frames. */
+        fun keptOutOf(sourceFps: Int, targetFps: Int, count: Int): Int {
+            var kept = 0
+            val stepUs = 1_000_000L / sourceFps.coerceAtLeast(1)
+            for (i in 0 until count) if (shouldKeep(i * stepUs)) kept++
+            return kept
+        }
+    }
+
     // ------------------------------------------------------------------
     // Audio track of a video
     // ------------------------------------------------------------------

@@ -543,4 +543,46 @@ class VideoPlannerTest {
     fun aTinyOutputIsNotReEncoded() {
         assertEquals(null, VideoPlanner.correctedBitrate(2_000_000, 10_000, 60_000))
     }
+
+    // ---- frame dropping accuracy ------------------------------------------
+
+    @Test
+    fun aNonIntegerRateChangeLandsNearTheRequestedRate() {
+        // 30 fps source asked for 24. Measuring the gap from the last KEPT
+        // frame dropped every other frame and delivered ~15 fps.
+        val gate = VideoPlanner.FrameGate((1_000_000.0 / 24).toLong())
+        val kept = gate.keptOutOf(sourceFps = 30, targetFps = 24, count = 300)
+        val effectiveFps = kept * 30.0 / 300
+        assertTrue("got $effectiveFps fps from a 30 fps source", effectiveFps in 23.0..26.0)
+    }
+
+    @Test
+    fun halvingTheRateKeepsExactlyHalf() {
+        val gate = VideoPlanner.FrameGate((1_000_000.0 / 30).toLong())
+        val kept = gate.keptOutOf(sourceFps = 60, targetFps = 30, count = 600)
+        assertEquals(300, kept)
+    }
+
+    @Test
+    fun theFirstFrameIsAlwaysKept() {
+        val gate = VideoPlanner.FrameGate(40_000)
+        assertTrue(gate.shouldKeep(0))
+        assertFalse(gate.shouldKeep(10_000))
+        assertTrue(gate.shouldKeep(45_000))
+    }
+
+    @Test
+    fun anIrregularGapDoesNotReleaseABurst() {
+        val gate = VideoPlanner.FrameGate(40_000)
+        assertTrue(gate.shouldKeep(0))
+        // A half-second hole in the source, then frames resume densely. The
+        // schedule catches up to 520_000, so the frames packed in behind the
+        // gap are dropped instead of being released as a burst.
+        assertTrue(gate.shouldKeep(500_000))
+        assertFalse("the schedule must have caught up", gate.shouldKeep(505_000))
+        assertFalse(gate.shouldKeep(510_000))
+        assertFalse(gate.shouldKeep(515_000))
+        assertTrue(gate.shouldKeep(525_000))
+        assertFalse(gate.shouldKeep(530_000))
+    }
 }

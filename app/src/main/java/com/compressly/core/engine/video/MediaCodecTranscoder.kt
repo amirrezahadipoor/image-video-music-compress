@@ -296,11 +296,13 @@ class MediaCodecTranscoder(private val context: Context) {
 
                 val decoderInfo = MediaCodec.BufferInfo()
                 val encoderInfo = MediaCodec.BufferInfo()
-                val lastKeptPts = longArrayOf(Long.MIN_VALUE)
                 // Frames are dropped only when the requested rate is below the
                 // source rate - the planner already decided this.
                 val keepAllFrames = !plan.dropFrames
                 val frameIntervalUs = if (keepAllFrames) 0L else (1_000_000.0 / targetFps).toLong()
+                // Absolute frame schedule - see VideoPlanner.FrameGate for why
+                // this must not be measured from the last kept frame.
+                val frameGate = VideoPlanner.FrameGate(frameIntervalUs)
                 var lastReported = -1f
 
                 // VID-1 FIX: track whether any work was done in this iteration.
@@ -348,17 +350,7 @@ class MediaCodecTranscoder(private val context: Context) {
                 var decoderOut = decoder.dequeueOutputBuffer(decoderInfo, 0)
                 while (decoderOut >= 0) {
                     didWork = true
-                    val render = if (keepAllFrames) {
-                        true
-                    } else {
-                        val pts = decoderInfo.presentationTimeUs
-                        if (lastKeptPts[0] == Long.MIN_VALUE || pts - lastKeptPts[0] >= frameIntervalUs) {
-                            lastKeptPts[0] = pts
-                            true
-                        } else {
-                            false
-                        }
-                    }
+                    val render = keepAllFrames || frameGate.shouldKeep(decoderInfo.presentationTimeUs)
                     decoder.releaseOutputBuffer(decoderOut, render)
                     if (decoderInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0 && !decoderEosSignalled) {
                         encoder.signalEndOfInputStream()
