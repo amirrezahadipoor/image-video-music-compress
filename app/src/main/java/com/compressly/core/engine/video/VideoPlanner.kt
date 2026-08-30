@@ -253,6 +253,71 @@ object VideoPlanner {
     }
 
     // ------------------------------------------------------------------
+    // Audio track of a video
+    // ------------------------------------------------------------------
+
+    /** Fallback when a container does not report its audio rate. */
+    const val DEFAULT_KEEP_AUDIO_BPS = 128_000
+
+    /**
+     * Target rate for the video's audio track, in bits/second. Shared by the
+     * encoder and the live estimate so the two cannot disagree - they used to
+     * each carry their own copy of the "55% of source, 96-192 kbps" formula.
+     *
+     * A COMPRESS target is routed through [com.compressly.core.engine.audio.AudioPlanner]
+     * so it is capped at the source rate like everything else.
+     */
+    fun audioBitrateBps(info: MediaInfo, settings: VideoSettings, preset: CompressionPreset): Int =
+        when (settings.audioMode) {
+            VideoAudioMode.STRIP -> 0
+            VideoAudioMode.KEEP ->
+                info.audioBitrate.takeIf { it > 0 } ?: DEFAULT_KEEP_AUDIO_BPS
+            VideoAudioMode.COMPRESS -> {
+                val requested = PresetDefaults.videoDefaults[preset]?.audioKbps ?: 112
+                com.compressly.core.engine.audio.AudioPlanner
+                    .targetBitrateKbps(requested, info.audioBitrate) * 1000
+            }
+        }
+
+    // ------------------------------------------------------------------
+    // Bitrate correction
+    // ------------------------------------------------------------------
+
+    /** How far over target a first pass may land before it is worth redoing. */
+    const val OVERSHOOT_TOLERANCE = 1.15
+
+    /** Never correct below this share of the target, however bad the first pass was. */
+    const val MIN_CORRECTION_RATIO = 0.45
+
+    /** Measured rate of an encoded file, in bits/second. */
+    fun measuredBitrate(bytes: Long, durationMs: Long): Int {
+        if (bytes <= 0 || durationMs <= 0) return 0
+        return (bytes * 8_000L / durationMs).toInt()
+    }
+
+    /**
+     * The rate to use for a corrective second pass, or null when the first pass
+     * was close enough to leave alone.
+     *
+     * Hardware encoders treat KEY_BIT_RATE as a *hint* in VBR mode and routinely
+     * overshoot it - 30-100% is common on phone SoCs, and some vendors ignore it
+     * altogether. That is the main reason "compress harder" did not actually
+     * produce a smaller file: the planner asked for 1.3 Mbps and the encoder
+     * happily delivered 3 Mbps. The correction is proportional to the measured
+     * overshoot, clamped so one wild pass cannot collapse the next one into
+     * unwatchable quality.
+     */
+    fun correctedBitrate(targetBitrate: Int, actualBytes: Long, durationMs: Long): Int? {
+        if (targetBitrate <= 0) return null
+        val actual = measuredBitrate(actualBytes, durationMs)
+        if (actual <= 0) return null
+        if (actual <= (targetBitrate * OVERSHOOT_TOLERANCE).toLong()) return null
+        val corrected = (targetBitrate.toLong() * targetBitrate / actual).toInt()
+        val floor = (targetBitrate * MIN_CORRECTION_RATIO).toInt()
+        return corrected.coerceAtLeast(floor).coerceIn(MIN_BITRATE, MAX_BITRATE)
+    }
+
+    // ------------------------------------------------------------------
     // Plan
     // ------------------------------------------------------------------
 
@@ -312,14 +377,14 @@ object VideoPlanner {
 
     /**
      * True when the job asks for nothing the file does not already have: same
-     * resolution, same frame rate, audio kept, no trim. Combined with
+     * resolution, same frame rate, audio untouched, no trim. Combined with
      * [shouldKeepOriginal] this is the "leave the file alone" decision — an
      * explicit resize, re-rate, trim or audio strip is always honoured even if
      * it does not shrink the file, because the user asked for that change.
      */
     fun isNoOpTranscode(info: MediaInfo, settings: VideoSettings, preset: CompressionPreset): Boolean {
         if (settings.trimEnabled) return false
-        if (settings.audioMode == VideoAudioMode.STRIP) return false
+        if (settings.audioMode != VideoAudioMode.KEEP) return false
         if (settings.resolution != VideoResolution.ORIGINAL) return false
         if (dropsFrames(settings, info)) return false
         val (w, h) = outputDims(info, settings, preset)

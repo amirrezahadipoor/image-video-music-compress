@@ -307,4 +307,125 @@ class VideoPlannerTest {
             VideoPlanner.isNoOpTranscode(uhd, settings, CompressionPreset.SMART)
         )
     }
+
+    // ---- bitrate correction -----------------------------------------------
+
+    private fun bytesFor(bps: Int, sec: Int = seconds) = bps.toLong() * sec / 8
+
+    @Test
+    fun anOvershootingEncoderTriggersACorrectivePass() {
+        // Planner asked for 2 Mbps, the hardware encoder delivered 4 Mbps.
+        val corrected = VideoPlanner.correctedBitrate(2_000_000, bytesFor(4_000_000), 60_000)
+        assertEquals(1_000_000, corrected)
+    }
+
+    @Test
+    fun aFirstPassWithinToleranceIsLeftAlone() {
+        assertEquals(
+            null,
+            VideoPlanner.correctedBitrate(2_000_000, bytesFor(2_100_000), 60_000)
+        )
+        assertEquals(
+            null,
+            VideoPlanner.correctedBitrate(2_000_000, bytesFor(1_200_000), 60_000)
+        )
+    }
+
+    @Test
+    fun correctionIsClampedSoOneWildPassCannotRuinTheNext() {
+        // Encoder delivered 20x the target: proportional correction would ask
+        // for 200 kbps, the clamp holds it at 45% of target.
+        val corrected = VideoPlanner.correctedBitrate(2_000_000, bytesFor(40_000_000), 60_000)!!
+        assertEquals(900_000, corrected)
+    }
+
+    @Test
+    fun correctionNeverAsksForMoreThanTheTarget() {
+        val corrected = VideoPlanner.correctedBitrate(2_000_000, bytesFor(2_400_000), 60_000)!!
+        assertTrue("got $corrected", corrected < 2_000_000)
+        assertTrue("got $corrected", corrected >= (2_000_000 * VideoPlanner.MIN_CORRECTION_RATIO).toInt())
+    }
+
+    @Test
+    fun correctionIsSkippedWhenTheDurationIsUnknown() {
+        assertEquals(null, VideoPlanner.correctedBitrate(2_000_000, bytesFor(4_000_000), 0))
+        assertEquals(null, VideoPlanner.correctedBitrate(2_000_000, 0, 60_000))
+        assertEquals(null, VideoPlanner.correctedBitrate(0, bytesFor(4_000_000), 60_000))
+    }
+
+    @Test
+    fun measuredBitrateRoundTrips() {
+        assertEquals(2_000_000, VideoPlanner.measuredBitrate(bytesFor(2_000_000), 60_000))
+        assertEquals(0, VideoPlanner.measuredBitrate(0, 60_000))
+    }
+
+    // ---- audio track of a video -------------------------------------------
+
+    @Test
+    fun theAggressiveTiersCompressTheSoundtrack() {
+        assertEquals(
+            com.compressly.core.engine.model.VideoAudioMode.COMPRESS,
+            PresetDefaults.videoDefaults[CompressionPreset.MAXIMUM_COMPRESSION]?.audioMode
+        )
+        assertEquals(
+            com.compressly.core.engine.model.VideoAudioMode.COMPRESS,
+            PresetDefaults.videoDefaults[CompressionPreset.HIGH_COMPRESSION]?.audioMode
+        )
+        // The quality tiers must not touch it.
+        assertEquals(
+            com.compressly.core.engine.model.VideoAudioMode.KEEP,
+            PresetDefaults.videoDefaults[CompressionPreset.MAXIMUM_QUALITY]?.audioMode
+        )
+        assertEquals(
+            com.compressly.core.engine.model.VideoAudioMode.KEEP,
+            PresetDefaults.videoDefaults[CompressionPreset.SMART]?.audioMode
+        )
+    }
+
+    @Test
+    fun strippingAudioRemovesItFromTheEstimate() {
+        val keep = VideoPlanner.audioBitrateBps(
+            uhd, PresetDefaults.videoSettingsFor(CompressionPreset.BALANCED), CompressionPreset.BALANCED
+        )
+        val strip = VideoPlanner.audioBitrateBps(
+            uhd,
+            PresetDefaults.videoSettingsFor(CompressionPreset.BALANCED).copy(audioMode = VideoAudioMode.STRIP),
+            CompressionPreset.BALANCED
+        )
+        assertTrue("keep=$keep strip=$strip", keep > 0 && strip == 0)
+    }
+
+    @Test
+    fun compressedAudioNeverExceedsTheSourceTrack() {
+        val settings = PresetDefaults.videoSettingsFor(CompressionPreset.MAXIMUM_COMPRESSION)
+        for (srcKbps in listOf(48, 64, 96, 128, 320)) {
+            val info = messenger720.copy(audioBitrate = srcKbps * 1000)
+            val got = VideoPlanner.audioBitrateBps(info, settings, CompressionPreset.MAXIMUM_COMPRESSION)
+            assertTrue(
+                "$srcKbps kbps source got a $got bps audio target",
+                got <= srcKbps * 1000
+            )
+        }
+    }
+
+    @Test
+    fun unknownAudioRateFallsBackToASafeDefault() {
+        val got = VideoPlanner.audioBitrateBps(
+            messenger720.copy(audioBitrate = 0),
+            PresetDefaults.videoSettingsFor(CompressionPreset.BALANCED),
+            CompressionPreset.BALANCED
+        )
+        assertEquals(VideoPlanner.DEFAULT_KEEP_AUDIO_BPS, got)
+    }
+
+    @Test
+    fun switchingTierChangesTheAudioMode() {
+        // It used to be carried over, so picking "maximum compression" after
+        // "maximum quality" silently kept the full-rate soundtrack.
+        val after = PresetDefaults.videoSettingsFor(
+            CompressionPreset.MAXIMUM_COMPRESSION,
+            PresetDefaults.videoSettingsFor(CompressionPreset.MAXIMUM_QUALITY)
+        )
+        assertEquals(com.compressly.core.engine.model.VideoAudioMode.COMPRESS, after.audioMode)
+    }
 }

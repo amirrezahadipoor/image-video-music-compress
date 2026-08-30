@@ -91,13 +91,10 @@ object SizeEstimator {
 
     fun estimateVideo(info: MediaInfo, settings: VideoSettings, preset: CompressionPreset): Long {
         val targetVideoBitrate = targetVideoBitrate(info, settings, preset)
-        val audioBitrate = when (settings.audioMode) {
-            com.compressly.core.engine.model.VideoAudioMode.STRIP -> 0
-            com.compressly.core.engine.model.VideoAudioMode.COMPRESS ->
-                ((info.audioBitrate * 0.55).toInt()).coerceIn(96_000, 192_000)
-            com.compressly.core.engine.model.VideoAudioMode.KEEP ->
-                info.audioBitrate.takeIf { it > 0 } ?: 128_000
-        }
+        // Same source as the encoder, so the number shown before pressing
+        // "compress" is the number the encoder is actually configured with.
+        val audioBitrate = com.compressly.core.engine.video.VideoPlanner
+            .audioBitrateBps(info, settings, preset)
         // bitrates are bits/second; duration in milliseconds -> bytes.
         val durationMs = trimmedDurationMs(info.durationMs, settings)
         val bytes = (targetVideoBitrate + audioBitrate).toLong() * durationMs / 8L / 1000L

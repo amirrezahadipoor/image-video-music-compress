@@ -34,17 +34,34 @@ object PresetDefaults {
         val bitrateFactor: Double,
         val resolution: VideoResolution,
         val frameRate: Int?,
+        /**
+         * What the tier does with the audio track. Every tier used to be KEEP,
+         * so "maximum compression" left a 128 kbps stereo track untouched next
+         * to a video squeezed down to ~1 Mbps - the audio alone was over 10% of
+         * the output and put a hard floor under how small the file could get.
+         */
+        val audioMode: VideoAudioMode,
+        /** Target for the audio track when [audioMode] is COMPRESS, in kbps. */
+        val audioKbps: Int,
         val reductionMin: Int,
         val reductionMax: Int
     )
 
     val videoDefaults: Map<CompressionPreset, VideoDefaults> = mapOf(
-        CompressionPreset.MAXIMUM_QUALITY to VideoDefaults(0.9, VideoResolution.ORIGINAL, null, 5, 20),
-        CompressionPreset.BALANCED to VideoDefaults(0.6, VideoResolution.ORIGINAL, null, 30, 50),
-        CompressionPreset.HIGH_COMPRESSION to VideoDefaults(0.35, VideoResolution.R1080, null, 55, 72),
-        CompressionPreset.MAXIMUM_COMPRESSION to VideoDefaults(0.2, VideoResolution.R720, 30, 75, 88),
-        // Smart: bitrate chosen by a quality-aware formula (see SizeEstimator).
-        CompressionPreset.SMART to VideoDefaults(0.0, VideoResolution.ORIGINAL, null, 30, 85)
+        // Audio: the two aggressive tiers re-encode the soundtrack, because at
+        // their video rates the original track is a large share of the file.
+        // Capped at the source rate by VideoPlanner, so this can never inflate.
+        CompressionPreset.MAXIMUM_QUALITY to
+            VideoDefaults(0.9, VideoResolution.ORIGINAL, null, VideoAudioMode.KEEP, 192, 5, 20),
+        CompressionPreset.BALANCED to
+            VideoDefaults(0.6, VideoResolution.ORIGINAL, null, VideoAudioMode.KEEP, 192, 30, 50),
+        CompressionPreset.HIGH_COMPRESSION to
+            VideoDefaults(0.35, VideoResolution.R1080, null, VideoAudioMode.COMPRESS, 112, 55, 72),
+        CompressionPreset.MAXIMUM_COMPRESSION to
+            VideoDefaults(0.2, VideoResolution.R720, 30, VideoAudioMode.COMPRESS, 80, 75, 90),
+        // Smart: bitrate chosen by a quality-aware formula (see VideoPlanner).
+        CompressionPreset.SMART to
+            VideoDefaults(0.0, VideoResolution.ORIGINAL, null, VideoAudioMode.KEEP, 128, 30, 85)
     )
 
     // ---- Audio ----------------------------------------------------------
@@ -91,8 +108,8 @@ object PresetDefaults {
     /**
      * Video settings for a compression level.
      *
-     * The level owns the resolution, the frame rate and the bitrate; everything
-     * else it does not define is carried over from [keepFrom]. Picking a level
+     * The level owns the resolution, the frame rate, the bitrate and the audio
+     * mode; everything else it does not define is carried over from [keepFrom]. Picking a level
      * used to build a blank VideoSettings, which silently reverted H.265 back to
      * H.264, wiped a custom size and threw away the trim window the user had
      * just set. A manual bitrate is deliberately cleared: the level now owns
@@ -107,7 +124,7 @@ object PresetDefaults {
             bitrate = null,
             frameRate = d.frameRate,
             codec = keepFrom?.codec ?: VideoCodec.H264,
-            audioMode = keepFrom?.audioMode ?: VideoAudioMode.KEEP,
+            audioMode = d.audioMode,
             trimEnabled = keepFrom?.trimEnabled ?: false,
             trimStartMs = keepFrom?.trimStartMs ?: 0L,
             trimEndMs = keepFrom?.trimEndMs ?: 0L

@@ -78,7 +78,13 @@ class PresetDefaultsTest {
         assertEquals(com.compressly.core.engine.model.VideoCodec.H265, after.codec)
         assertEquals(900, after.customWidth)
         assertEquals(500, after.customHeight)
-        assertEquals(com.compressly.core.engine.model.VideoAudioMode.STRIP, after.audioMode)
+        // NOT carried over: the level owns the audio mode, so it follows the
+        // level. Carrying it over was the bug that left a full-rate soundtrack
+        // next to a heavily compressed video.
+        assertEquals(
+            PresetDefaults.videoDefaults[CompressionPreset.HIGH_COMPRESSION]?.audioMode,
+            after.audioMode
+        )
         assertTrue(after.trimEnabled)
         assertEquals(1_500L, after.trimStartMs)
         assertEquals(9_000L, after.trimEndMs)
@@ -99,7 +105,13 @@ class PresetDefaultsTest {
     fun videoSettingsWithoutAPreviousStateUsesDefaults() {
         val v = PresetDefaults.videoSettingsFor(CompressionPreset.MAXIMUM_COMPRESSION, null)
         assertEquals(com.compressly.core.engine.model.VideoCodec.H264, v.codec)
-        assertEquals(com.compressly.core.engine.model.VideoAudioMode.KEEP, v.audioMode)
+        // The audio mode comes from the tier, not from a default: the most
+        // aggressive tier compresses the soundtrack too.
+        assertEquals(
+            PresetDefaults.videoDefaults[CompressionPreset.MAXIMUM_COMPRESSION]?.audioMode,
+            v.audioMode
+        )
+        assertEquals(com.compressly.core.engine.model.VideoAudioMode.COMPRESS, v.audioMode)
         assertEquals(false, v.trimEnabled)
     }
 }

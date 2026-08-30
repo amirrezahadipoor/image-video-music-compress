@@ -89,6 +89,9 @@ class MediaCodecTranscoder(private val context: Context) {
         var tempAudioUri: Uri? = null
         try {
             // 1. Video pass -> temp file.
+            //    The span is 0..0.50 rather than 0..0.80 because a corrective
+            //    second pass may follow; when it does not, progress jumps to
+            //    0.80 below. The bar never moves backwards either way.
             videoPass(
                 inputUri = inputUri,
                 outputPath = tempVideo.absolutePath,
@@ -101,8 +104,37 @@ class MediaCodecTranscoder(private val context: Context) {
                 trimStartUs = trimStartUs,
                 trimEndUs = trimEndUs,
                 control = control,
-                onProgress = { p -> onProgress(p * 0.80f) }
+                onProgress = { p -> onProgress(p * 0.50f) }
             )
+
+            // 1b. Corrective pass. Hardware encoders treat KEY_BIT_RATE as a
+            //     hint in VBR mode and routinely overshoot it, so the planner's
+            //     target is not the rate the file was actually written at.
+            //     Measure what we got and, if it is meaningfully over, encode
+            //     once more at a proportionally corrected rate. This is what
+            //     makes "compress harder" actually produce a smaller file.
+            val videoDurationMs = trimmedDurationMs(plannedInfo.durationMs, trimStartUs, trimEndUs)
+            val correction = VideoPlanner.correctedBitrate(plan.bitrate, tempVideo.length(), videoDurationMs)
+            if (correction != null) {
+                control.checkActive()
+                Storage.deleteQuietly(tempVideo)
+                videoPass(
+                    inputUri = inputUri,
+                    outputPath = tempVideo.absolutePath,
+                    info = plannedInfo,
+                    settings = settings,
+                    encoderName = choice.name,
+                    encoderMime = choice.mime,
+                    plan = plan.copy(bitrate = correction),
+                    rotation = rotation,
+                    trimStartUs = trimStartUs,
+                    trimEndUs = trimEndUs,
+                    control = control,
+                    onProgress = { p -> onProgress(0.50f + p * 0.30f) }
+                )
+            } else {
+                onProgress(0.80f)
+            }
 
             val wantsAudio = settings.audioMode != VideoAudioMode.STRIP && info.hasAudio
 
@@ -114,13 +146,8 @@ class MediaCodecTranscoder(private val context: Context) {
                     tempAudioUri = inputUri // copy samples directly during merge
                 } else {
                     tempAudio = File(context.cacheDir, "tmp_${System.nanoTime()}_audio.m4a")
-                    val audioBitrate = when (settings.audioMode) {
-                        VideoAudioMode.COMPRESS -> {
-                            // Re-encode at ~55% of source, bounded to 96-192 kbps.
-                            ((info.audioBitrate * 0.55).toInt()).coerceIn(96_000, 192_000)
-                        }
-                        else -> 128_000 // KEEP: passthrough failed, re-encode at a safe default.
-                    }
+                    // Shared with the estimate, and capped at the source rate.
+                    val audioBitrate = VideoPlanner.audioBitrateBps(plannedInfo, settings, preset)
                     audioTranscodePass(
                         inputUri = inputUri,
                         outputPath = tempAudio.absolutePath,
@@ -212,11 +239,16 @@ class MediaCodecTranscoder(private val context: Context) {
                 if (encoderSupportsBitrateMode(encoderMime, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)) {
                     setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)
                 }
-                // Speed: realtime priority + operating-rate hint keep hardware
-                // encoders from over-allocating and speed up the transcode.
+                // This is an offline transcode, not a live capture. The old
+                // code asked for realtime priority (0) and pinned
+                // KEY_OPERATING_RATE to the output frame rate, which tells the
+                // codec to budget for real-time delivery: it spends less effort
+                // per frame (worse bits-per-pixel) and on several SoCs throttles
+                // the pipeline to 1x, so a ten-minute clip took ten minutes.
+                // Non-realtime priority with no operating-rate cap gives the
+                // encoder freedom to run flat out and to trade time for size.
                 if (android.os.Build.VERSION.SDK_INT >= 23) {
-                    setInteger(MediaFormat.KEY_PRIORITY, 0)
-                    setInteger(MediaFormat.KEY_OPERATING_RATE, targetFps)
+                    setInteger(MediaFormat.KEY_PRIORITY, 1)
                 }
             }
             encoder.configure(encFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
