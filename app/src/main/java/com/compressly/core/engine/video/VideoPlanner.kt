@@ -219,7 +219,14 @@ object VideoPlanner {
         val fps = resolvedFps(settings, info)
 
         val raw = if (preset == CompressionPreset.SMART) {
-            smartBitrate(outW, outH, fps, settings.codec)
+            // Smart needs the source-share brake too. Without it the only thing
+            // holding Smart back was the 97% no-gain cap, so on an already
+            // efficient clip it re-encoded at almost the source rate - a whole
+            // generation of loss for a few percent - while Balanced, which does
+            // have the brake, came out smaller. That inversion is what made the
+            // default mode weaker than the tier below it.
+            val share = source * (PresetDefaults.videoDefaults[preset]?.bitrateFactor ?: 0.55)
+            minOf(smartBitrate(outW, outH, fps, settings.codec), share.toInt())
         } else {
             tierBitrate(info, settings, preset, outW, outH, source)
         }
@@ -234,11 +241,31 @@ object VideoPlanner {
      */
     fun smartBitrate(width: Int, height: Int, fps: Int, codec: VideoCodec): Int {
         if (width <= 0 || height <= 0) return 4_000_000
-        val pixels = width.toLong() * height
-        val bpp = 0.085
-        var bitrate = (pixels * fps.coerceIn(1, 240) * bpp).toInt()
-        if (codec == VideoCodec.H265) bitrate = (bitrate * 0.6).toInt()
+        val bpp = PresetDefaults.videoDefaults[CompressionPreset.SMART]?.bpp ?: 0.062
+        var bitrate = qualityTarget(width.toLong() * height, fps, bpp)
+        if (codec == VideoCodec.H265) bitrate = (bitrate * H265_EFFICIENCY).toInt()
         return bitrate.coerceIn(SMART_MIN_BITRATE, 16_000_000)
+    }
+
+    /** H.265 needs roughly this share of the H.264 bits for the same quality. */
+    const val H265_EFFICIENCY = 0.62
+
+    /**
+     * Bits/second that holds a given bits-per-pixel-per-frame quality at a size
+     * and rate.
+     *
+     * The frame-rate term is sub-linear on purpose. Perceptual quality at a
+     * fixed bpp does not need twice the bits just because the clip is 60 fps
+     * instead of 30 - successive frames are highly redundant, so real encoders
+     * get roughly fps^0.75. Pricing 60 fps linearly is what made Smart ask for
+     * 10.5 Mbps on an ordinary 1080p60 phone clip. Normalised so a 30 fps clip
+     * is priced exactly at pixels * 30 * bpp, which keeps the per-tier bpp
+     * ladder readable.
+     */
+    fun qualityTarget(pixels: Long, fps: Int, bpp: Double): Int {
+        val rate = fps.coerceIn(1, 240)
+        val fpsFactor = Math.pow(rate / 30.0, 0.75)
+        return (pixels * 30 * bpp * fpsFactor).toInt()
     }
 
     /** Manual tiers: a share of the source rate, scaled by the pixel reduction. */
@@ -263,15 +290,16 @@ object VideoPlanner {
         if (srcArea > 0 && outArea < srcArea) fromSource *= outArea.toDouble() / srcArea
 
         // (b) A content-independent ceiling: what this tier is willing to spend
-        // per pixel per frame at the size and rate actually being written.
-        val ceiling = outArea * fps.coerceIn(1, 240) * bpp
+        // per pixel per frame at the size and rate actually being written,
+        // through the same sub-linear frame-rate model Smart uses.
+        val ceiling = qualityTarget(outArea, fps, bpp).toDouble()
 
         // The lower of the two. min() means this can only ever be more
         // aggressive than the old source-share rule, never less - the ceiling
         // is what finally squeezes a bloated source instead of reproducing its
         // bloat at 60%.
         var bitrate = minOf(fromSource, ceiling)
-        if (settings.codec == VideoCodec.H265) bitrate *= 0.62
+        if (settings.codec == VideoCodec.H265) bitrate *= H265_EFFICIENCY
         return bitrate.toInt()
     }
 

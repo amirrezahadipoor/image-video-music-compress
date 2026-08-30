@@ -70,9 +70,13 @@ object PresetDefaults {
             VideoDefaults(0.35, 0.050, VideoResolution.R1080, null, VideoAudioMode.COMPRESS, 112, 55, 72),
         CompressionPreset.MAXIMUM_COMPRESSION to
             VideoDefaults(0.2, 0.028, VideoResolution.R720, 30, VideoAudioMode.COMPRESS, 80, 75, 90),
-        // Smart: bitrate chosen by a quality-aware formula (see VideoPlanner).
+        // Smart sits between Balanced and High Compression: it is the default,
+        // and its promise is to compress as hard as it can while staying above
+        // ~70% perceptual quality. At 0.085 it was ABOVE Balanced's 0.080, so
+        // the default mode compressed less than the tier below it - measured on
+        // a 1080p30 clip, Smart asked for 5248 kbps and Balanced for 4939.
         CompressionPreset.SMART to
-            VideoDefaults(0.0, 0.085, VideoResolution.ORIGINAL, null, VideoAudioMode.KEEP, 128, 30, 85)
+            VideoDefaults(0.55, 0.062, VideoResolution.ORIGINAL, null, VideoAudioMode.KEEP, 128, 30, 85)
     )
 
     // ---- Audio ----------------------------------------------------------

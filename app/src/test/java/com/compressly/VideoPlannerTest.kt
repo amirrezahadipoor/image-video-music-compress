@@ -67,13 +67,34 @@ class VideoPlannerTest {
         }
     }
 
+    /**
+     * This used to assert that Smart on a 1.2 Mbps clip is a no-op worth
+     * skipping. That was only true because Smart had no source-share brake and
+     * re-encoded at 97% of the original rate. It now compresses the same clip to
+     * roughly 58% of its size, so skipping it would be throwing away a real
+     * saving. The no-gain path itself is still covered below.
+     */
     @Test
-    fun smartOnAlreadySmallClipIsFlaggedAsNoGain() {
+    fun smartNowActuallyCompressesASmallClip() {
         val settings = PresetDefaults.videoSettingsFor(CompressionPreset.SMART)
         val estimated = SizeEstimator.estimateVideo(messenger720, settings, CompressionPreset.SMART)
         assertTrue(
-            "a 1.2 Mbps clip should not be re-encoded for a 3 % saving",
+            "estimated $estimated from ${messenger720.bytes()} B",
+            estimated < messenger720.bytes() * 0.7
+        )
+        assertFalse(
+            "a real saving must not be skipped",
             VideoPlanner.shouldKeepOriginal(estimated, messenger720.bytes())
+        )
+    }
+
+    @Test
+    fun aSourceThinnerThanTheEncoderFloorIsStillFlaggedAsNoGain() {
+        val settings = PresetDefaults.videoSettingsFor(CompressionPreset.SMART)
+        val estimated = SizeEstimator.estimateVideo(tiny480, settings, CompressionPreset.SMART)
+        assertTrue(
+            "a 200 kbps clip cannot be improved on, estimated $estimated from ${tiny480.bytes()} B",
+            VideoPlanner.shouldKeepOriginal(estimated, tiny480.bytes())
         )
     }
 
@@ -146,10 +167,10 @@ class VideoPlannerTest {
     fun smartBitrateMatchesTheOutputResolutionNotTheSource() {
         val settings = PresetDefaults.videoSettingsFor(CompressionPreset.SMART)
         val target = VideoPlanner.targetVideoBitrate(uhd, settings, CompressionPreset.SMART)
-        // 1920x1072 @ 30fps @ 0.085 bpp ~= 5.2 Mbps. The old code priced the
-        // 4K source and hit the 16 Mbps ceiling, so Smart barely compressed.
-        assertTrue("Smart 4K target was $target, expected roughly 1080p pricing",
-            target in 4_000_000..7_000_000)
+        // Priced for the 1080p it actually writes, not the 4K it was handed.
+        // The old code hit the 16 Mbps ceiling, so Smart barely compressed.
+        assertTrue("Smart 4K target $target is still 4K pricing", target < 6_000_000)
+        assertTrue("Smart 4K target $target is absurdly small", target > 1_000_000)
     }
 
     // ---- frame rate -------------------------------------------------------
@@ -254,6 +275,64 @@ class VideoPlannerTest {
             assertTrue("$label sizes not monotonically decreasing: $sizes",
                 sizes[0] > sizes[1] && sizes[1] > sizes[2] && sizes[2] > sizes[3])
         }
+    }
+
+    /**
+     * Smart is the default, so it has to sit inside the ladder rather than
+     * outside it. It was pricing above Balanced - the default mode compressed
+     * LESS than the tier below it - and nothing caught it because the ordering
+     * test above only walked the four manual tiers.
+     */
+    @Test
+    fun smartSitsBetweenBalancedAndHighCompression() {
+        for ((label, info) in sources) {
+            // A source thinner than the encoder floor is returned untouched by
+            // every tier, so there is nothing to order.
+            if (VideoPlanner.sourceVideoBitrate(info) < VideoPlanner.MIN_BITRATE) {
+                assertEquals(
+                    VideoPlanner.sourceVideoBitrate(info),
+                    VideoPlanner.targetVideoBitrate(
+                        info,
+                        PresetDefaults.videoSettingsFor(CompressionPreset.SMART),
+                        CompressionPreset.SMART
+                    )
+                )
+                continue
+            }
+            fun rate(p: CompressionPreset) = VideoPlanner.targetVideoBitrate(
+                info, PresetDefaults.videoSettingsFor(p), p
+            )
+            val balanced = rate(CompressionPreset.BALANCED)
+            val smart = rate(CompressionPreset.SMART)
+            val high = rate(CompressionPreset.HIGH_COMPRESSION)
+            assertTrue(
+                "$label: Smart $smart must beat Balanced $balanced",
+                smart < balanced
+            )
+            assertTrue(
+                "$label: Smart $smart must stay above High $high",
+                smart > high
+            )
+        }
+    }
+
+    @Test
+    fun theFrameRateTermIsSubLinear() {
+        val at30 = VideoPlanner.qualityTarget(1920L * 1080, 30, 0.062)
+        val at60 = VideoPlanner.qualityTarget(1920L * 1080, 60, 0.062)
+        assertTrue("60 fps should not cost double: $at30 -> $at60", at60 < at30 * 2)
+        assertTrue("but it should cost more: $at30 -> $at60", at60 > at30)
+        // At 30 fps the bpp ladder reads literally: pixels * 30 * bpp.
+        assertEquals((1920L * 1080 * 30 * 0.062).toInt(), at30)
+    }
+
+    @Test
+    fun smartDoesNotPrice60FpsFootageLike30FpsTwice() {
+        // An ordinary 1080p60 phone clip. Smart used to ask for ~10.5 Mbps here.
+        val settings = PresetDefaults.videoSettingsFor(CompressionPreset.SMART)
+        val target = VideoPlanner.targetVideoBitrate(fhd60Portrait, settings, CompressionPreset.SMART)
+        assertTrue("Smart asked for $target on a 1080p60 clip", target < 8_000_000)
+        assertTrue("Smart asked for only $target", target > 3_000_000)
     }
 
     // ---- key frames -------------------------------------------------------
