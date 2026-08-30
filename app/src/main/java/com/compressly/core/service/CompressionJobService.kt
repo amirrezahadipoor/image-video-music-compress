@@ -34,6 +34,7 @@ class CompressionJobService : Service() {
     }
 
     private var collector: Job? = null
+    private var isForeground = false
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val notifiedResults = mutableSetOf<Long>()
 
@@ -60,14 +61,21 @@ class CompressionJobService : Service() {
             ACTION_CANCEL -> if (jobId != null && jobId != -1L) coordinator.cancel(jobId)
         }
 
-        val type = if (Build.VERSION.SDK_INT >= 34)
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else 0
-        ServiceCompat.startForeground(
-            this,
-            NotificationHelper.NOTIF_ID,
-            NotificationHelper.buildStartNotification(this),
-            type
-        )
+        // Only promote on the way in. This used to run for every command, so
+        // tapping pause, resume or cancel in the notification re-posted the
+        // "Preparing…" placeholder with an indeterminate bar over the live
+        // progress, and it stayed that way until the next progress tick.
+        if (!isForeground) {
+            val type = if (Build.VERSION.SDK_INT >= 34)
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else 0
+            ServiceCompat.startForeground(
+                this,
+                NotificationHelper.NOTIF_ID,
+                NotificationHelper.buildStartNotification(this),
+                type
+            )
+            isForeground = true
+        }
 
         // Acquire WakeLock on first START command (idempotent for subsequent calls).
         if (wakeLock == null) {
@@ -108,6 +116,7 @@ class CompressionJobService : Service() {
             notifiedResults.retainAll(jobs.keys)
             releaseWakeLock()
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            isForeground = false
             stopSelf()
             return
         }
