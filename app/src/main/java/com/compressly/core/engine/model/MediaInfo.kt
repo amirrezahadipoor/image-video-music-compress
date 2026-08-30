@@ -9,7 +9,11 @@ data class MediaInfo(
     /** Video rotation in degrees (0/90/180/270). */
     val rotation: Int = 0,
     val durationMs: Long = 0L,
-    /** Video track bitrate in bps (0 when unknown). */
+    /** Source frame rate in fps (0 when unknown). The encoder is driven at this
+     *  rate unless the user explicitly picks one — pricing the encode for a
+     *  guessed 30 fps while feeding it 60 made the output miss its target. */
+    val frameRate: Int = 0,
+    /** Whole-container bitrate in bps, audio included (0 when unknown). */
     val videoBitrate: Int = 0,
     /** Audio track bitrate in bps (0 when unknown). */
     val audioBitrate: Int = 0,

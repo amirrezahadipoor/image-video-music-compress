@@ -8,7 +8,6 @@ import com.compressly.core.engine.model.PhotoFormat
 import com.compressly.core.engine.model.PhotoResize
 import com.compressly.core.engine.model.PhotoSettings
 import com.compressly.core.engine.model.VideoCodec
-import com.compressly.core.engine.model.VideoResolution
 import com.compressly.core.engine.model.VideoSettings
 
 /**
@@ -105,61 +104,20 @@ object SizeEstimator {
         return bytes.coerceAtLeast(8_000)
     }
 
-    fun targetVideoBitrate(info: MediaInfo, settings: VideoSettings, preset: CompressionPreset): Int {
-        settings.bitrate?.let { return it }
-        if (preset == CompressionPreset.SMART) {
-            return smartVideoBitrate(
-                info.effectiveWidth, info.effectiveHeight,
-                settings.frameRate ?: 30, settings.codec
-            )
-        }
-        val source = info.videoBitrate
-            .takeIf { it > 0 }
-            ?: estimateSourceBitrate(info.width, info.height, info.durationMs)
-        val factor = PresetDefaults.videoDefaults[preset]?.bitrateFactor ?: 0.6
-        var bitrate = (source * factor).toInt()
-        // Resolution scaling
-        val resFactor = when (settings.resolution) {
-            VideoResolution.ORIGINAL -> 1.0
-            VideoResolution.R1080 -> areaFactor(info.effectiveWidth, info.effectiveHeight, 1920, 1080)
-            VideoResolution.R720 -> areaFactor(info.effectiveWidth, info.effectiveHeight, 1280, 720)
-            VideoResolution.R480 -> areaFactor(info.effectiveWidth, info.effectiveHeight, 854, 480)
-            VideoResolution.CUSTOM ->
-                areaFactor(info.effectiveWidth, info.effectiveHeight, settings.customWidth, settings.customHeight)
-        }
-        bitrate = (bitrate * resFactor).toInt()
-        if (settings.codec == VideoCodec.H265) bitrate = (bitrate * 0.62).toInt()
-        // Sanity bounds: 250 kbps .. 40 Mbps
-        return bitrate.coerceIn(250_000, 40_000_000)
-    }
+    /**
+     * Target video bitrate. Delegates to [com.compressly.core.engine.video.VideoPlanner]
+     * so the number shown here is exactly the number the encoder is configured
+     * with — including the rule that it never exceeds what the source carries.
+     */
+    fun targetVideoBitrate(info: MediaInfo, settings: VideoSettings, preset: CompressionPreset): Int =
+        com.compressly.core.engine.video.VideoPlanner.targetVideoBitrate(info, settings, preset)
 
     /**
-     * Quality-aware bitrate for Smart video mode. Uses a per-pixel bits
-     * factor tuned to keep perceptual quality comfortably above 70% while
-     * still shrinking the file a lot versus typical phone recordings.
+     * Quality-aware bitrate for Smart video mode, for a given resolution and
+     * frame rate. See [com.compressly.core.engine.video.VideoPlanner.smartBitrate].
      */
-    fun smartVideoBitrate(width: Int, height: Int, fps: Int, codec: VideoCodec): Int {
-        if (width <= 0 || height <= 0) return 4_000_000
-        val pixels = width.toLong() * height
-        val bpp = 0.085
-        var bitrate = (pixels * fps.coerceIn(1, 60) * bpp).toInt()
-        if (codec == VideoCodec.H265) bitrate = (bitrate * 0.6).toInt()
-        return bitrate.coerceIn(500_000, 16_000_000)
-    }
-
-    private fun areaFactor(srcW: Int, srcH: Int, dstW: Int, dstH: Int): Double {
-        if (srcW <= 0 || srcH <= 0) return 1.0
-        val srcArea = srcW.toDouble() * srcH
-        val dstArea = dstW.toDouble() * dstH
-        return if (dstArea >= srcArea) 1.0 else dstArea / srcArea
-    }
-
-    private fun estimateSourceBitrate(w: Int, h: Int, durationMs: Long): Int {
-        if (w <= 0 || h <= 0) return 4_000_000
-        val pixels = w * h
-        val perPixelBits = 0.12
-        return (pixels * perPixelBits * 30).toInt().coerceIn(1_000_000, 20_000_000)
-    }
+    fun smartVideoBitrate(width: Int, height: Int, fps: Int, codec: VideoCodec): Int =
+        com.compressly.core.engine.video.VideoPlanner.smartBitrate(width, height, fps, codec)
 
     private fun trimmedDurationMs(durationMs: Long, settings: VideoSettings): Long {
         if (!settings.trimEnabled || durationMs <= 0) return durationMs

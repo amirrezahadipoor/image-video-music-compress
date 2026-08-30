@@ -21,14 +21,23 @@ object MediaInspector {
 
             val hasVideo = key(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO) == "yes"
             val hasAudio = key(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO) == "yes"
+            // Frame rate drives the encoder's rate controller; the old code
+            // guessed 30 and mispriced every 60 fps phone clip.
+            val frameRate = key(MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_RATE)
+                ?.toDoubleOrNull()?.toInt() ?: 0
             return MediaInfo(
                 mimeType = key(MediaMetadataRetriever.METADATA_KEY_MIMETYPE),
                 width = key(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0,
                 height = key(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0,
                 rotation = key(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0,
                 durationMs = key(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L,
+                frameRate = frameRate.coerceIn(0, 240),
                 videoBitrate = key(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toIntOrNull() ?: 0,
-                audioBitrate = 0,
+                // METADATA_KEY_BITRATE is the whole-container rate, so the audio
+                // track has to be measured separately before the video part can
+                // be used as a ceiling. MediaMetadataRetriever has no key for
+                // it; the audio track's own KEY_BIT_RATE is read instead.
+                audioBitrate = audioTrackBitrate(context, uri),
                 hasVideo = hasVideo,
                 hasAudio = hasAudio,
                 audioSampleRate = key(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)?.toIntOrNull() ?: 0,
@@ -49,6 +58,27 @@ object MediaInspector {
             )
         } finally {
             runCatching { mmr.release() }
+        }
+    }
+
+    /**
+     * Bitrate of the audio track, in bps, read from the track itself. Returns 0
+     * when the file has no audio track or the rate is not reported — every
+     * caller already falls back to a safe default in that case.
+     */
+    private fun audioTrackBitrate(context: Context, uri: Uri): Int {
+        val extractor = android.media.MediaExtractor()
+        return try {
+            extractor.setDataSource(context, uri, null)
+            val index = com.compressly.core.engine.MediaUtil.findTrack(extractor, "audio/") ?: return 0
+            extractor.getTrackFormat(index)
+                .takeIf { it.containsKey(android.media.MediaFormat.KEY_BIT_RATE) }
+                ?.getInteger(android.media.MediaFormat.KEY_BIT_RATE)
+                ?.coerceAtLeast(0) ?: 0
+        } catch (t: Throwable) {
+            0
+        } finally {
+            runCatching { extractor.release() }
         }
     }
 
