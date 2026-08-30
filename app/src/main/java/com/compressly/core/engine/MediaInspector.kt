@@ -23,21 +23,22 @@ object MediaInspector {
             val hasAudio = key(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO) == "yes"
             // Frame rate drives the encoder's rate controller; the old code
             // guessed 30 and mispriced every 60 fps phone clip.
-            val frameRate = key(MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_RATE)
-                ?.toDoubleOrNull()?.toInt() ?: 0
+            // There is no MediaMetadataRetriever key for the frame rate
+            // (METADATA_KEY_CAPTURE_FRAMERATE is camera-only), so it is read off
+            // the video track, in the same extractor pass that measures audio.
+            val (frameRate, audioBitrate) = probeTracks(context, uri)
             return MediaInfo(
                 mimeType = key(MediaMetadataRetriever.METADATA_KEY_MIMETYPE),
                 width = key(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0,
                 height = key(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0,
                 rotation = key(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0,
                 durationMs = key(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L,
-                frameRate = frameRate.coerceIn(0, 240),
+                frameRate = frameRate,
                 videoBitrate = key(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toIntOrNull() ?: 0,
                 // METADATA_KEY_BITRATE is the whole-container rate, so the audio
                 // track has to be measured separately before the video part can
-                // be used as a ceiling. MediaMetadataRetriever has no key for
-                // it; the audio track's own KEY_BIT_RATE is read instead.
-                audioBitrate = audioTrackBitrate(context, uri),
+                // be used as a ceiling.
+                audioBitrate = audioBitrate,
                 hasVideo = hasVideo,
                 hasAudio = hasAudio,
                 audioSampleRate = key(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)?.toIntOrNull() ?: 0,
@@ -62,21 +63,29 @@ object MediaInspector {
     }
 
     /**
-     * Bitrate of the audio track, in bps, read from the track itself. Returns 0
-     * when the file has no audio track or the rate is not reported — every
-     * caller already falls back to a safe default in that case.
+     * Reads the video frame rate and the audio bitrate straight off the tracks,
+     * in a single extractor pass. Either value is 0 when its track is missing or
+     * does not report it; every caller already falls back to a safe default.
      */
-    private fun audioTrackBitrate(context: Context, uri: Uri): Int {
+    private fun probeTracks(context: Context, uri: Uri): Pair<Int, Int> {
         val extractor = android.media.MediaExtractor()
         return try {
             extractor.setDataSource(context, uri, null)
-            val index = com.compressly.core.engine.MediaUtil.findTrack(extractor, "audio/") ?: return 0
-            extractor.getTrackFormat(index)
-                .takeIf { it.containsKey(android.media.MediaFormat.KEY_BIT_RATE) }
-                ?.getInteger(android.media.MediaFormat.KEY_BIT_RATE)
-                ?.coerceAtLeast(0) ?: 0
+
+            fun intAt(index: Int?, key: String): Int? {
+                if (index == null || index < 0) return null
+                val format = extractor.getTrackFormat(index)
+                if (!format.containsKey(key)) return null
+                return runCatching { format.getInteger(key) }.getOrNull()
+            }
+
+            val video = MediaUtil.findTrack(extractor, "video/")
+            val audio = MediaUtil.findTrack(extractor, "audio/")
+            val fps = (intAt(video, android.media.MediaFormat.KEY_FRAME_RATE) ?: 0).coerceIn(0, 240)
+            val audioBps = (intAt(audio, android.media.MediaFormat.KEY_BIT_RATE) ?: 0).coerceAtLeast(0)
+            fps to audioBps
         } catch (t: Throwable) {
-            0
+            0 to 0
         } finally {
             runCatching { extractor.release() }
         }

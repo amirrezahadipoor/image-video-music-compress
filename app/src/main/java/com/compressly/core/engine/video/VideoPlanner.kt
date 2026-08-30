@@ -46,6 +46,14 @@ object VideoPlanner {
     /** Smart mode caps footage on its long edge; beyond that nothing is gained. */
     const val SMART_MAX_EDGE = 1920
 
+    /**
+     * The lowest rate Smart will aim for on its own initiative. Higher than
+     * [MIN_BITRATE] on purpose: 250 kbps is what the hardware encoder can
+     * tolerate, 500 kbps is what Smart considers watchable. The source cap can
+     * still pull a target below this - never encoding above the input wins.
+     */
+    const val SMART_MIN_BITRATE = 500_000
+
     // ------------------------------------------------------------------
     // Source bitrate
     // ------------------------------------------------------------------
@@ -223,7 +231,7 @@ object VideoPlanner {
         val bpp = 0.085
         var bitrate = (pixels * fps.coerceIn(1, 240) * bpp).toInt()
         if (codec == VideoCodec.H265) bitrate = (bitrate * 0.6).toInt()
-        return bitrate.coerceIn(MIN_BITRATE, 16_000_000)
+        return bitrate.coerceIn(SMART_MIN_BITRATE, 16_000_000)
     }
 
     /** Manual tiers: a share of the source rate, scaled by the pixel reduction. */

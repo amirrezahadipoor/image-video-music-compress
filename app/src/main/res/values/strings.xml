@@ -78,17 +78,20 @@
     <string name="settings_metadata_strip_desc">جزئیات مکان و دوربین حذف می‌شود. فایل سبک‌تر.</string>
 
     <!-- Smart mode -->
-    <string name="preset_smart">حالت هوشمند</string>
-    <string name="preset_smart_desc">تعادل خودکار کیفیت و حجم؛ تا حد ممکن فشرده می‌کند و همیشه بیش از ۷۰٪ کیفیت را حفظ می‌کند. مگر اینکه خودتان تنظیم کنید.</string>
+    <string name="preset_smart">هوشمند</string>
+    <string name="preset_smart_desc">خودش بهترین تعادل کیفیت و حجم را انتخاب می‌کند.</string>
     <!-- Presets -->
     <string name="preset_max_quality">حداکثر کیفیت</string>
-    <string name="preset_max_quality_desc">فشرده‌سازی سبک، کیفیت تقریباً اصلی. مناسب آرشیو کردن.</string>
+    <string name="preset_max_quality_desc">کیفیت نزدیک به اصل، کاهش حجم کم.</string>
     <string name="preset_balanced">متعادل</string>
-    <string name="preset_balanced_desc">کیفیت عالی با کاهش حجم چشمگیر. پیشنهاد پیش‌فرض.</string>
+    <string name="preset_balanced_desc">کیفیت عالی همراه با کاهش حجم چشمگیر.</string>
     <string name="preset_high_compression">فشرده‌سازی بالا</string>
-    <string name="preset_high_compression_desc">فایل کوچک‌تر، افت کیفیت جزئی. مناسب ایمیل و اسناد.</string>
+    <string name="preset_high_compression_desc">فایل کوچک‌تر با افت کیفیت جزئی.</string>
     <string name="preset_max_compression">حداکثر فشرده‌سازی</string>
-    <string name="preset_max_compression_desc">کوچک‌ترین فایل برای پیام‌رسان‌ها و دستگاه‌های کم‌حافظه.</string>
+    <string name="preset_recommended">پیشنهادی</string>
+    <string name="preset_saving_badge">تا %1$s٪</string>
+    <string name="preset_picker_hint">هر زمان گزینه‌ای را خودتان تغییر دهید، حالت هوشمند خاموش می‌شود.</string>
+    <string name="preset_max_compression_desc">کوچک‌ترین فایل ممکن، مناسب پیام‌رسان‌ها.</string>
 
     <!-- Photo options -->
     <string name="photo_resize">تغییر اندازه</string>

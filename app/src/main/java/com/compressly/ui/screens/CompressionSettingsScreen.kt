@@ -69,7 +69,7 @@ import com.compressly.core.util.SoundEffects
 import com.compressly.ui.components.ChipSelector
 import com.compressly.ui.components.GradientSummaryBar
 import com.compressly.ui.components.InfoRow
-import com.compressly.ui.components.PresetGauge
+import com.compressly.ui.components.PresetPicker
 import com.compressly.ui.components.SectionHeader
 import com.compressly.ui.components.ShimmerBox
 import com.compressly.ui.components.ToggleRow
@@ -208,14 +208,12 @@ fun CompressionSettingsScreen(
                     Spacer(Modifier.height(20.dp))
                 }
 
-                // ---- Preset gauge ----
+                // ---- Compression level ----
                 SectionHeader(stringResource(R.string.settings_preset_section))
-                PresetGauge(
+                PresetPicker(
                     selected = state.preset,
-                    mediaType = mediaType,
-                    smartSelected = state.smart,
-                    onSelectSmart = viewModel::setSmart,
-                    onSelect = viewModel::selectPreset
+                    onSelect = viewModel::selectPreset,
+                    mediaType = mediaType
                 )
 
                 Spacer(Modifier.height(20.dp))

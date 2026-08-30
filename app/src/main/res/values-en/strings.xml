@@ -77,17 +77,20 @@
     <string name="settings_metadata_strip_desc">Removes location and camera details. Smaller files.</string>
 
     <!-- Smart mode -->
-    <string name="preset_smart">Smart mode</string>
-    <string name="preset_smart_desc">Automatically balances quality and size - compresses as much as possible while keeping over 70% quality. Manual controls take over if you change any setting.</string>
+    <string name="preset_smart">Smart</string>
+    <string name="preset_smart_desc">Picks the best balance of quality and size for you.</string>
     <!-- Presets -->
     <string name="preset_max_quality">Maximum Quality</string>
-    <string name="preset_max_quality_desc">Light compression, near-original quality. Best for archiving.</string>
+    <string name="preset_max_quality_desc">Near-original quality, small size drop.</string>
     <string name="preset_balanced">Balanced</string>
-    <string name="preset_balanced_desc">Great quality with a meaningful size drop. Recommended default.</string>
+    <string name="preset_balanced_desc">Great quality with a big size drop.</string>
     <string name="preset_high_compression">High Compression</string>
-    <string name="preset_high_compression_desc">Smaller files, minor quality loss. Good for email and documents.</string>
+    <string name="preset_high_compression_desc">Smaller file with slight quality loss.</string>
     <string name="preset_max_compression">Maximum Compression</string>
-    <string name="preset_max_compression_desc">Smallest files for messaging apps and low-storage devices.</string>
+    <string name="preset_recommended">Recommended</string>
+    <string name="preset_saving_badge">up to %1$s%%</string>
+    <string name="preset_picker_hint">Changing any option yourself turns Smart off.</string>
+    <string name="preset_max_compression_desc">The smallest file possible, good for messaging.</string>
 
     <!-- Photo options -->
     <string name="photo_resize">Resize</string>

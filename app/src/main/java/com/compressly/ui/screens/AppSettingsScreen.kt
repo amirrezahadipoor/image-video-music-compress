@@ -33,8 +33,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.siliksama.hajmino.BuildConfig
 import ir.siliksama.hajmino.R
 import com.compressly.core.data.ThemeMode
-import com.compressly.core.engine.model.CompressionPreset
 import com.compressly.ui.components.ChipSelector
+import com.compressly.ui.components.PresetPicker
 import com.compressly.ui.components.RotatingGear
 import com.compressly.ui.components.SectionHeader
 import com.compressly.ui.components.SelectableOptionList
@@ -145,18 +145,10 @@ fun AppSettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(Modifier.height(12.dp))
-                        ChipSelector(
-                            options = CompressionPreset.all,
+                        // Same picker as the compression screen, minus the
+                        // saving badge - there is no file in context here.
+                        PresetPicker(
                             selected = defaultPreset,
-                            labelOf = { preset ->
-                                when (preset) {
-                                    CompressionPreset.SMART -> stringResource(R.string.preset_smart)
-                                    CompressionPreset.MAXIMUM_QUALITY -> stringResource(R.string.preset_max_quality)
-                                    CompressionPreset.BALANCED -> stringResource(R.string.preset_balanced)
-                                    CompressionPreset.HIGH_COMPRESSION -> stringResource(R.string.preset_high_compression)
-                                    CompressionPreset.MAXIMUM_COMPRESSION -> stringResource(R.string.preset_max_compression)
-                                }
-                            },
                             onSelect = viewModel::setDefaultPreset
                         )
                         Spacer(Modifier.height(16.dp))

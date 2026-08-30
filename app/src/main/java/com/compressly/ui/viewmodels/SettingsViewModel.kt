@@ -134,11 +134,6 @@ class SettingsViewModel(private val container: AppContainer, private val context
 
     fun selectPreset(preset: CompressionPreset) = applyPreset(preset)
 
-    /** Smart mode toggle. Smart is the default; picking any manual tier disables it. */
-    fun setSmart(smart: Boolean) {
-        applyPreset(if (smart) CompressionPreset.SMART else CompressionPreset.BALANCED)
-    }
-
     private fun applyPreset(preset: CompressionPreset) {
         val s = _state.value
         val smart = preset == CompressionPreset.SMART
