@@ -43,3 +43,9 @@
 # Keep billing interfaces for reflection
 -keep interface com.compressly.core.billing.** { *; }
 -keep class com.compressly.core.billing.** { *; }
+
+# Ads.create() resolves the flavor's provider by NAME via Class.forName, so R8
+# must not rename it. Without this the bazaar release silently fell back to
+# NoopAdsProvider and no ad was ever shown.
+-keep class com.compressly.core.ads.** { *; }
+-keepclassmembers class * implements com.compressly.core.ads.AdsProvider { <init>(); }
