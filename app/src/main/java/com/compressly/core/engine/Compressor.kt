@@ -156,7 +156,14 @@ class Compressor(private val context: Context) {
             mime == "image/webp" -> "image/webp"
             else -> "image/jpeg"
         }
-        val summary = "${settings.quality}% quality, ${outMime.removePrefix("image/").uppercase()}"
+        // SUMMARY-HONESTY-FIX: PNG is lossless — "85% quality, PNG" claims a
+        // quality level the encoder never applied. Report it as lossless.
+        val summary = when {
+            settings.outputFormat == PhotoFormat.PNG ||
+                (settings.outputFormat == PhotoFormat.SOURCE && mime == "image/png") ->
+                "${outMime.removePrefix("image/").uppercase()} (lossless)"
+            else -> "${settings.quality}% quality, ${outMime.removePrefix("image/").uppercase()}"
+        }
         return publishOrKeepOriginal(item, MediaType.PHOTO, temp, outMime, summary, onProgress)
     }
 
