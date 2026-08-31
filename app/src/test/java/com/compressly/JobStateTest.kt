@@ -53,11 +53,14 @@ class JobStateTest {
     }
 
     @Test
-    fun failedItemsStillReachFullProgress() {
+    fun failedItemsDoNotAdvanceTheBar() {
+        // FAILED/CANCELLED are not completed work — cancelling one item out of
+        // ten must not jump the bar a tenth forward (it also distorts the ETA,
+        // which extrapolates from this fraction).
         val s = JobState(
             1, MediaType.PHOTO, JobStatus.RUNNING,
             items = listOf(item(1, ItemPhase.FAILED), item(2, ItemPhase.DONE))
         )
-        assertEquals(1f, s.overallFraction, 0.001f)
+        assertEquals(0.5f, s.overallFraction, 0.001f)
     }
 }

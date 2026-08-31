@@ -204,6 +204,7 @@
     <string name="history_status_failed">ناموفق</string>
     <string name="history_status_cancelled">لغو شد</string>
     <string name="history_status_interrupted">ناقص ماند</string>
+    <string name="history_status_running">در حال پردازش</string>
     <string name="history_recompress">فشرده‌سازی دوباره</string>
     <string name="history_time_ago">%1$s پیش</string>
 
@@ -351,10 +352,11 @@
     <string name="premium_already_desc">ممنون از حمایت شما! تمام امکانات پریمیوم فعال است.</string>
     <string name="premium_benefits_title">چه چیزی شامل می‌شود؟</string>
     <string name="premium_benefit_noads">بدون تبلیغات — برای همیشه</string>
-    <string name="premium_benefit_smart">حالت هوشمند بهینه‌شده</string>
-    <string name="premium_benefit_batch">فشرده‌سازی دسته‌ای بدون محدودیت</string>
+    <string name="premium_benefit_lifetime">یک بار پرداخت — مادام‌العمر</string>
     <string name="premium_benefit_offline">کاملاً آفلاین — همیشه</string>
     <string name="premium_cta">خرید پریمیوم از بازار</string>
+    <string name="premium_not_available">پرداخت فقط در نسخه‌ی کافه‌بازار فعال است. این نسخه کاملاً آفلاین و بدون تبلیغات است.</string>
+    <string name="premium_debug_simulate">شبیه‌سازی خرید (فقط دیباگ)</string>
     <string name="premium_one_time_note">پرداخت یک‌بار — بدون اشتراک. تمام بروزرسانی‌های آینده شامل می‌شود.</string>
     <string name="premium_store_unavailable">اتصال به کافه‌بازار ناموفق بود. مطمئن شوید که بازار نصب و به‌روز است.</string>
     <string name="premium_active_badge">پریمیوم فعال است ✓</string>

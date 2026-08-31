@@ -79,7 +79,11 @@ class PhotoCompressor(private val context: Context) {
             // one, so decoding such a source into 565 throws the transparency
             // away at decode time and there is nothing left to composite later.
             val mayHaveAlpha = mime == "image/png" || mime == "image/webp"
-            val use565 = lossy && !mayHaveAlpha && (settings.smart || settings.quality < 90)
+            // SMART-FIX: Smart mode promises a perceptual quality floor of ~70%.
+            // RGB_565 caps the palette at 65k colours — visible banding in
+            // skies, skin and gradients — so Smart always decodes ARGB_8888 and
+            // only explicit manual qualities below 90 may use 565.
+            val use565 = lossy && !mayHaveAlpha && !settings.smart && settings.quality < 90
             var bitmap = decodeSampled(tempSource, targetW, targetH, use565, bounds)
 
             try {
@@ -132,9 +136,13 @@ class PhotoCompressor(private val context: Context) {
 
                 // PNG is lossless — quality has no effect; one encode is enough.
                 val isPng = fmt == Bitmap.CompressFormat.PNG
+                // SMART-FIX: the quality ladder never drops below 72. The old
+                // 85/75/65 ladder ended at 65, quietly violating Smart's
+                // "never below ~70% perceptual quality" promise whenever the
+                // 50%-of-source target needed the last rung.
                 val qualities = when {
                     isPng -> intArrayOf(0)
-                    settings.smart -> intArrayOf(85, 75, 65)
+                    settings.smart -> intArrayOf(85, 78, 72)
                     else -> intArrayOf(settings.quality.coerceIn(1, 100))
                 }
                 val effectiveSmart = settings.smart && !isPng

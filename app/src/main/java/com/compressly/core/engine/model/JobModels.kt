@@ -44,7 +44,14 @@ data class JobState(
     val startedAt: Long = System.currentTimeMillis(),
     val preset: CompressionPreset? = null
 ) {
-    /** Aggregated progress across all items, 0..1. */
+    /**
+     * Aggregated progress across all items, 0..1.
+     *
+     * PROGRESS-FIX: FAILED and CANCELLED items contribute 0 — they are not
+     * work that was done. Previously each counted as a full 1.0, so cancelling
+     * one item out of ten jumped the bar a tenth forward and distorted the
+     * ETA (which extrapolates from this fraction).
+     */
     val overallFraction: Float
         get() {
             if (items.isEmpty()) return 0f
@@ -57,8 +64,8 @@ data class JobState(
                     ItemPhase.COMPRESSING -> 0.15f + item.fraction * 0.80f
                     ItemPhase.FINALIZING -> 0.95f + item.fraction * 0.05f
                     ItemPhase.DONE -> 1f
-                    ItemPhase.FAILED -> 1f
-                    ItemPhase.CANCELLED -> 1f
+                    ItemPhase.FAILED -> 0f
+                    ItemPhase.CANCELLED -> 0f
                 }
             }
             return (sum / total).coerceIn(0f, 1f)

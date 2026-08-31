@@ -420,7 +420,8 @@ class VideoPlannerTest {
 
     @Test
     fun correctionNeverAsksForMoreThanTheTarget() {
-        val corrected = VideoPlanner.correctedBitrate(2_000_000, bytesFor(2_400_000), 60_000)!!
+        // 1.5x overshoot — outside the 30% VBR tolerance, so it must correct.
+        val corrected = VideoPlanner.correctedBitrate(2_000_000, bytesFor(3_000_000), 60_000)!!
         assertTrue("got $corrected", corrected < 2_000_000)
         assertTrue("got $corrected", corrected >= (2_000_000 * VideoPlanner.MIN_CORRECTION_RATIO).toInt())
     }
@@ -545,14 +546,14 @@ class VideoPlannerTest {
 
     @Test
     fun aggressiveCorrectionTriggersOnASmallerOvershoot() {
-        // 10% overshoot is inside the default 15% tolerance...
+        // 20% overshoot is inside the (new) 30% VBR tolerance...
         assertEquals(
             null,
-            VideoPlanner.correctedBitrate(2_000_000, bytesFor(2_200_000), 60_000, aggressive = false)
+            VideoPlanner.correctedBitrate(2_000_000, bytesFor(2_400_000), 60_000, aggressive = false)
         )
-        // ...but MAX compression re-encodes it.
+        // ...but MAX compression (CBR, tighter 15% tolerance) re-encodes it.
         val corrected = VideoPlanner.correctedBitrate(
-            2_000_000, bytesFor(2_200_000), 60_000, aggressive = true
+            2_000_000, bytesFor(2_400_000), 60_000, aggressive = true
         )
         assertTrue("got $corrected", corrected != null && corrected < 2_000_000)
     }

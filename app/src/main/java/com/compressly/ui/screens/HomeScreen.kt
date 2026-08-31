@@ -199,7 +199,12 @@ fun HomeScreen(
             item { ModuleCards(onPick = ::pick) }
             // UI-2 BEAUTY: Premium banner moved after module cards so it doesn't
             // block the primary call-to-action. Non-intrusive placement.
-            if (!isPremium && ir.siliksama.hajmino.BuildConfig.STORE == "bazaar") {
+            // SCREEN-FIX: shown in EVERY flavor. The old `STORE == "bazaar"`
+            // condition hid the only entry point to the premium/payment screen
+            // in the offline build — the screen existed in navigation but was
+            // unreachable. The play flavor now shows factual messaging inside
+            // the premium screen instead of hiding it.
+            if (!isPremium) {
                 item { PremiumBanner { onOpenPremium() } }
             }
             item {

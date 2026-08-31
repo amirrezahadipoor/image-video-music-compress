@@ -113,12 +113,22 @@ class JobCoordinator(
         try {
             val compressor = Compressor(context)
             for (item in items) {
+                // CRASH-RECOVERY-FIX: every item gets a RUNNING history row
+                // BEFORE any work starts. If the process dies mid-compression,
+                // markInterruptedOnStartup() now has a row to find and can mark
+                // it INTERRUPTED. Previously no row ever carried STATUS_RUNNING,
+                // so the whole "resume after crash" feature was dead code and a
+                // half-written file (API 26-28 has no IS_PENDING) stayed
+                // visible in the gallery with no trace in history.
+                val runningRow = historyRepository.insert(runningEntry(jobId, item))
+
                 // Items individually cancelled while queued are skipped.
                 if (isItemCancelled(item.itemId)) {
                     anyCancelled = true
                     updateItem(jobId, item.itemId) { it.copy(phase = ItemPhase.CANCELLED) }
-                    historyRepository.insert(
+                    historyRepository.update(
                         entryFrom(settings.mediaType(), cancelledResult(jobId, item))
+                            .copy(id = runningRow)
                     )
                     continue
                 }
@@ -158,7 +168,10 @@ class JobCoordinator(
                 } else {
                     anyFailure = true
                 }
-                historyRepository.insert(entryFrom(settings.mediaType(), result))
+                // Finalize the RUNNING row created at the start of this item.
+                historyRepository.update(
+                    entryFrom(settings.mediaType(), result).copy(id = runningRow)
+                )
                 if (jobCancelled) break
             }
             if (jobCancelled) {
@@ -201,6 +214,26 @@ class JobCoordinator(
         itemId = item.itemId, jobId = jobId, fileName = item.displayName,
         inputUri = item.uri, inputSize = item.sizeBytes,
         success = false, error = "cancelled"
+    )
+
+    /**
+     * Placeholder history row written BEFORE an item is processed. Carries
+     * STATUS_RUNNING so a process death mid-way is discoverable on next launch
+     * (see HistoryRepository.markInterruptedOnStartup).
+     */
+    private fun runningEntry(jobId: Long, item: InputItem): HistoryEntry = HistoryEntry(
+        jobId = jobId,
+        mediaType = item.mediaType.name,
+        fileName = item.displayName,
+        inputUri = item.uri.toString(),
+        inputSize = item.sizeBytes,
+        outputUri = null,
+        outputSize = 0L,
+        status = HistoryEntry.STATUS_RUNNING,
+        error = null,
+        settingsSummary = "",
+        createdAt = System.currentTimeMillis(),
+        durationMs = 0L
     )
 
     private fun CompressionSettings.mediaType(): MediaType = when (this) {

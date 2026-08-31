@@ -42,7 +42,12 @@ class MediaCodecTranscoder(private val context: Context) {
         const val ERR_DECODE = "decode_failed"
     }
 
-    data class Stats(val outputSize: Long, val durationMs: Long)
+    data class Stats(
+        val outputSize: Long,
+        val durationMs: Long,
+        /** The codec actually written: "h264" or "h265" (an H.265 request may have fallen back). */
+        val codec: String
+    )
 
     /**
      * Transcodes [inputUri] into [outputPath]. Honors trim, resolution,
@@ -63,9 +68,14 @@ class MediaCodecTranscoder(private val context: Context) {
             settings.trimEndMs * 1000L
         } else 0L
 
-        // Resolve encoder (H.264/H.265 with hardware-first, software fallback).
+        // Resolve encoders (H.264/H.265, hardware-first, software fallback).
+        // VIDEO-FIX-1: a LIST of candidates, tried in order. The old code picked
+        // one encoder by name and never retried, so a vendor encoder that rejects
+        // the configured format (missing COLOR_FormatSurface, unknown keys,
+        // resolution limits) killed the whole transcode with no fallback at all.
         val requestedMime = if (settings.codec == VideoCodec.H265) MIME_H265 else MIME_H264
-        val choice = resolveEncoder(requestedMime)
+        val encoderChoices = resolveEncoderCandidates(requestedMime)
+        if (encoderChoices.isEmpty()) throw VideoCompressionException(ERR_NO_ENCODER)
 
         // MediaInspector normally supplies everything, but it can fail on exotic
         // or partly corrupt containers, and Compressor then falls back to an
@@ -94,13 +104,15 @@ class MediaCodecTranscoder(private val context: Context) {
             //    The span is 0..0.50 rather than 0..0.80 because a corrective
             //    second pass may follow; when it does not, progress jumps to
             //    0.80 below. The bar never moves backwards either way.
-            videoPass(
+            // VIDEO-FIX-1: the pass returns the encoder it actually used, so the
+            // result summary can report the real codec (H.265 -> H.264 fallback
+            // must not be labelled H.265).
+            val firstPassChoice = videoPass(
                 inputUri = inputUri,
                 outputPath = tempVideo.absolutePath,
                 info = plannedInfo,
                 settings = settings,
-                encoderName = choice.name,
-                encoderMime = choice.mime,
+                choices = encoderChoices,
                 plan = plan,
                 rotation = rotation,
                 trimStartUs = trimStartUs,
@@ -130,8 +142,10 @@ class MediaCodecTranscoder(private val context: Context) {
                     outputPath = tempVideo.absolutePath,
                     info = plannedInfo,
                     settings = settings,
-                    encoderName = choice.name,
-                    encoderMime = choice.mime,
+                    // Re-use the encoder the first pass proved working; never
+                    // re-negotiate between passes (a different choice could
+                    // change the bitstream behaviour halfway through).
+                    choices = listOf(firstPassChoice),
                     // The key-frame interval has to follow the corrected rate:
                     // the GOP that fitted the first pass is too short for the
                     // lower one, and short GOPs are exactly what eats the budget.
@@ -197,7 +211,18 @@ class MediaCodecTranscoder(private val context: Context) {
             }
             control.checkActive()
             onProgress(1f)
-            Stats(File(outputPath).length(), trimmedDurationMs(info.durationMs, trimStartUs, trimEndUs))
+            // VIDEO-FIX-2: never report a zero-byte output as success. When the
+            // encoder only emitted CODEC_CONFIG + EOS (no real frame), or the
+            // muxer never started, the file at outputPath is empty — publishing
+            // it as "done" drops a corrupt 0-byte clip into the gallery.
+            if (File(outputPath).length() <= 0) {
+                throw VideoCompressionException(ERR_ENCODE)
+            }
+            val codecTag = when (firstPassChoice.mime) {
+                MIME_H265 -> "h265"
+                else -> "h264"
+            }
+            Stats(File(outputPath).length(), trimmedDurationMs(info.durationMs, trimStartUs, trimEndUs), codecTag)
         } catch (t: Throwable) {
             Storage.deleteQuietly(tempVideo, tempAudio)
             throw t
@@ -210,24 +235,38 @@ class MediaCodecTranscoder(private val context: Context) {
     // Video pass (surface pipeline)
     // ------------------------------------------------------------------
 
+    /**
+     * Runs one decode->encode pass and returns the encoder that was actually
+     * used. [choices] are tried in order; each candidate gets two configure
+     * attempts (full format, then a minimal format without optional keys).
+     *
+     * VIDEO-FIX-1: the old code configured exactly one encoder by name. Vendor
+     * encoders routinely reject optional keys (KEY_BITRATE_MODE, KEY_PRIORITY,
+     * KEY_I_FRAME_INTERVAL) or the COLOR_FormatSurface input — on those devices
+     * a single error aborted the whole job with no fallback, which read as
+     * "video compression never works". Now every candidate is attempted, and
+     * the failure of one cannot take the job down.
+     */
     private suspend fun videoPass(
         inputUri: Uri,
         outputPath: String,
         info: MediaInfo,
         settings: VideoSettings,
-        encoderName: String,
-        encoderMime: String,
+        choices: List<EncoderChoice>,
         plan: VideoPlanner.Plan,
         rotation: Int,
         trimStartUs: Long,
         trimEndUs: Long,
         control: JobControl,
         onProgress: (Float) -> Unit
-    ) {
+    ): EncoderChoice {
         val outW = plan.width
         val outH = plan.height
         val targetBitrate = plan.bitrate
         val targetFps = plan.fps
+        // Hoisted outside the try so the final `return chosen!!` (after the
+        // `finally` block) can see it.
+        var chosen: EncoderChoice? = null
         val extractor = MediaExtractor()
         try {
             extractor.setDataSource(context, inputUri, null)
@@ -238,50 +277,36 @@ class MediaCodecTranscoder(private val context: Context) {
             val inputMime = inputFormat.getString(MediaFormat.KEY_MIME)
                 ?: throw VideoCompressionException(ERR_DECODE)
 
-            val encoder = MediaCodec.createByCodecName(encoderName)
-            val encFormat = MediaFormat.createVideoFormat(encoderMime, outW, outH).apply {
-                setInteger(MediaFormat.KEY_BIT_RATE, targetBitrate)
-                setInteger(MediaFormat.KEY_FRAME_RATE, targetFps)
-                // A fixed 2 s GOP at a very low bitrate lets single key frames
-                // eat the whole budget; the planner widens it instead.
-                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, plan.iFrameInterval)
-                setInteger(
-                    MediaFormat.KEY_COLOR_FORMAT,
-                    MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface
-                )
-                val requestedMode = if (plan.preferCbr)
-                    MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR
-                else
-                    MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
-                when {
-                    encoderSupportsBitrateMode(encoderMime, requestedMode) ->
-                        setInteger(MediaFormat.KEY_BITRATE_MODE, requestedMode)
-                    requestedMode == MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR &&
-                        encoderSupportsBitrateMode(
-                            encoderMime,
-                            MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
-                        ) ->
-                        setInteger(
-                            MediaFormat.KEY_BITRATE_MODE,
-                            MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
-                        )
-                }
-                // This is an offline transcode, not a live capture. The old
-                // code asked for realtime priority (0) and pinned
-                // KEY_OPERATING_RATE to the output frame rate, which tells the
-                // codec to budget for real-time delivery: it spends less effort
-                // per frame (worse bits-per-pixel) and on several SoCs throttles
-                // the pipeline to 1x, so a ten-minute clip took ten minutes.
-                // Non-realtime priority with no operating-rate cap gives the
-                // encoder freedom to run flat out and to trade time for size.
-                if (android.os.Build.VERSION.SDK_INT >= 23) {
-                    setInteger(MediaFormat.KEY_PRIORITY, 1)
+            // ── Pick a working encoder across the candidate list ──────────
+            var encoder: MediaCodec? = null
+            var inputSurface: android.view.Surface? = null
+            for (candidate in choices) {
+                var enc: MediaCodec? = null
+                try {
+                    enc = createConfiguredEncoder(candidate, outW, outH, targetBitrate, targetFps, plan)
+                    val surface = enc.createInputSurface()
+                    enc.start()
+                    // Success on this candidate — commit and move on.
+                    inputSurface = surface
+                    encoder = enc
+                    chosen = candidate
+                    break
+                } catch (t: Throwable) {
+                    // ENGINE-ONLY failures; user cancellation must propagate.
+                    // Release BOTH: the one configured here (if start() failed)
+                    // and any previously committed instance (if this candidate
+                    // reused it) — never leak a codec while probing.
+                    if (t is com.compressly.core.engine.CompressionCancelledException) throw t
+                    runCatching { enc?.release() }
+                    runCatching { encoder?.release() }
+                    encoder = null
+                    inputSurface = null
                 }
             }
-            encoder.configure(encFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-            val inputSurface = encoder.createInputSurface()
-            encoder.start()
+            val enc = encoder ?: throw VideoCompressionException(ERR_NO_ENCODER)
+            val inputSurfaceFinal = inputSurface ?: throw VideoCompressionException(ERR_NO_ENCODER)
 
+            // ── Configure the decoder onto the encoder's input surface ─────
             // CRITICAL: with a Surface output the decoder applies the source
             // rotation metadata itself. If we kept it, the encoder would receive
             // already-rotated frames while we configure it with STORED-orientation
@@ -297,7 +322,7 @@ class MediaCodecTranscoder(private val context: Context) {
             // only the rotation key directly on it before passing to configure().
             inputFormat.setInteger(MediaFormat.KEY_ROTATION, 0)
             val decoder = MediaCodec.createDecoderByType(inputMime)
-            decoder.configure(inputFormat, inputSurface, null, 0)
+            decoder.configure(inputFormat, inputSurfaceFinal, null, 0)
             decoder.start()
 
             var muxer: MediaMuxer? = null
@@ -379,23 +404,23 @@ class MediaCodecTranscoder(private val context: Context) {
                     val render = keepAllFrames || frameGate.shouldKeep(decoderInfo.presentationTimeUs)
                     decoder.releaseOutputBuffer(decoderOut, render)
                     if (decoderInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0 && !decoderEosSignalled) {
-                        encoder.signalEndOfInputStream()
+                        enc.signalEndOfInputStream()
                         decoderEosSignalled = true
                     }
                     decoderOut = decoder.dequeueOutputBuffer(decoderInfo, 0)
                 }
 
                 // Drain encoder -> muxer.
-                var encoderOut = encoder.dequeueOutputBuffer(encoderInfo, 0)
+                var encoderOut = enc.dequeueOutputBuffer(encoderInfo, 0)
                 while (encoderOut >= 0) {
                     didWork = true
                     if (encoderInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) {
                         encoderInfo.size = 0
                     }
                     if (encoderInfo.size > 0) {
-                        val encoded = encoder.getOutputBuffer(encoderOut)!!
+                        val encoded = enc.getOutputBuffer(encoderOut)!!
                         if (!muxerStarted) {
-                            videoMuxerTrack = muxer.addTrack(encoder.outputFormat)
+                            videoMuxerTrack = muxer.addTrack(enc.outputFormat)
                             muxer.start()
                             muxerStarted = true
                         }
@@ -418,8 +443,8 @@ class MediaCodecTranscoder(private val context: Context) {
                     if (encoderInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
                         encEos = true
                     }
-                    encoder.releaseOutputBuffer(encoderOut, false)
-                    encoderOut = encoder.dequeueOutputBuffer(encoderInfo, 0)
+                    enc.releaseOutputBuffer(encoderOut, false)
+                    encoderOut = enc.dequeueOutputBuffer(encoderInfo, 0)
                 }
 
                 // VID-1 FIX: if all queues were empty, yield for 1 ms to prevent
@@ -428,12 +453,16 @@ class MediaCodecTranscoder(private val context: Context) {
                     kotlinx.coroutines.delay(1)
                 }
                 }
+                // VIDEO-FIX-2: no frame ever reached the muxer (the encoder only
+                // emitted CODEC_CONFIG then EOS). This is a failed encode, not a
+                // success — never fall through to publishing an empty file.
+                if (!muxerStarted) throw VideoCompressionException(ERR_ENCODE)
             } finally {
-                runCatching { inputSurface.release() }
+                runCatching { inputSurfaceFinal.release() }
                 runCatching { decoder.stop() }
                 runCatching { decoder.release() }
-                runCatching { encoder.stop() }
-                runCatching { encoder.release() }
+                runCatching { enc.stop() }
+                runCatching { enc.release() }
                 // BUG-10 FIX: MediaMuxer.stop() throws IllegalStateException if
                 // start() was never called (e.g. the encoder only emitted a
                 // CODEC_CONFIG frame then EOS with no real video data).
@@ -445,6 +474,89 @@ class MediaCodecTranscoder(private val context: Context) {
         } finally {
             extractor.release()
         }
+        return chosen!!
+    }
+
+    /**
+     * Creates, configures and (on entry) starts the encoder for [choice].
+     *
+     * Two attempts per encoder: first the full format (bitrate mode + priority
+     * + GOP interval), then a minimal format with only the mandatory keys.
+     * Vendor encoders differ wildly in which optional keys they accept; the
+     * second attempt is what keeps a picky encoder from killing the job.
+     */
+    private fun createConfiguredEncoder(
+        choice: EncoderChoice,
+        outW: Int,
+        outH: Int,
+        targetBitrate: Int,
+        targetFps: Int,
+        plan: VideoPlanner.Plan
+    ): MediaCodec {
+        fun buildFormat(full: Boolean): MediaFormat =
+            MediaFormat.createVideoFormat(choice.mime, outW, outH).apply {
+                setInteger(MediaFormat.KEY_BIT_RATE, targetBitrate)
+                setInteger(MediaFormat.KEY_FRAME_RATE, targetFps)
+                setInteger(
+                    MediaFormat.KEY_COLOR_FORMAT,
+                    MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface
+                )
+                if (full) {
+                    // A fixed 2 s GOP at a very low bitrate lets single key
+                    // frames eat the whole budget; the planner widens it.
+                    setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, plan.iFrameInterval)
+                    // VIDEO-FIX-3: the bitrate mode was picked by asking whether
+                    // ANY encoder supports it, then applied to a specific one.
+                    // If THE CHOSEN encoder does not support CBR/VBR the
+                    // configure() call throws and the whole video fails. The
+                    // capability check is now per-encoder.
+                    val requestedMode = if (plan.preferCbr)
+                        MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR
+                    else
+                        MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
+                    val mode = when {
+                        encoderSupportsBitrateMode(choice.name, choice.mime, requestedMode) -> requestedMode
+                        requestedMode == MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR &&
+                            encoderSupportsBitrateMode(
+                                choice.name, choice.mime,
+                                MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
+                            ) -> MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
+                        else -> null
+                    }
+                    if (mode != null) setInteger(MediaFormat.KEY_BITRATE_MODE, mode)
+                    // This is an offline transcode, not a live capture. The old
+                    // code asked for realtime priority (0) and pinned
+                    // KEY_OPERATING_RATE to the output frame rate, which tells
+                    // the codec to budget for real-time delivery: it spends less
+                    // effort per frame (worse bits-per-pixel) and on several
+                    // SoCs throttles the pipeline to 1x, so a ten-minute clip
+                    // took ten minutes. Non-realtime priority with no
+                    // operating-rate cap gives the encoder freedom to run flat
+                    // out and to trade time for size.
+                    if (android.os.Build.VERSION.SDK_INT >= 23) {
+                        setInteger(MediaFormat.KEY_PRIORITY, 1)
+                    }
+                }
+            }
+
+        var enc = MediaCodec.createByCodecName(choice.name)
+        try {
+            enc.configure(
+                buildFormat(full = true), null, null,
+                MediaCodec.CONFIGURE_FLAG_ENCODE
+            )
+            return enc
+        } catch (t: Throwable) {
+            // Optional keys rejected — drop them and retry once with the
+            // minimal format before giving up on this candidate.
+            runCatching { enc.release() }
+        }
+        enc = MediaCodec.createByCodecName(choice.name)
+        enc.configure(
+            buildFormat(full = false), null, null,
+            MediaCodec.CONFIGURE_FLAG_ENCODE
+        )
+        return enc
     }
 
     // ------------------------------------------------------------------
@@ -461,7 +573,7 @@ class MediaCodecTranscoder(private val context: Context) {
         onProgress: (Float) -> Unit
     ) {
         // Shared, battle-tested decode -> AAC -> M4A pipeline (see AacTranscoder).
-        com.compressly.core.engine.audio.AacTranscoder.transcode(
+        val ok = com.compressly.core.engine.audio.AacTranscoder.transcode(
             context = context,
             inputUri = inputUri,
             outputPath = outputPath,
@@ -471,6 +583,9 @@ class MediaCodecTranscoder(private val context: Context) {
             control = control,
             onProgress = onProgress
         )
+        // false = no audio track found or nothing was written; a video that
+        // was analysed as having audio must not silently come out muted.
+        if (!ok) throw VideoCompressionException(ERR_ENCODE)
     }
 
     // ------------------------------------------------------------------
@@ -532,6 +647,9 @@ private suspend fun mergePass(
         var videoDone = false
         var audioDone = audioExtractor == null
         var lastPts = 0L
+        // VIDEO-FIX-2: if neither stream ever produced a sample the muxer wrote
+        // nothing; that is a failed encode and must not be published as success.
+        var wroteAnySample = false
         // Passthrough audio comes from the ORIGINAL file (needs trimming to the
         // trim window); transcoded audio is already trimmed (PTS start at 0).
         val audioOffset = if (audioAlreadyTrimmed) 0L else trimStartUs
@@ -598,10 +716,12 @@ private suspend fun mergePass(
 
                 if (writeVideo && videoHasSample) {
                     muxer.writeSampleData(videoMuxerTrack, videoBuf, videoInfo)
+                    wroteAnySample = true
                     videoHasSample = readVideo()
                     stallCount = 0
                 } else if (!writeVideo && audioHasSample) {
                     muxer.writeSampleData(audioMuxerTrack, audioBuf, audioInfo)
+                    wroteAnySample = true
                     audioHasSample = readAudio()
                     stallCount = 0
                 } else {
@@ -634,6 +754,8 @@ private suspend fun mergePass(
                     lastPts = videoInfo.presentationTimeUs
                 }
             }
+            // VIDEO-FIX-2: zero samples written == failed encode.
+            if (!wroteAnySample) throw VideoCompressionException(ERR_ENCODE)
         } finally {
             runCatching { videoExtractor.release() }
             runCatching { audioExtractor?.release() }
@@ -666,19 +788,22 @@ private suspend fun mergePass(
 
     data class EncoderChoice(val name: String, val mime: String)
 
-    /** Picks the best encoder for [requestedMime], hardware first, software fallback. */
-    private fun resolveEncoder(requestedMime: String): EncoderChoice {
-        val hw = findEncoder(requestedMime, hardwareOnly = true)
-        if (hw != null) return EncoderChoice(hw, requestedMime)
-        val sw = findEncoder(requestedMime, hardwareOnly = false)
-        if (sw != null) return EncoderChoice(sw, requestedMime)
+    /**
+     * All usable encoders for [requestedMime], best first: hardware, then
+     * software, and for HEVC the H.264 fallback (hardware, then software).
+     * Each candidate is configured independently by [videoPass] (with its own
+     * minimal-format retry), so one broken vendor entry can no longer abort
+     * the whole transcode.
+     */
+    private fun resolveEncoderCandidates(requestedMime: String): List<EncoderChoice> {
+        val result = mutableListOf<EncoderChoice>()
+        findEncoder(requestedMime, hardwareOnly = true)?.let { result += EncoderChoice(it, requestedMime) }
+        findEncoder(requestedMime, hardwareOnly = false)?.let { result += EncoderChoice(it, requestedMime) }
         if (requestedMime == MIME_H265) {
-            val hw264 = findEncoder(MIME_H264, hardwareOnly = true)
-            if (hw264 != null) return EncoderChoice(hw264, MIME_H264)
-            val sw264 = findEncoder(MIME_H264, hardwareOnly = false)
-            if (sw264 != null) return EncoderChoice(sw264, MIME_H264)
+            findEncoder(MIME_H264, hardwareOnly = true)?.let { result += EncoderChoice(it, MIME_H264) }
+            findEncoder(MIME_H264, hardwareOnly = false)?.let { result += EncoderChoice(it, MIME_H264) }
         }
-        throw VideoCompressionException(ERR_NO_ENCODER)
+        return result
     }
 
     private fun findEncoder(mime: String, hardwareOnly: Boolean): String? {
@@ -697,20 +822,27 @@ private suspend fun mergePass(
         return null
     }
 
-    // VID-3 FIX: cache results so we scan MediaCodecList only once per (mime, mode)
-    // pair per process lifetime. This avoids rescanning 30-50 codecs on every
-    // videoPass call, which adds ~2-5 ms on mid-range devices.
+    // VID-3 FIX: cache results so we scan MediaCodecList only once per
+    // (encoder, mime, mode) triple per process lifetime. This avoids rescanning
+    // 30-50 codecs on every videoPass call, which adds ~2-5 ms on mid-range
+    // devices.
     private val bitrateModeSupportCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
 
-    private fun encoderSupportsBitrateMode(mime: String, mode: Int): Boolean {
-        val key = "$mime:$mode"
+    /**
+     * True when THE CHOSEN ENCODER (by name) supports [mode]. Asking "does any
+     * encoder support this mode" and then setting it on a different one is what
+     * made configure() throw IllegalArgumentException on devices whose top
+     * encoder lacks CBR/VBR — killing video compression outright.
+     */
+    private fun encoderSupportsBitrateMode(encoderName: String, mime: String, mode: Int): Boolean {
+        val key = "$encoderName:$mime:$mode"
         return bitrateModeSupportCache.getOrPut(key) {
             runCatching {
                 val list = MediaCodecList(MediaCodecList.REGULAR_CODECS)
                 for (ci in list.codecInfos) {
-                    if (!ci.isEncoder || !ci.supportedTypes.contains(mime)) continue
-                    val caps = ci.getCapabilitiesForType(mime).encoderCapabilities ?: continue
-                    if (caps.isBitrateModeSupported(mode)) return@getOrPut true
+                    if (ci.name != encoderName || !ci.isEncoder || !ci.supportedTypes.contains(mime)) continue
+                    val caps = ci.getCapabilitiesForType(mime).encoderCapabilities ?: return@getOrPut false
+                    return@getOrPut caps.isBitrateModeSupported(mode)
                 }
                 false
             }.getOrDefault(false)

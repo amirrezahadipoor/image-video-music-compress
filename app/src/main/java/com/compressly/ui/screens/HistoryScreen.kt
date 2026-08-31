@@ -263,6 +263,7 @@ private fun HistoryRow(
                             when (entry.status) {
                                 HistoryEntry.STATUS_FAILED -> R.string.history_status_failed
                                 HistoryEntry.STATUS_CANCELLED -> R.string.history_status_cancelled
+                                HistoryEntry.STATUS_RUNNING -> R.string.history_status_running
                                 else -> R.string.history_status_interrupted
                             }
                         ),

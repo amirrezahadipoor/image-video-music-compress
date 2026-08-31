@@ -5,7 +5,7 @@ import androidx.compose.ui.Modifier
 import ir.siliksama.hajmino.BuildConfig
 
 /**
- * Abstraction over the ad provider (Tapsell / تپسل for the Bazaar build).
+ * Abstraction over the ad provider (Adivery for the Bazaar build).
  * The app itself stays fully offline-capable: when no provider is available
  * or there is no network, slots render as a subtle placeholder or nothing.
  */
@@ -42,7 +42,7 @@ object Ads {
     /**
      * True when this build is prepared for ads (Bazaar flavor). The slot is
      * rendered so the advertising space is visible; the real banner loads
-     * from the network only when the Tapsell SDK is integrated.
+     * from the network only when the Adivery SDK is integrated.
      */
     fun isSlotVisible(): Boolean = BuildConfig.ADS_ENABLED
 }

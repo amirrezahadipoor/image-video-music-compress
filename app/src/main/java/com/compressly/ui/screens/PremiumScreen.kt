@@ -176,10 +176,13 @@ fun PremiumScreen(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(Modifier.height(4.dp))
-                BenefitRow(Icons.Outlined.Block,      stringResource(R.string.premium_benefit_noads))
-                BenefitRow(Icons.Outlined.AutoAwesome, stringResource(R.string.premium_benefit_smart))
-                BenefitRow(Icons.Outlined.Speed,       stringResource(R.string.premium_benefit_batch))
-                BenefitRow(Icons.Outlined.Lock,        stringResource(R.string.premium_benefit_offline))
+                // HONEST-BENEFITS-FIX: "Optimized Smart mode" and "Unlimited
+                // batch" were advertised but never implemented (Smart and the
+                // 50-file batch limit are identical for free and premium
+                // users). Only real differences are advertised now.
+                BenefitRow(Icons.Outlined.Block, stringResource(R.string.premium_benefit_noads))
+                BenefitRow(Icons.Outlined.Lock, stringResource(R.string.premium_benefit_offline))
+                BenefitRow(Icons.Outlined.Check, stringResource(R.string.premium_benefit_lifetime))
             }
 
             Spacer(Modifier.height(32.dp))
@@ -235,6 +238,28 @@ fun PremiumScreen(
                             text = stringResource(R.string.action_retry),
                             onClick = { viewModel.retryConnection(context.findActivity()) }
                         )
+                    }
+                    !viewModel.storeBilling -> {
+                        // SCREEN-FIX: the play/offline build carries no store
+                        // billing at all. Before, the screen still rendered a
+                        // "buy" button that could never complete a purchase —
+                        // and worse, the only entry point (the premium banner)
+                        // was hidden unless the build was the Bazaar flavor,
+                        // so the payment screen was effectively unreachable.
+                        Text(
+                            text = stringResource(R.string.premium_not_available),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (ir.siliksama.hajmino.BuildConfig.DEBUG) {
+                            Spacer(Modifier.height(12.dp))
+                            GhostButton(
+                                text = stringResource(R.string.premium_debug_simulate),
+                                onClick = { viewModel.purchase(context.findActivity()) }
+                            )
+                        }
                     }
                     else -> {
                         ActionButton(

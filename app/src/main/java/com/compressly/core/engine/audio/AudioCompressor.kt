@@ -63,6 +63,12 @@ class AudioCompressor(private val context: Context) {
                 }
             }
 
+            // AUDIO-FIX: never hand a 0-byte file onward — the publish step
+            // compares against the source size and would "succeed" with it.
+            if (tempOut.length() <= 0) {
+                throw AudioCompressionException(KEY_ENCODE)
+            }
+
             if (settings.preserveMetadata) {
                 onProgress(0.95f)
                 runCatching {
@@ -82,6 +88,7 @@ class AudioCompressor(private val context: Context) {
     companion object {
         const val KEY_UNSUPPORTED = "unsupported_format"
         const val KEY_DECODE = "decode_failed"
+        const val KEY_ENCODE = "encode_failed"
     }
 
     // ------------------------------------------------------------------

@@ -204,6 +204,7 @@
     <string name="history_status_failed">Failed</string>
     <string name="history_status_cancelled">Cancelled</string>
     <string name="history_status_interrupted">Interrupted</string>
+    <string name="history_status_running">Processing</string>
     <string name="history_recompress">Recompress</string>
     <string name="history_time_ago">%1$s ago</string>
 
@@ -333,10 +334,11 @@
     <string name="premium_already_desc">Thank you for your support! All premium features are active.</string>
     <string name="premium_benefits_title">What\'s included?</string>
     <string name="premium_benefit_noads">No ads — forever</string>
-    <string name="premium_benefit_smart">Optimized Smart mode</string>
-    <string name="premium_benefit_batch">Unlimited batch compression</string>
+    <string name="premium_benefit_lifetime">One-time payment — lifetime access</string>
     <string name="premium_benefit_offline" formatted="false">100% offline — always</string>
     <string name="premium_cta">Buy Premium on Bazaar</string>
+    <string name="premium_not_available">Purchases are only available in the Café Bazaar build. This build is fully offline and ad-free.</string>
+    <string name="premium_debug_simulate">Simulate purchase (debug only)</string>
     <string name="premium_one_time_note">One-time payment — no subscription. All future updates included.</string>
     <string name="premium_store_unavailable">Could not connect to Cafe Bazaar. Make sure the Bazaar app is installed and up to date.</string>
     <string name="premium_active_badge">Premium is active ✓</string>

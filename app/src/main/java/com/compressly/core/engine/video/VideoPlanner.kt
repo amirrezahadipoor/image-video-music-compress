@@ -371,8 +371,14 @@ object VideoPlanner {
     // Bitrate correction
     // ------------------------------------------------------------------
 
-    /** How far over target a first pass may land before it is worth redoing. */
-    const val OVERSHOOT_TOLERANCE = 1.15
+    /**
+     * How far over target a first pass may land before it is worth redoing.
+     * 1.30 (not 1.15): on most phones the hardware encoder overshoots VBR by
+     * 10-25% routinely, and re-encoding every such file doubles the job's
+     * time and battery for a few per cent. Only a clearly bloated first pass
+     * pays for a second full decode+encode.
+     */
+    const val OVERSHOOT_TOLERANCE = 1.30
 
     /** Never correct below this share of the target, however bad the first pass was. */
     const val MIN_CORRECTION_RATIO = 0.45
@@ -417,7 +423,10 @@ object VideoPlanner {
         if (actualBytes < MIN_CORRECTABLE_BYTES) return null
         val actual = measuredBitrate(actualBytes, durationMs)
         if (actual <= 0) return null
-        val tolerance = if (aggressive) 1.06 else OVERSHOOT_TOLERANCE
+        // Aggressive tiers run CBR, which overshoots far less than VBR, so
+        // even a modest 15% overshoot there is worth one correction pass —
+        // their whole promise is "as small as possible".
+        val tolerance = if (aggressive) 1.15 else OVERSHOOT_TOLERANCE
         if (actual <= (targetBitrate * tolerance).toLong()) return null
         val corrected = (targetBitrate.toLong() * targetBitrate / actual).toInt()
         val minRatio = if (aggressive) 0.32 else MIN_CORRECTION_RATIO
@@ -521,6 +530,15 @@ object VideoPlanner {
         if (settings.audioMode != VideoAudioMode.KEEP) return false
         if (settings.resolution != VideoResolution.ORIGINAL) return false
         if (dropsFrames(settings, info)) return false
+        // NOOP-FIX: a codec request (e.g. H.264 -> H.265) is a real change and
+        // must never be skipped as "nothing to do". Before this, picking H.265
+        // for an untouched-resolution clip could silently return the original
+        // (copy) without any re-encode when the estimate was close to the
+        // source size — the user's explicit codec choice was ignored.
+        val sourceMime = info.mimeType?.lowercase() ?: ""
+        val sourceIsHevc = sourceMime.contains("hevc")
+        if (settings.codec == VideoCodec.H265 && !sourceIsHevc) return false
+        if (settings.codec == VideoCodec.H264 && sourceIsHevc) return false
         val (w, h) = outputDims(info, settings, preset)
         if (w != align16(info.width) || h != align16(info.height)) return false
         return true

@@ -60,12 +60,17 @@ class PoolakeyBillingManager(
         if (_conn.value == BillingConnectionState.CONNECTED) return
         _conn.value = BillingConnectionState.CONNECTING
 
+        // SECURITY-FIX: with an empty RSA key the SDK silently falls back to
+        // SecurityCheck.Disable — purchase receipts are then never verified
+        // and a tampered client could grant itself premium. If the store key
+        // is missing, fail loudly instead of accepting unverified purchases.
         val rsa = ir.siliksama.hajmino.BuildConfig.BAZAAR_RSA_KEY
+        if (rsa.isBlank()) {
+            _conn.value = BillingConnectionState.FAILED
+            return
+        }
         val config = PaymentConfiguration(
-            localSecurityCheck = if (rsa.isNotBlank())
-                SecurityCheck.Enable(rsaPublicKey = rsa)
-            else
-                SecurityCheck.Disable
+            localSecurityCheck = SecurityCheck.Enable(rsaPublicKey = rsa)
         )
 
         val p = Payment(context = activity, config = config)
@@ -123,6 +128,15 @@ class PoolakeyBillingManager(
                 if (hasPremium && !_premium.value) {
                     _premium.value = true
                     billingScope.launch { persistPremium(true) }
+                } else if (!hasPremium && _premium.value) {
+                    // REVOCATION-FIX: a successful query is the store's answer,
+                    // and it says the purchase is gone (refund/revoked). The
+                    // local flag must follow the store, otherwise a refunded
+                    // user stayed premium forever and re-purchasing was blocked.
+                    // Only a SUCCESSFUL query may downgrade — network errors
+                    // keep the local state untouched.
+                    _premium.value = false
+                    billingScope.launch { persistPremium(false) }
                 }
             }
             queryFailed { /* non-fatal — DataStore state still valid */ }

@@ -252,6 +252,11 @@ object AacTranscoder {
                 }
             }
 
+            // AUDIO-FIX: no sample ever reached the muxer (the encoder emitted
+            // only CODEC_CONFIG then EOS). Success here would publish an empty
+            // M4A (or silently strip the soundtrack of a video) — report
+            // failure instead so the caller surfaces an encode error.
+            if (!muxerStarted) return false
             return true
         } finally {
             runCatching { extractor.release() }

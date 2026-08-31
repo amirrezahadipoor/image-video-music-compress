@@ -35,6 +35,13 @@ class PremiumViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BillingConnectionState.IDLE)
 
     /**
+     * True when this build carries a real store billing implementation
+     * (Poolakey in the bazaar flavor). The play/offline flavor must not offer
+     * a purchase button that can never complete.
+     */
+    val storeBilling: Boolean = billingManager !is NoopBillingManager
+
+    /**
      * Initiates the purchase flow. Must be called with the currently-visible
      * Activity so Poolakey can register its ActivityResultLauncher.
      */

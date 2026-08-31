@@ -96,6 +96,17 @@ class Compressor(private val context: Context) {
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
         val encoded = temp.length()
+        // OUTPUT-FIX: a 0-byte result is never a successful compression. The
+        // size comparison below would pass it (0 < 95% of input) and publish
+        // an empty file into the user's gallery as a "done" item.
+        if (encoded <= 0) {
+            Storage.deleteQuietly(temp)
+            throw when (mediaType) {
+                MediaType.PHOTO -> PhotoCompressionException(PhotoCompressor.KEY_ENCODE)
+                MediaType.VIDEO -> VideoCompressionException("encode_failed")
+                MediaType.AUDIO -> AudioCompressionException(AudioCompressor.KEY_ENCODE)
+            }
+        }
         if (item.sizeBytes > 0 && encoded >= (item.sizeBytes * 0.95).toLong()) {
             Storage.deleteQuietly(temp)
             return keepOriginal(item, mediaType, onProgress)
@@ -155,7 +166,10 @@ class Compressor(private val context: Context) {
                 control = control,
                 onProgress = { onProgress(ItemPhase.COMPRESSING, it) }
             )
-            val codecName = if (settings.codec == com.compressly.core.engine.model.VideoCodec.H265) "H.265" else "H.264"
+            // SUMMARY-FIX: report the codec that was ACTUALLY written. If the
+            // device has no HEVC encoder the engine falls back to H.264 — that
+            // result must not be presented as an H.265 file.
+            val codecName = if (stats.codec == "h265") "H.265" else "H.264"
             // BUG-5 FIX: Integer division of durationMs < 1000 produces "0s".
             // Use humanDuration for a proper "0:XX" display for short clips.
             val durationLabel = com.compressly.core.util.Formats.humanDuration(stats.durationMs)
