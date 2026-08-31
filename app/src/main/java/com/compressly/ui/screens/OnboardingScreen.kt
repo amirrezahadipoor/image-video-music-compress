@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -145,7 +146,7 @@ fun OnboardingScreen(onDone: () -> Unit) {
             ) {
                 repeat(PAGES.size) { idx ->
                     val selected = pagerState.currentPage == idx
-                    val width by animateDpAsState(
+                    val dotWidth by animateDpAsState(
                         if (selected) 24.dp else 8.dp,
                         spring(stiffness = Spring.StiffnessMedium),
                         label = "dot"
@@ -153,12 +154,12 @@ fun OnboardingScreen(onDone: () -> Unit) {
                     Box(
                         modifier = Modifier
                             .height(8.dp)
+                            .width(dotWidth)
                             .clip(CircleShape)
                             .background(
                                 if (selected) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.surfaceVariant
                             )
-                            .then(Modifier.size(width, 8.dp))
                     )
                 }
             }

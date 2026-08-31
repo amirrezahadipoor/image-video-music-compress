@@ -3,6 +3,7 @@ package com.compressly.core.engine
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 /**
  * Shared media codec utilities used by both the audio and video pipelines.
@@ -74,9 +75,53 @@ object MediaUtil {
             if (dstCh == 1) {
                 target.putShort(((l + r) / 2).toShort())
             } else {
+                // MONO-R: a mono source has no right channel. Duplicating L
+                // into R is what every stereo encoder expects; leaving R=0
+                // produced a silent right ear on headphones.
+                if (srcCh == 1) r = l
                 target.putShort(l.toShort())
                 target.putShort(r.toShort())
             }
         }
+    }
+
+    /**
+     * Like [convertPcmToEncoder], but accepts either 16-bit or float PCM
+     * (the two encodings Android audio decoders actually emit).
+     */
+    fun convertDecoderPcm(
+        source: ByteBuffer,
+        sourceSize: Int,
+        target: ByteBuffer,
+        sourceChannels: Int,
+        targetChannels: Int,
+        pcmFloat: Boolean
+    ) {
+        source.order(ByteOrder.LITTLE_ENDIAN)
+        if (!pcmFloat) {
+            convertPcmToEncoder(source, sourceSize, target, sourceChannels, targetChannels)
+            return
+        }
+        val srcCh = sourceChannels.coerceIn(1, 8)
+        val samples = sourceSize / (srcCh * 4)
+        if (samples <= 0) return
+        val pcm16 = ByteBuffer.allocate(samples * srcCh * 2).order(ByteOrder.LITTLE_ENDIAN)
+        repeat(samples * srcCh) {
+            val v = source.float
+            val s = (v * 32767.0f).toInt().coerceIn(-32768, 32767)
+            pcm16.putShort(s.toShort())
+        }
+        pcm16.flip()
+        convertPcmToEncoder(pcm16, pcm16.remaining(), target, sourceChannels, targetChannels)
+    }
+
+    /** Bytes of 16-bit encoder PCM produced from one decoder output buffer. */
+    fun encoderPcmBytes(sourceSize: Int, sourceChannels: Int, targetChannels: Int, pcmFloat: Boolean): Int {
+        val srcCh = sourceChannels.coerceIn(1, 8)
+        val dstCh = targetChannels.coerceIn(1, 2)
+        val bytesPerSrcFrame = srcCh * if (pcmFloat) 4 else 2
+        if (bytesPerSrcFrame <= 0) return 0
+        val frames = sourceSize / bytesPerSrcFrame
+        return frames * dstCh * 2
     }
 }

@@ -59,6 +59,10 @@ object AacTranscoder {
             val srcChannels = inputFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
             val sampleRate = inputFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
             val channels = if (srcChannels <= 2) srcChannels else 2
+            // AAC-FLOAT: Android 8+ FLAC/WAV decoders often emit PCM_FLOAT.
+            // convertPcmToEncoder reads 16-bit shorts, so float frames were
+            // interpreted as garbage. Track the real encoding from the decoder.
+            var pcmFloat = false
 
             encoder = MediaCodec.createEncoderByType(MIME_AAC)
             val encFormat = MediaFormat.createAudioFormat(MIME_AAC, sampleRate, channels).apply {
@@ -93,7 +97,7 @@ object AacTranscoder {
             // AAC-4 FIX: eliminated the intermediate pcmBuf — convertPcmToEncoder
             // now writes directly into pendingBuf, removing a full 64 KB memcpy
             // per decoded frame that was silent but measurable on long files.
-            val pendingBuf = ByteBuffer.allocateDirect(64 * 1024).order(ByteOrder.LITTLE_ENDIAN)
+            var pendingBuf = ByteBuffer.allocateDirect(64 * 1024).order(ByteOrder.LITTLE_ENDIAN)
             var pendingPcm = false
             var pendingPts = 0L
             // AAC-3 FIX: debounce progress callbacks — only emit when change ≥ 1 %
@@ -164,15 +168,14 @@ object AacTranscoder {
 
                 if (!pendingPcm) {
                     var decOut = decoder.dequeueOutputBuffer(decInfo, 0)
+                    while (decOut == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                        pcmFloat = decoder.outputFormat.getInteger(
+                            MediaFormat.KEY_PCM_ENCODING,
+                            android.media.AudioFormat.ENCODING_PCM_16BIT
+                        ) == android.media.AudioFormat.ENCODING_PCM_FLOAT
+                        decOut = decoder.dequeueOutputBuffer(decInfo, 0)
+                    }
                     while (decOut >= 0) {
-                        // AAC-L3 FIX: tighten the pre-roll grace window.
-                        // The old check (pts >= trimStartUs - 20_000) let pre-roll
-                        // frames pass with presentationTimeUs < trimStartUs, converting
-                        // them to pts = 0 via coerceAtLeast(0). Multiple such frames
-                        // all land at pts=0 and are bumped by +1000µs each iteration,
-                        // injecting ~20 ms of silence/garbage at the start of the clip.
-                        // Accept a frame only when its PTS is at or past the trim point,
-                        // matching the same check used in the video encoder drain.
                         val framePts = decInfo.presentationTimeUs
                         val inTrimWindow = trimStartUs == 0L || framePts >= trimStartUs
                         if (decInfo.size > 0 &&
@@ -183,34 +186,18 @@ object AacTranscoder {
                             pcm.position(decInfo.offset)
                             pcm.limit(decInfo.offset + decInfo.size)
 
-                            // AAC-L2 FIX: pendingBuf is 64 KB but a decoder frame
-                            // (e.g. mono FLAC at high sample rates) can exceed that.
-                            // convertPcmToEncoder writes directly to the target without
-                            // a bounds check, so a too-small pendingBuf would cause
-                            // BufferOverflowException. Compute the exact output size
-                            // and allocate a larger buffer on demand.
-                            val srcCh = srcChannels.coerceIn(1, 8)
-                            val dstCh = channels.coerceIn(1, 2)
-                            val outBytes = (decInfo.size / (srcCh * 2)) * dstCh * 2
-                            val targetBuf = if (outBytes <= pendingBuf.capacity()) {
-                                pendingBuf
-                            } else {
-                                ByteBuffer.allocateDirect(outBytes).order(ByteOrder.LITTLE_ENDIAN)
+                            val outBytes = com.compressly.core.engine.MediaUtil.encoderPcmBytes(
+                                decInfo.size, srcChannels, channels, pcmFloat
+                            )
+                            if (outBytes > pendingBuf.capacity()) {
+                                pendingBuf = ByteBuffer.allocateDirect(outBytes)
+                                    .order(ByteOrder.LITTLE_ENDIAN)
                             }
-                            targetBuf.clear()
-                            convertPcmToEncoder(pcm, decInfo.size, targetBuf, srcChannels, channels)
-                            targetBuf.flip()
-                            // If we used a temporary oversized buffer, copy it into
-                            // pendingBuf in chunks (the encoder-feed loop handles chunking).
-                            if (targetBuf !== pendingBuf) {
-                                pendingBuf.clear()
-                                val copyN = pendingBuf.remaining().coerceAtMost(targetBuf.remaining())
-                                val savedLimit = targetBuf.limit()
-                                targetBuf.limit(targetBuf.position() + copyN)
-                                pendingBuf.put(targetBuf)
-                                targetBuf.limit(savedLimit)
-                                pendingBuf.flip()
-                            }
+                            pendingBuf.clear()
+                            convertDecoderPcm(
+                                pcm, decInfo.size, pendingBuf, srcChannels, channels, pcmFloat
+                            )
+                            pendingBuf.flip()
 
                             var pts = (decInfo.presentationTimeUs - trimStartUs).coerceAtLeast(0)
                             if (pts <= lastPts) pts = lastPts + 1_000
@@ -218,21 +205,15 @@ object AacTranscoder {
                             pendingPcm = true
                             pendingPts = pts
                         }
-                        
+
                         val isEos = (decInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0)
                         decoder.releaseOutputBuffer(decOut, false)
-                        
+
                         if (isEos) {
                             decoderEosSeen = true
                             break
                         }
-
-                        // Break the decode loop if we generated new PCM data. 
-                        // The next iterations of while(!encEos) will consume it.
-                        if (pendingPcm) {
-                            break
-                        }
-                        
+                        if (pendingPcm) break
                         decOut = decoder.dequeueOutputBuffer(decInfo, 0)
                     }
                 }
@@ -292,15 +273,16 @@ object AacTranscoder {
     private fun putLimited(dst: ByteBuffer, src: ByteBuffer) =
         com.compressly.core.engine.MediaUtil.putLimited(dst, src)
 
-    private fun convertPcmToEncoder(
+    private fun convertDecoderPcm(
         source: ByteBuffer,
         sourceSize: Int,
         target: ByteBuffer,
         sourceChannels: Int,
-        targetChannels: Int
+        targetChannels: Int,
+        pcmFloat: Boolean
     ) {
-        // Decoder output byte order is not guaranteed; PCM16 is little-endian.
-        source.order(ByteOrder.LITTLE_ENDIAN)
-        com.compressly.core.engine.MediaUtil.convertPcmToEncoder(source, sourceSize, target, sourceChannels, targetChannels)
+        com.compressly.core.engine.MediaUtil.convertDecoderPcm(
+            source, sourceSize, target, sourceChannels, targetChannels, pcmFloat
+        )
     }
 }

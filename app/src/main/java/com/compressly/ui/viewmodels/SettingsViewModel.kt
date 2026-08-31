@@ -217,7 +217,6 @@ class SettingsViewModel(private val container: AppContainer, private val context
 
     fun setPhotoMetadata(preserve: Boolean) {
         _state.update { it.copy(photo = it.photo.copy(preserveMetadata = preserve)) }
-        disableSmart()
     }
 
     // ---- Video setters ----------------------------------------------------

@@ -542,10 +542,11 @@ private suspend fun mergePass(
                 val sz = ae.readSampleData(audioBuf, 0)
                 if (sz < 0) { audioDone = true; return false }
                 val pts = ae.sampleTime
+                val flags = ae.sampleFlags
                 ae.advance()
                 if (pts < audioOffset) continue
                 if (audioEnd > 0 && pts > audioEnd) { audioDone = true; return false }
-                audioInfo.set(0, sz, (pts - audioOffset).coerceAtLeast(0), ae.sampleFlags)
+                audioInfo.set(0, sz, (pts - audioOffset).coerceAtLeast(0), flags)
                 return true
             }
         }

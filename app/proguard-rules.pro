@@ -40,9 +40,12 @@
 -keep class ir.cafebazaar.poolakey.** { *; }
 -dontwarn ir.cafebazaar.poolakey.**
 
-# Keep billing interfaces for reflection
+# Keep billing interfaces for reflection (AppContainer constructs Poolakey by name)
 -keep interface com.compressly.core.billing.** { *; }
 -keep class com.compressly.core.billing.** { *; }
+-keepclassmembers class com.compressly.core.billing.PoolakeyBillingManager {
+    public <init>(kotlin.jvm.functions.Function2);
+}
 
 # Ads.create() resolves the flavor's provider by NAME via Class.forName, so R8
 # must not rename it. Without this the bazaar release silently fell back to

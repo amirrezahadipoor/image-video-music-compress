@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">حجمینو | Hajmino</string>
-    <string name="app_tagline">Media Manager &amp; Compressor</string>
+    <string name="app_name">Hajmino</string>
+    <string name="app_tagline">Photo, video and music — smaller</string>
 
     <!-- Common actions -->
     <string name="action_compress">Compress</string>
@@ -29,8 +29,8 @@
 
     <!-- Home -->
     <string name="home_greeting">Welcome</string>
-    <string name="home_hero_title">Photo. Video. Audio. Smaller.</string>
-    <string name="home_hero_subtitle" formatted="false">100% offline processing on your device. No upload, no account.</string>
+    <string name="home_hero_title">Smaller, on your device</string>
+    <string name="home_hero_subtitle" formatted="false">Fully offline. No upload.</string>
     <string name="hero_offline_badge" formatted="false">100% Offline</string>
     <string name="home_compress_photo">Compress Photo</string>
     <string name="home_compress_video">Compress Video</string>
@@ -44,13 +44,14 @@
     <string name="home_no_activity_desc">Your compression history will appear here.</string>
     <string name="home_total_saved">Total space saved</string>
     <string name="home_jobs_active">%1$d job(s) in progress</string>
-    <string name="home_tap_to_choose">Pick files from your device to get started</string>
+    <string name="home_tap_to_choose">Choose a type to start</string>
 
     <!-- File picking -->
     <string name="pick_title_photo">Select photos</string>
     <string name="pick_title_video">Select videos</string>
     <string name="pick_title_audio">Select audio files</string>
     <string name="pick_error_none">No files were selected.</string>
+    <string name="pick_error_too_large">One or more files are over the 2 GB limit.</string>
     <string name="pick_error_unsupported_photo">One or more files are not supported photos.</string>
     <string name="pick_error_unsupported_video">One or more files are not supported videos.</string>
     <string name="pick_error_unsupported_audio">One or more files are not supported audio files.</string>

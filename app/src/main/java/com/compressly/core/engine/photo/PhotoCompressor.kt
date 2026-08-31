@@ -46,7 +46,7 @@ class PhotoCompressor(private val context: Context) {
     ): File = withContext(Dispatchers.Default) {
         val tempDir = context.cacheDir.resolve("compress").apply { mkdirs() }
         val tempSource = File.createTempFile("src_", ".img", tempDir)
-        val outName = "out_${System.currentTimeMillis()}.${outputExtension(sourceMime, settings.outputFormat)}"
+        val outName = "out_${System.nanoTime()}.${outputExtension(sourceMime, settings.outputFormat)}"
         val tempOut = File(tempDir, outName)
         try {
             // 1. Copy into cache for stable file-path decoding.

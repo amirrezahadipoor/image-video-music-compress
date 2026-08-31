@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">حجمینو | فشرده سازعکس ویدیو موزیک</string>
-    <string name="app_tagline">مدیریت و فشرده‌سازی حرفه‌ای رسانه‌ها</string>
+    <string name="app_name">حجمینو</string>
+    <string name="app_tagline">عکس، ویدیو و موسیقی — کوچک‌تر</string>
 
     <!-- Common actions -->
     <string name="action_compress">شروع فشرده‌سازی</string>
@@ -29,8 +29,8 @@
 
     <!-- Home -->
     <string name="home_greeting">کاربر گرامی، خوش آمدید</string>
-    <string name="home_hero_title">عکس. ویدیو. موسیقی. کوچک‌تر.</string>
-    <string name="home_hero_subtitle">پردازش کاملاً آفلاین روی دستگاه. بدون اینترنت، بدون آپلود.</string>
+    <string name="home_hero_title">کوچک‌تر، روی دستگاه شما</string>
+    <string name="home_hero_subtitle">کاملاً آفلاین. بدون آپلود.</string>
     <string name="hero_offline_badge">کاملاً آفلاین</string>
     <string name="home_compress_photo">فشرده‌سازی عکس</string>
     <string name="home_compress_video">فشرده‌سازی ویدیو</string>
@@ -44,7 +44,7 @@
     <string name="home_no_activity_desc">لیست عملیات‌های فشرده‌سازی شما در این قسمت نمایش داده خواهد شد.</string>
     <string name="home_total_saved">مجموع فضای آزاد شده</string>
     <string name="home_jobs_active">%1$d عملیات در حال اجرا است</string>
-    <string name="home_tap_to_choose">برای شروع پردازش، فایل مورد نظر خود را انتخاب نمایید</string>
+    <string name="home_tap_to_choose">یک نوع را انتخاب کنید</string>
 
     <!-- File picking -->
     <string name="pick_title_photo">انتخاب عکس‌ها</string>

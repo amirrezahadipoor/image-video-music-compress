@@ -71,7 +71,7 @@ class CompressionEngineTest {
         val l = dst.short.toInt()
         val r = dst.short.toInt()
         assertEquals("Mono source → L = source value", 800, l)
-        assertEquals("Mono source → R = 0 (no second channel)", 0, r)
+        assertEquals("Mono source → R duplicates L", 800, r)
     }
 
     @Test
@@ -122,6 +122,27 @@ class CompressionEngineTest {
         dst.flip()
         assertEquals(Short.MAX_VALUE.toInt(), dst.short.toInt())
         assertEquals(Short.MIN_VALUE.toInt(), dst.short.toInt())
+    }
+
+    @Test
+    fun pcmFloatStereoToStereo_convertsAndPreserves() {
+        val src = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).apply {
+            putFloat(0.5f); putFloat(-0.25f); flip()
+        }
+        val dst = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN)
+        MediaUtil.convertDecoderPcm(src, 8, dst, 2, 2, pcmFloat = true)
+        dst.flip()
+        val l = dst.short.toInt()
+        val r = dst.short.toInt()
+        assertEquals("0.5 * 32767", 16383, l)
+        assertEquals("-0.25 * 32767", -8191, r)
+    }
+
+    @Test
+    fun encoderPcmBytes_floatAndInt16() {
+        assertEquals(4, MediaUtil.encoderPcmBytes(4, 2, 2, pcmFloat = false))
+        assertEquals(4, MediaUtil.encoderPcmBytes(8, 2, 2, pcmFloat = true))
+        assertEquals(2, MediaUtil.encoderPcmBytes(12, 6, 1, pcmFloat = false))
     }
 
     @Test

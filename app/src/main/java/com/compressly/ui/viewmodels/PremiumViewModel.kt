@@ -12,6 +12,7 @@ import com.compressly.core.billing.BillingManager
 import com.compressly.core.billing.NoopBillingManager
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -57,9 +58,13 @@ class PremiumViewModel(
         }
     }
 
-    fun retryConnection() {
-        // Disconnect then reconnect — Activity context is managed by the screen.
+    fun connect(activity: Activity) {
+        billingManager.connect(activity)
+    }
+
+    fun retryConnection(activity: Activity? = null) {
         billingManager.disconnect()
+        if (activity != null) billingManager.connect(activity)
     }
 
     companion object {

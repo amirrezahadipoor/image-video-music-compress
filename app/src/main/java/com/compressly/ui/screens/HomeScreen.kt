@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -50,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -98,6 +98,15 @@ fun HomeScreen(
 
     fun acceptPicked(type: MediaType, uris: List<Uri>) {
         if (uris.isEmpty()) return
+
+        uris.forEach { uri ->
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+        }
         
         val maxSizeBytes = 2L * 1024 * 1024 * 1024 // 2 GB limit
         val validItems = mutableListOf<InputItem>()
@@ -166,7 +175,7 @@ fun HomeScreen(
         }
     }
 
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             // Animated ambient background — behind all content
@@ -190,11 +199,11 @@ fun HomeScreen(
             item { ModuleCards(onPick = ::pick) }
             // UI-2 BEAUTY: Premium banner moved after module cards so it doesn't
             // block the primary call-to-action. Non-intrusive placement.
-            if (!isPremium) {
+            if (!isPremium && ir.siliksama.hajmino.BuildConfig.STORE == "bazaar") {
                 item { PremiumBanner { onOpenPremium() } }
             }
             item {
-                AdSlot(Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+                AdSlot(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), isPremium = isPremium)
             }
             item { SectionTitle(stringResource(R.string.home_recent_activity)) }
             if (recent.isEmpty()) {
@@ -447,8 +456,7 @@ private fun ModuleCard(
         modifier = Modifier
             .fillMaxWidth()
             .background(Brush.linearGradient(gradient))
-            .clickable(onClick = onClick, onClickLabel = title)
-            .padding(horizontal = 20.dp, vertical = 22.dp),
+            .padding(horizontal = 20.dp, vertical = 20.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(

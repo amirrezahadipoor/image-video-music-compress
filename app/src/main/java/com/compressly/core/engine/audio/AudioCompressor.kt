@@ -173,46 +173,15 @@ class AudioCompressor(private val context: Context) {
                                 val buf = decoder.getOutputBuffer(outIndex)!!
                                 buf.position(info.offset)
                                 buf.limit(info.offset + info.size)
-                                if (pcmFloat && srcChannels > 2) {
-                                    // Convert to 16-bit first, then downmix: the
-                                    // multi-channel branch below only understands
-                                    // 16-bit samples, and a 5.1 FLAC decodes to
-                                    // float. Skipping the downmix here fed 6-channel
-                                    // PCM to a stereo encoder and corrupted the MP3.
-                                    val n = floatToPcm16(buf, info.size, pcmOut)
-                                    if (n > 0) {
-                                        val src = ByteBuffer.wrap(pcmOut, 0, n).order(ByteOrder.LITTLE_ENDIAN)
-                                        val downmixed = ByteBuffer
-                                            .allocateDirect(n / srcChannels * channels)
-                                            .order(ByteOrder.LITTLE_ENDIAN)
-                                        com.compressly.core.engine.MediaUtil.convertPcmToEncoder(
-                                            src, n, downmixed, srcChannels, channels
-                                        )
-                                        downmixed.flip()
-                                        var remaining = downmixed.remaining()
-                                        while (remaining > 0) {
-                                            val chunk = minOf(remaining, pcmOut.size, downmixed.remaining())
-                                            downmixed.get(pcmOut, 0, chunk)
-                                            writer.writePcm(pcmOut, chunk)
-                                            remaining -= chunk
-                                        }
-                                    }
-                                } else if (pcmFloat) {
-                                    val n = floatToPcm16(buf, info.size, pcmOut)
-                                    if (n > 0) writer.writePcm(pcmOut, n)
-                                } else if (srcChannels > 2) {
-                                    // MP3-CHUNK-1 + AUDIO-1 FIX: decoder may output
-                                    // N-channel PCM (e.g. 6ch for 5.1 FLAC/AAC).
-                                    // Mp3Writer.encodeChunk assumes 16-bit stereo/mono,
-                                    // so feeding raw multi-channel PCM produces a
-                                    // completely wrong sample count and corrupt audio.
-                                    // Downmix to stereo first using MediaUtil.
-                                    val downmixed = java.nio.ByteBuffer
-                                        .allocateDirect(info.size / srcChannels * 2)
-                                        .order(java.nio.ByteOrder.LITTLE_ENDIAN)
-                                    buf.order(java.nio.ByteOrder.LITTLE_ENDIAN)
-                                    com.compressly.core.engine.MediaUtil.convertPcmToEncoder(
-                                        buf, info.size, downmixed, srcChannels, channels
+                                if (pcmFloat || srcChannels > 2) {
+                                    val outBytes = com.compressly.core.engine.MediaUtil.encoderPcmBytes(
+                                        info.size, srcChannels, channels, pcmFloat
+                                    )
+                                    val downmixed = ByteBuffer
+                                        .allocateDirect(outBytes.coerceAtLeast(2))
+                                        .order(ByteOrder.LITTLE_ENDIAN)
+                                    com.compressly.core.engine.MediaUtil.convertDecoderPcm(
+                                        buf, info.size, downmixed, srcChannels, channels, pcmFloat
                                     )
                                     downmixed.flip()
                                     var remaining = downmixed.remaining()
@@ -263,23 +232,6 @@ class AudioCompressor(private val context: Context) {
 
     private fun findTrack(extractor: MediaExtractor, prefix: String): Int? =
         com.compressly.core.engine.MediaUtil.findTrack(extractor, prefix)
-
-    /** Converts float PCM (-1..1) to 16-bit little-endian, returns bytes written. */
-    private fun floatToPcm16(src: ByteBuffer, sizeBytes: Int, dst: ByteArray): Int {
-        src.order(ByteOrder.LITTLE_ENDIAN)
-        val floats = sizeBytes / 4
-        val n = minOf(floats * 2, dst.size)
-        var p = 0
-        var i = 0
-        while (i < floats && p < dst.size) {
-            val v = src.float
-            val s = (v * 32767.0f).toInt().coerceIn(-32768, 32767)
-            dst[p++] = (s and 0xff).toByte()
-            dst[p++] = ((s shr 8) and 0xff).toByte()
-            i++
-        }
-        return p
-    }
 }
 
 /** Expected audio-engine failure carrying a stable message key. */

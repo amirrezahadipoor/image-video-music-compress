@@ -35,6 +35,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -85,6 +86,10 @@ fun PremiumScreen(
     val isConnecting  = connState == BillingConnectionState.CONNECTING
     val isConnected   = connState == BillingConnectionState.CONNECTED
     val storeFailed   = connState == BillingConnectionState.FAILED
+
+    LaunchedEffect(Unit) {
+        context.findActivity()?.let { viewModel.connect(it) }
+    }
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         Column(
@@ -228,7 +233,7 @@ fun PremiumScreen(
                         Spacer(Modifier.height(12.dp))
                         GhostButton(
                             text = stringResource(R.string.action_retry),
-                            onClick = { viewModel.retryConnection() }
+                            onClick = { viewModel.retryConnection(context.findActivity()) }
                         )
                     }
                     else -> {

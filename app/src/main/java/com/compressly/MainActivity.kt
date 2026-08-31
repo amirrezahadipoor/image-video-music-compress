@@ -12,7 +12,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -63,9 +65,11 @@ class MainActivity : ComponentActivity() {
             }
 
             CompresslyTheme(themeMode = themeMode) {
-                val crashed = remember { CrashGuard.consumeCrash(this) }
-                if (crashed) {
-                    CrashRecoveryDialog(onDismiss = { })
+                var showCrash by remember {
+                    mutableStateOf(CrashGuard.consumeCrash(this@MainActivity))
+                }
+                if (showCrash) {
+                    CrashRecoveryDialog(onDismiss = { showCrash = false })
                 }
                 val navController = rememberNavController()
                 HandleNavRequests(container, navController)
