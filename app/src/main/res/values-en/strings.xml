@@ -40,9 +40,7 @@
     <!-- Compression settings -->
     <string name="settings_title_photo">Photo settings</string>
     <string name="settings_title_video">Video settings</string>
-    <string name="settings_title_audio">Audio settings</string>
-    <string name="settings_files_selected">%1$d file(s) selected</string>
-    <string name="settings_preset_section">Compression level</string>
+    <string name="settings_title_audio">Audio settings</string><string name="settings_preset_section">Compression level</string>
     <string name="settings_advanced_section">Advanced</string>
     <string name="settings_advanced_toggle">Advanced options</string>
     <string name="settings_estimated_size">Estimated output size</string>
@@ -158,9 +156,7 @@
     <string name="result_share_output">Share</string>
     <string name="result_open_output">Open file</string>
     <string name="result_items_success">%1$d of %2$d files compressed successfully</string>
-    <string name="result_share_sheet_title">Share compressed file</string>
-    <string name="result_batch_files">%1$d of %2$d files succeeded</string>
-    <string name="result_batch_saved">Total saved: %1$s</string>
+    <string name="result_share_sheet_title">Share compressed file</string><string name="result_batch_saved">Total saved: %1$s</string>
 
     <!-- History -->
     <string name="history_title">History</string>
@@ -222,9 +218,7 @@
     <string name="notif_channel_desc">Progress and controls for running compression jobs</string>
     <string name="notif_title">Compressing %1$s</string>
     <string name="notif_item">%1$d of %2$d</string>
-    <string name="notif_done_title">Compression finished</string>
-    <string name="notif_done_text">%1$d file(s) compressed. Tap to view.</string>
-    <string name="notif_failed_title">Compression failed</string>
+    <string name="notif_done_title">Compression finished</string><string name="notif_failed_title">Compression failed</string>
     <!-- Units / formats --><string name="time_sec">%1$ds</string>
     <string name="unknown">Unknown</string>
     <!-- Misc -->
@@ -303,4 +297,19 @@
     <string name="privacy_title">Privacy</string>
     <string name="privacy_updated">Updated 31 August 2026</string>
     <string name="privacy_body">Hajmino is a fully offline compressor. Photos, videos and audio are processed only on this device and are never uploaded to our servers. There is no account, and the Play build has no third-party ads or analytics.\n\nWhat stays on the device:\n• Your settings (theme, language, default grade, UI sounds)\n• Compression history\n• On the Bazaar build: premium purchase state used to hide ads\n\nOutput files are saved on the device (the Hajmino folder in Pictures, Movies or Music).\n\nNotifications only show background job progress and do not send data off the device.\n\nThe Cafe Bazaar build may show ads and use Bazaar in-app billing. The Play build has neither ads nor purchases.\n\nCloud backup for the app is off so settings and history are not sent to Google.\n\nQuestions: use the other-apps links in Settings.</string>
+    <plurals name="settings_files_selected">
+        <item quantity="one">%1$d file selected</item>
+        <item quantity="other">%1$d files selected</item>
+    </plurals>
+
+    <plurals name="notif_done_text">
+        <item quantity="one">%1$d file compressed. Tap to view.</item>
+        <item quantity="other">%1$d files compressed. Tap to view.</item>
+    </plurals>
+
+    <plurals name="result_batch_files">
+        <item quantity="one">%1$d of %2$d file succeeded</item>
+        <item quantity="other">%1$d of %2$d files succeeded</item>
+    </plurals>
+
 </resources>

@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
@@ -185,7 +186,7 @@ fun CompressionSettingsScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = stringResource(R.string.settings_files_selected, state.items.size),
+                        text = pluralStringResource(R.plurals.settings_files_selected, state.items.size, state.items.size),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

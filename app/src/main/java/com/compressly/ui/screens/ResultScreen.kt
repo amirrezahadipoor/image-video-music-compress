@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -164,8 +165,15 @@ private fun SuccessContent(
         val reduction = if (entry.inputSize > 0) {
             (1.0 - entry.outputSize.toDouble() / entry.inputSize).coerceIn(0.0, 1.0)
         } else 0.0
+        // Count-up: the headline number ticks from 0 to the real saving instead
+        // of popping in. Pure cosmetics, but it reads as "the engine worked".
+        val shownReduction by androidx.compose.animation.core.animateFloatAsState(
+            targetValue = reduction.toFloat(),
+            animationSpec = androidx.compose.animation.core.tween(durationMillis = 850),
+            label = "reduction_countup"
+        )
         Text(
-            text = stringResource(R.string.result_reduction, Formats.percent(reduction)),
+            text = stringResource(R.string.result_reduction, Formats.percent(shownReduction.toDouble())),
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
@@ -269,22 +277,32 @@ private fun BatchSummaryCard(siblings: List<HistoryEntry>) {
         ) {
             Column {
                 Text(
-                    text = stringResource(R.string.result_batch_files, doneCount, siblings.size),
+                    text = pluralStringResource(R.plurals.result_batch_files, doneCount, doneCount, siblings.size),
                     style = MaterialTheme.typography.labelMedium,
                     color = onSurfaceVar
                 )
                 Spacer(Modifier.height(2.dp))
+                val shownSaved by androidx.compose.animation.core.animateFloatAsState(
+                    targetValue = totalSaved.toFloat(),
+                    animationSpec = androidx.compose.animation.core.tween(durationMillis = 850),
+                    label = "saved_countup"
+                )
                 Text(
-                    text = stringResource(R.string.result_batch_saved, Formats.humanSize(totalSaved)),
+                    text = stringResource(R.string.result_batch_saved, Formats.humanSize(shownSaved.toLong())),
                     style = MaterialTheme.typography.titleSmall,
                     color = onSurface
                 )
             }
+            val shownPct by androidx.compose.animation.core.animateFloatAsState(
+                targetValue = if (siblings.size > 0)
+                    (totalSaved.toDouble() / siblings.sumOf { it.inputSize }.coerceAtLeast(1))
+                        .coerceIn(0.0, 1.0).toFloat()
+                else 0f,
+                animationSpec = androidx.compose.animation.core.tween(durationMillis = 850),
+                label = "pct_countup"
+            )
             Text(
-                text = if (siblings.size > 0)
-                    Formats.percent(totalSaved.toDouble() /
-                        siblings.sumOf { it.inputSize }.coerceAtLeast(1))
-                else "0%",
+                text = if (siblings.size > 0) Formats.percent(shownPct.toDouble()) else "0%",
                 style = MaterialTheme.typography.titleMedium,
                 color = primary
             )

@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -198,7 +199,7 @@ fun GradientSummaryBar(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(R.string.settings_files_selected, count),
+                    text = pluralStringResource(R.plurals.settings_files_selected, count, count),
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.85f)
                 )

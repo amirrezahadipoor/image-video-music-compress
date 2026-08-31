@@ -72,9 +72,9 @@ fun <T> SelectableOption(
     option: T,
     selected: T,
     title: String,
-    description: String? = null,
     onSelect: (T) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    description: String? = null
 ) {
     val isSelected = option == selected
     val border = if (isSelected) MaterialTheme.colorScheme.primary
@@ -150,8 +150,8 @@ fun <T> SelectableOptionList(
                 option = option,
                 selected = selected,
                 title = titleOf(option),
-                description = descriptionOf(option),
-                onSelect = onSelect
+                onSelect = onSelect,
+                description = descriptionOf(option)
             )
         }
     }

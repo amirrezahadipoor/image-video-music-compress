@@ -92,7 +92,7 @@ object NotificationHelper {
         val doneCount = job.items.count { it.phase == ItemPhase.DONE }
         val (title, text) = when (job.status) {
             JobStatus.COMPLETED -> context.getString(R.string.notif_done_title) to
-                context.getString(R.string.notif_done_text, doneCount)
+                context.resources.getQuantityString(R.plurals.notif_done_text, doneCount, doneCount)
             JobStatus.CANCELLED -> context.getString(R.string.progress_stopped_by_user) to
                 context.getString(R.string.progress_stopped_by_user)
             else -> context.getString(R.string.notif_failed_title) to

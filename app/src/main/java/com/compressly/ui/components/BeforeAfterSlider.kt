@@ -1,5 +1,7 @@
 package com.compressly.ui.components
 
+import kotlin.math.roundToInt
+
 import android.net.Uri
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -33,6 +35,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import ir.siliksama.hajmino.R
@@ -80,7 +83,7 @@ fun BeforeAfterSlider(
         // Compressed image, clipped to the right of the divider.
         Box(
             modifier = Modifier
-                .offset(x = fullW * divider)
+                .offset { IntOffset(x = (fullW.toPx() * divider).roundToInt(), y = 0) }
                 .width(fullW * (1f - divider))
                 .height(fullH)
                 .clipToBounds()

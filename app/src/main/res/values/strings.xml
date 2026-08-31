@@ -40,9 +40,7 @@
     <!-- Compression settings -->
     <string name="settings_title_photo">تنظیمات عکس</string>
     <string name="settings_title_video">تنظیمات ویدیو</string>
-    <string name="settings_title_audio">تنظیمات صدا</string>
-    <string name="settings_files_selected">%1$d فایل انتخاب شده</string>
-    <string name="settings_preset_section">سطح فشرده‌سازی</string>
+    <string name="settings_title_audio">تنظیمات صدا</string><string name="settings_preset_section">سطح فشرده‌سازی</string>
     <string name="settings_advanced_section">پیشرفته</string>
     <string name="settings_advanced_toggle">گزینه‌های پیشرفته</string>
     <string name="settings_estimated_size">حجم تقریبی خروجی</string>
@@ -158,9 +156,7 @@
     <string name="result_share_output">اشتراک‌گذاری</string>
     <string name="result_open_output">باز کردن فایل</string>
     <string name="result_items_success">%1$d از %2$d فایل با موفقیت فشرده شد</string>
-    <string name="result_share_sheet_title">اشتراک‌گذاری فایل فشرده</string>
-    <string name="result_batch_files">%1$d از %2$d فایل موفق</string>
-    <string name="result_batch_saved">مجموع صرفه‌جویی: %1$s</string>
+    <string name="result_share_sheet_title">اشتراک‌گذاری فایل فشرده</string><string name="result_batch_saved">مجموع صرفه‌جویی: %1$s</string>
 
     <!-- History -->
     <string name="history_title">تاریخچه</string>
@@ -222,9 +218,7 @@
     <string name="notif_channel_desc">پیشرفت و کنترل فشرده‌سازی‌های در حال اجرا</string>
     <string name="notif_title">در حال فشرده‌سازی %1$s</string>
     <string name="notif_item">%1$d از %2$d</string>
-    <string name="notif_done_title">فشرده‌سازی تمام شد</string>
-    <string name="notif_done_text">%1$d فایل فشرده شد. برای مشاهده لمس کنید.</string>
-    <string name="notif_failed_title">فشرده‌سازی ناموفق بود</string>
+    <string name="notif_done_title">فشرده‌سازی تمام شد</string><string name="notif_failed_title">فشرده‌سازی ناموفق بود</string>
     <!-- Units / formats --><string name="time_sec">%1$d ثانیه</string>
     <string name="unknown">نامشخص</string>
     <!-- Misc -->
@@ -309,5 +303,20 @@
     <string name="premium_one_time_note">پرداخت یک‌بار — بدون اشتراک. تمام بروزرسانی‌های آینده شامل می‌شود.</string>
     <string name="premium_store_unavailable">اتصال به کافه‌بازار ناموفق بود. مطمئن شوید که بازار نصب و به‌روز است.</string>
     <string name="premium_active_badge">پریمیوم فعال است ✓</string>
+
+    <plurals name="settings_files_selected">
+        <item quantity="one">%1$d فایل انتخاب شده</item>
+        <item quantity="other">%1$d فایل انتخاب شده</item>
+    </plurals>
+
+    <plurals name="notif_done_text">
+        <item quantity="one">%1$d فایل فشرده شد. برای مشاهده لمس کنید.</item>
+        <item quantity="other">%1$d فایل فشرده شد. برای مشاهده لمس کنید.</item>
+    </plurals>
+
+    <plurals name="result_batch_files">
+        <item quantity="one">%1$d از %2$d فایل موفق</item>
+        <item quantity="other">%1$d از %2$d فایل موفق</item>
+    </plurals>
 
 </resources>
