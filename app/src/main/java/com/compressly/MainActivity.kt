@@ -78,6 +78,12 @@ class MainActivity : ComponentActivity() {
         }
 
         handleIntent(intent)
+        container.billingManager.connect(this)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        (application as CompresslyApp).container.billingManager.queryExistingPurchases()
     }
 
     override fun onNewIntent(intent: Intent) {

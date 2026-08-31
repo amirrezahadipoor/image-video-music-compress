@@ -485,6 +485,21 @@ object VideoPlanner {
         inputSizeBytes > 0 && estimatedOutputBytes >= (inputSizeBytes * NO_GAIN_SIZE_RATIO).toLong()
 
     /**
+     * MP4 still carries a moov atom and interleave overhead on top of the
+     * elementary streams. Pricing only the bitrates made the live estimate
+     * sit a few percent under the file the muxer actually wrote.
+     */
+    const val CONTAINER_OVERHEAD_RATIO = 1.03
+    const val CONTAINER_OVERHEAD_BYTES = 24_000L
+
+    fun estimatedFileBytes(payloadBytes: Long): Long {
+        val payload = payloadBytes.coerceAtLeast(1L)
+        return (payload * CONTAINER_OVERHEAD_RATIO).toLong()
+            .plus(CONTAINER_OVERHEAD_BYTES)
+            .coerceAtLeast(8_000L)
+    }
+
+    /**
      * True when the planned target is at or above the source rate, i.e. the
      * transcode would only add a generation of loss.
      */

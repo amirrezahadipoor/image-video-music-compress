@@ -95,9 +95,9 @@ object OutputStore {
     }
 
     private fun relativePathFor(mediaType: MediaType): String = when (mediaType) {
-        MediaType.PHOTO -> "Pictures/Compressly"
-        MediaType.VIDEO -> "Movies/Compressly"
-        MediaType.AUDIO -> "Music/Compressly"
+        MediaType.PHOTO -> "Pictures/Hajmino"
+        MediaType.VIDEO -> "Movies/Hajmino"
+        MediaType.AUDIO -> "Music/Hajmino"
     }
 
     private fun baseName(displayName: String): String {

@@ -14,8 +14,8 @@ android {
         applicationId = "ir.siliksama.hajmino"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.0.2"
+        versionCode = 4
+        versionName = "1.0.3"
 
         // Keep only the two bundled locales -> smaller resources.
         resConfigs("fa", "en")
@@ -29,15 +29,20 @@ android {
     // "bazaar" build prepared for the Cafe Bazaar store + Tapsell ads.
     flavorDimensions += "store"
     productFlavors {
+        val bazaarRsa = (System.getenv("BAZAAR_RSA_KEY") ?: "")
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
         create("play") {
             dimension = "store"
             buildConfigField("String", "STORE", "\"play\"")
             buildConfigField("boolean", "ADS_ENABLED", "false")
+            buildConfigField("String", "BAZAAR_RSA_KEY", "\"\"")
         }
         create("bazaar") {
             dimension = "store"
             buildConfigField("String", "STORE", "\"bazaar\"")
             buildConfigField("boolean", "ADS_ENABLED", "true")
+            buildConfigField("String", "BAZAAR_RSA_KEY", "\"$bazaarRsa\"")
         }
     }
 

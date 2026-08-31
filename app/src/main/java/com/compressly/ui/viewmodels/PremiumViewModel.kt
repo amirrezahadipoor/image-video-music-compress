@@ -25,7 +25,10 @@ class PremiumViewModel(
     private val container: com.compressly.AppContainer
 ) : ViewModel() {
 
-    val isPremium: StateFlow<Boolean> = billingManager.isPremium
+    val isPremium: StateFlow<Boolean> = combine(
+        billingManager.isPremium,
+        container.settingsRepository.isPremium
+    ) { billed, stored -> billed || stored }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     val connectionState: StateFlow<BillingConnectionState> = billingManager.connectionState

@@ -44,6 +44,7 @@ import com.compressly.ui.viewmodels.AppSettingsViewModel
 @Composable
 fun AppSettingsScreen(
     onBack: () -> Unit,
+    onOpenPrivacy: () -> Unit = {},
     viewModel: AppSettingsViewModel = viewModel(factory = AppSettingsViewModel.Factory)
 ) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
@@ -206,6 +207,18 @@ fun AppSettingsScreen(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Spacer(Modifier.height(14.dp))
+                        Text(
+                            text = stringResource(R.string.about_licenses),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.about_licenses_body),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
                 Spacer(Modifier.height(24.dp))
@@ -256,10 +269,7 @@ fun AppSettingsScreen(
                         val context = androidx.compose.ui.platform.LocalContext.current
                         com.compressly.ui.components.InfoRow(
                             title = stringResource(R.string.app_policy),
-                            onClick = {
-                                // Real implementation would open privacy policy URL
-                                android.widget.Toast.makeText(context, "سیاست حریم خصوصی به زودی", android.widget.Toast.LENGTH_SHORT).show()
-                            }
+                            onClick = onOpenPrivacy
                         )
                     }
                 }

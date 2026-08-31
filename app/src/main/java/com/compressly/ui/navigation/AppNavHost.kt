@@ -24,6 +24,7 @@ import com.compressly.ui.screens.HomeScreen
 import com.compressly.ui.screens.OnboardingScreen
 import com.compressly.ui.screens.ProgressScreen
 import com.compressly.ui.screens.PremiumScreen
+import com.compressly.ui.screens.PrivacyPolicyScreen
 import com.compressly.ui.screens.ResultScreen
 import kotlinx.coroutines.launch
 
@@ -159,7 +160,14 @@ fun AppNavHost(navController: NavHostController) {
         }
 
         composable(Routes.APP_SETTINGS) {
-            AppSettingsScreen(onBack = { navController.popBackStack() })
+            AppSettingsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenPrivacy = { navController.navigate(Routes.PRIVACY) }
+            )
+        }
+
+        composable(Routes.PRIVACY) {
+            PrivacyPolicyScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Routes.PREMIUM) {

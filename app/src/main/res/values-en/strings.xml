@@ -327,7 +327,7 @@
 
     <!-- Premium screen -->
     <string name="premium_screen_title">Support &amp; Remove Ads</string>
-    <string name="premium_hero_title">Compressly Premium</string>
+    <string name="premium_hero_title">Hajmino Premium</string>
     <string name="premium_hero_desc">One-time purchase — ad-free forever. Support the app\'s development.</string>
     <string name="premium_already_title">You\'re Premium ✓</string>
     <string name="premium_already_desc">Thank you for your support! All premium features are active.</string>
@@ -342,4 +342,12 @@
     <string name="premium_active_badge">Premium is active ✓</string>
     <string name="premium_title">Upgrade to Premium</string>
     <string name="premium_desc">No ads — support development</string>
+    <string name="other_apps_title">Other apps by the developer</string>
+    <string name="app_factor">Accounting invoices</string>
+    <string name="app_konkoorify">Konkoorify</string>
+    <string name="app_fal">Hafez fortune</string>
+    <string name="app_policy">Privacy policy</string>
+    <string name="privacy_title">Privacy</string>
+    <string name="privacy_updated">Updated 31 August 2026</string>
+    <string name="privacy_body">Hajmino is a fully offline compressor. Photos, videos and audio are processed only on this device and are never uploaded to our servers. There is no account, and the Play build has no third-party ads or analytics.\n\nWhat stays on the device:\n• Your settings (theme, language, default grade, UI sounds)\n• Compression history\n• On the Bazaar build: premium purchase state used to hide ads\n\nOutput files are saved on the device (the Hajmino folder in Pictures, Movies or Music).\n\nNotifications only show background job progress and do not send data off the device.\n\nThe Cafe Bazaar build may show ads and use Bazaar in-app billing. The Play build has neither ads nor purchases.\n\nCloud backup for the app is off so settings and history are not sent to Google.\n\nQuestions: use the other-apps links in Settings.</string>
 </resources>

@@ -666,6 +666,17 @@ class VideoPlannerTest {
         assertEquals(null, VideoPlanner.correctedBitrate(2_000_000, 10_000, 60_000))
     }
 
+    @Test
+    fun fileEstimateAddsContainerOverhead() {
+        val payload = 1_000_000L
+        val file = VideoPlanner.estimatedFileBytes(payload)
+        assertTrue("got $file", file > payload)
+        assertEquals(
+            (payload * VideoPlanner.CONTAINER_OVERHEAD_RATIO).toLong() + VideoPlanner.CONTAINER_OVERHEAD_BYTES,
+            file
+        )
+    }
+
     // ---- frame dropping accuracy ------------------------------------------
 
     @Test

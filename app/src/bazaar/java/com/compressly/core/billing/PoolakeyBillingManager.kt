@@ -41,17 +41,6 @@ class PoolakeyBillingManager(
          * Change this to match the product ID you created there.
          */
         const val PREMIUM_SKU = "premium_lifetime"
-
-        /**
-         * Your app's RSA public key from the Bazaar developer panel.
-         * IMPORTANT: never commit the real key to a public repository.
-         * Store it in BuildConfig via secrets.properties or an environment variable.
-         *
-         * In app/build.gradle.kts add (bazaar flavor only):
-         *   buildConfigField("String", "BAZAAR_RSA_KEY",
-         *       "\"${System.getenv("BAZAAR_RSA_KEY") ?: ""}\"")
-         */
-        const val BAZAAR_RSA_PUBLIC_KEY = "" // TODO: set via BuildConfig.BAZAAR_RSA_KEY
     }
 
     private val _premium = MutableStateFlow(false)
@@ -71,11 +60,12 @@ class PoolakeyBillingManager(
         if (_conn.value == BillingConnectionState.CONNECTED) return
         _conn.value = BillingConnectionState.CONNECTING
 
+        val rsa = ir.siliksama.hajmino.BuildConfig.BAZAAR_RSA_KEY
         val config = PaymentConfiguration(
-            localSecurityCheck = if (BAZAAR_RSA_PUBLIC_KEY.isNotBlank())
-                SecurityCheck.Enable(rsaPublicKey = BAZAAR_RSA_PUBLIC_KEY)
+            localSecurityCheck = if (rsa.isNotBlank())
+                SecurityCheck.Enable(rsaPublicKey = rsa)
             else
-                SecurityCheck.Disable  // dev/test mode only — DO NOT ship without a key!
+                SecurityCheck.Disable
         )
 
         val p = Payment(context = activity, config = config)
@@ -137,6 +127,10 @@ class PoolakeyBillingManager(
             }
             queryFailed { /* non-fatal — DataStore state still valid */ }
         }
+    }
+
+    override fun restoreLocalPremium(value: Boolean) {
+        if (value) _premium.value = true
     }
 
     override fun disconnect() {

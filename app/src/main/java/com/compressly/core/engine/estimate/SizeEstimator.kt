@@ -56,7 +56,8 @@ object SizeEstimator {
         // Baseline estimate, then blend toward a sane JPEG real-world result.
         val raw = pixels * bytesPerPixel
         val heuristic = if (format == "png") raw else raw.coerceAtLeast(pixels / 10.0)
-        return (heuristic * 1.15).toLong().coerceAtLeast(1_000)
+        val estimated = (heuristic * 1.15).toLong().coerceAtLeast(1_000)
+        return if (sourceSizeBytes > 0) estimated.coerceAtMost(sourceSizeBytes) else estimated
     }
 
     private fun resolvedFormat(sourceMime: String?, format: PhotoFormat): String = when (format) {
@@ -98,7 +99,7 @@ object SizeEstimator {
         // bitrates are bits/second; duration in milliseconds -> bytes.
         val durationMs = trimmedDurationMs(info.durationMs, settings)
         val bytes = (targetVideoBitrate + audioBitrate).toLong() * durationMs / 8L / 1000L
-        return bytes.coerceAtLeast(8_000)
+        return com.compressly.core.engine.video.VideoPlanner.estimatedFileBytes(bytes)
     }
 
     /**

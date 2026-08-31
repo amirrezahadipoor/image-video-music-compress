@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class CompresslyApp : Application() {
@@ -69,6 +70,10 @@ class CompresslyApp : Application() {
         // interrupted with a clear message instead of leaving a mystery.
         appScope.launch {
             container.historyRepository.markInterruptedOnStartup()
+        }
+        appScope.launch {
+            val premium = container.settingsRepository.isPremium.first()
+            container.billingManager.restoreLocalPremium(premium)
         }
     }
 }

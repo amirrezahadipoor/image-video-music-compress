@@ -32,6 +32,12 @@ interface BillingManager {
 
     /** Re-verify any existing purchase (e.g. on app resume). */
     fun queryExistingPurchases()
+
+    /**
+     * Seed the in-memory flag from local storage so a paying user is still
+     * treated as premium before the store connection comes back.
+     */
+    fun restoreLocalPremium(value: Boolean)
 }
 
 enum class BillingConnectionState { IDLE, CONNECTING, CONNECTED, FAILED }
@@ -48,6 +54,10 @@ class NoopBillingManager : BillingManager {
     override fun purchasePremium(activity: Activity) { /* no-op in play build */ }
     override fun disconnect() { _conn.value = BillingConnectionState.IDLE }
     override fun queryExistingPurchases() { /* no-op */ }
+
+    override fun restoreLocalPremium(value: Boolean) {
+        if (value) _premium.value = true
+    }
 
     fun simulatePurchase() { _premium.value = true }
 }

@@ -55,6 +55,16 @@ class SizeEstimatorTest {
     }
 
     @Test
+    fun photoEstimate_neverExceedsOriginalWhenKnown() {
+        val original = 200_000L
+        val e = SizeEstimator.estimatePhoto(
+            "image/png", 4000, 3000, original,
+            PhotoSettings(outputFormat = PhotoFormat.PNG, quality = 100)
+        )
+        assertTrue("estimate $e vs original $original", e <= original)
+    }
+
+    @Test
     fun photoEstimate_alwaysPositive() {
         val e = SizeEstimator.estimatePhoto(
             "image/jpeg", 640, 480, 80_000,

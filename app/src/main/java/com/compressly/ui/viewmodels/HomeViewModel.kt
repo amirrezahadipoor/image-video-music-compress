@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
 class HomeViewModel(container: AppContainer) : ViewModel() {
 
@@ -39,12 +38,6 @@ class HomeViewModel(container: AppContainer) : ViewModel() {
 
     val isPremium: StateFlow<Boolean> = container.settingsRepository.isPremium
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
-
-    fun simulatePurchase(container: AppContainer) {
-        viewModelScope.launch {
-            container.settingsRepository.setPremium(true)
-        }
-    }
 
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
