@@ -169,9 +169,8 @@ object AacTranscoder {
                 if (!pendingPcm) {
                     var decOut = decoder.dequeueOutputBuffer(decInfo, 0)
                     while (decOut == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                        pcmFloat = decoder.outputFormat.getInteger(
-                            MediaFormat.KEY_PCM_ENCODING,
-                            android.media.AudioFormat.ENCODING_PCM_16BIT
+                        pcmFloat = com.compressly.core.engine.MediaUtil.pcmEncodingOf(
+                            decoder.outputFormat
                         ) == android.media.AudioFormat.ENCODING_PCM_FLOAT
                         decOut = decoder.dequeueOutputBuffer(decInfo, 0)
                     }

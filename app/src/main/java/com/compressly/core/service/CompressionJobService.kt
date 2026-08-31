@@ -106,11 +106,10 @@ class CompressionJobService : Service() {
             for (job in jobs.values) {
                 if (job.status in terminalStatuses && job.jobId !in notifiedResults) {
                     notifiedResults += job.jobId
-                    NotificationManagerCompat.from(this)
-                        .notify(
-                            NotificationHelper.NOTIF_RESULT_ID,
-                            NotificationHelper.buildResultNotification(this, job)
-                        )
+                    safeNotify(
+                        NotificationHelper.NOTIF_RESULT_ID,
+                        NotificationHelper.buildResultNotification(this, job)
+                    )
                 }
             }
             notifiedResults.retainAll(jobs.keys)
@@ -120,11 +119,30 @@ class CompressionJobService : Service() {
             stopSelf()
             return
         }
-        NotificationManagerCompat.from(this)
-            .notify(
-                NotificationHelper.NOTIF_ID,
-                NotificationHelper.buildJobNotification(this, active.first())
+        safeNotify(
+            NotificationHelper.NOTIF_ID,
+            NotificationHelper.buildJobNotification(this, active.first())
+        )
+    }
+
+
+    /**
+     * NOTIFY-FIX: notify() with a rejected/never-asked POST_NOTIFICATIONS
+     * permission is silently dropped on Android 13+ — and lint flags it as a
+     * hard error. Guard explicitly (the permission only exists on API 33+;
+     * below that it is granted at install time).
+     */
+    private fun safeNotify(id: Int, notification: android.app.Notification) {
+        val nm = NotificationManagerCompat.from(this)
+        if (Build.VERSION.SDK_INT >= 33 &&
+            android.content.pm.PackageManager.PERMISSION_GRANTED !=
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                this, android.Manifest.permission.POST_NOTIFICATIONS
             )
+        ) {
+            return
+        }
+        runCatching { nm.notify(id, notification) }
     }
 
     private val terminalStatuses = setOf(

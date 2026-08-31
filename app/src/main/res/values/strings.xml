@@ -12,24 +12,14 @@
     <string name="action_open">باز کردن</string>
     <string name="action_retry">تلاش مجدد</string>
     <string name="action_done">پایان</string>
-    <string name="action_close">بستن</string>
     <string name="action_back">بازگشت</string>
-    <string name="action_next">مرحله بعد</string>
     <string name="action_allow">تأیید دسترسی</string>
     <string name="action_not_now">فعلاً نه</string>
-    <string name="action_choose_files">انتخاب فایل‌ها</string>
-
-    <!-- Media types -->
-    <string name="media_photo">عکس</string>
-    <string name="media_video">ویدیو</string>
-    <string name="media_audio">صوت</string>
-    <string name="media_photos">تصاویر</string>
+    <!-- Media types --><string name="media_photos">تصاویر</string>
     <string name="media_videos">ویدیوها</string>
     <string name="media_audio_files">فایل‌های صوتی</string>
 
-    <!-- Home -->
-    <string name="home_greeting">کاربر گرامی، خوش آمدید</string>
-    <string name="home_hero_title">کوچک‌تر، روی دستگاه شما</string>
+    <!-- Home --><string name="home_hero_title">کوچک‌تر، روی دستگاه شما</string>
     <string name="home_hero_subtitle">کاملاً آفلاین. بدون آپلود.</string>
     <string name="hero_offline_badge">کاملاً آفلاین</string>
     <string name="home_compress_photo">فشرده‌سازی عکس</string>
@@ -46,16 +36,7 @@
     <string name="home_jobs_active">%1$d عملیات در حال اجرا است</string>
     <string name="home_tap_to_choose">یک نوع را انتخاب کنید</string>
 
-    <!-- File picking -->
-    <string name="pick_title_photo">انتخاب عکس‌ها</string>
-    <string name="pick_title_video">انتخاب ویدیوها</string>
-    <string name="pick_title_audio">انتخاب فایل‌های صوتی</string>
-    <string name="pick_error_none">هیچ فایلی انتخاب نشد.</string>
-    <string name="pick_error_too_large">یک یا چند فایل بیشتر از حد مجاز (۲ گیگابایت) هستند.</string>
-    <string name="pick_error_unsupported_photo">یک یا چند فایل، عکس پشتیبانی‌شده نیستند.</string>
-    <string name="pick_error_unsupported_video">یک یا چند فایل، ویدیوی پشتیبانی‌شده نیستند.</string>
-    <string name="pick_error_unsupported_audio">یک یا چند فایل، صدای پشتیبانی‌شده نیستند.</string>
-
+    <!-- File picking --><string name="pick_error_too_large">یک یا چند فایل بیشتر از حد مجاز (۲ گیگابایت) هستند.</string>
     <!-- Compression settings -->
     <string name="settings_title_photo">تنظیمات عکس</string>
     <string name="settings_title_video">تنظیمات ویدیو</string>
@@ -66,14 +47,10 @@
     <string name="settings_advanced_toggle">گزینه‌های پیشرفته</string>
     <string name="settings_estimated_size">حجم تقریبی خروجی</string>
     <string name="settings_original_size">حجم اصلی</string>
-    <string name="settings_est_saving">کاهش تقریبی</string>
-    <string name="settings_est_saving_range">%1$s تا %2$s</string>
     <string name="settings_output_format">فرمت خروجی</string>
     <string name="settings_quality">کیفیت</string>
     <string name="settings_quality_value">%1$d٪</string>
     <string name="settings_metadata">متادیتا (EXIF / ID3)</string>
-    <string name="settings_metadata_preserve">حفظ شود</string>
-    <string name="settings_metadata_strip">برای حریم خصوصی حذف شود</string>
     <string name="settings_metadata_preserve_desc">اطلاعات دوربین، برچسب‌ها و جهت عکس حفظ می‌شود.</string>
     <string name="settings_metadata_strip_desc">جزئیات مکان و دوربین حذف می‌شود. فایل سبک‌تر.</string>
 
@@ -89,7 +66,6 @@
     <string name="preset_high_compression_desc">حجم کمتر، افت جزئی</string>
     <string name="preset_max_compression">حداکثر فشرده</string>
     <string name="preset_recommended">پیشنهادی</string>
-    <string name="preset_saving_badge">%1$s٪</string>
     <string name="preset_no_gain">بدون کاهش</string>
     <string name="preset_picker_hint">می‌توانید درجهٔ قوی‌تری انتخاب کنید. اعداد، تخمین همین فایل هستند.</string>
     <string name="preset_max_compression_desc">کمترین حجم</string>
@@ -118,8 +94,6 @@
     <string name="video_resolution_720">۷۲۰p (اچ‌دی)</string>
     <string name="video_resolution_480">۴۸۰p (اس‌دی)</string>
     <string name="video_resolution_custom">دلخواه</string>
-    <string name="video_bitrate">بیت‌ریت</string>
-    <string name="video_bitrate_auto">خودکار (بر اساس سطح کیفیت)</string>
     <string name="video_fps">نرخ فریم</string>
     <string name="video_fps_original">اصلی</string>
     <string name="video_fps_30">۳۰ فریم بر ثانیه</string>
@@ -138,9 +112,6 @@
     <string name="video_trim_on">برش به یک بخش کوتاه‌تر</string>
     <string name="video_trim_start">شروع</string>
     <string name="video_trim_end">پایان</string>
-    <string name="video_trim_invalid">پایان باید بعد از شروع باشد.</string>
-    <string name="video_info_duration">مدت زمان</string>
-
     <!-- Audio options -->
     <string name="audio_bitrate">بیت‌ریت</string>
     <string name="audio_bitrate_64">۶۴ کیلوبیت</string>
@@ -148,8 +119,6 @@
     <string name="audio_bitrate_192">۱۹۲ کیلوبیت</string>
     <string name="audio_bitrate_256">۲۵۶ کیلوبیت</string>
     <string name="audio_bitrate_320">۳۲۰ کیلوبیت</string>
-    <string name="audio_mode_vbr">VBR (بیت‌ریت متغیر)</string>
-    <string name="audio_mode_cbr">CBR (بیت‌ریت ثابت)</string>
     <string name="audio_output_format">فرمت خروجی</string>
     <string name="audio_format_m4a">AAC (M4A) - بهترین کیفیت نسبت به حجم</string>
     <string name="audio_format_mp3">MP3 - بیشترین سازگاری</string>
@@ -164,7 +133,6 @@
     <string name="progress_paused">متوقف شده</string>
     <string name="progress_complete">تکمیل شد</string>
     <string name="progress_failed">ناموفق</string>
-    <string name="progress_item_of">قلم %1$d از %2$d</string>
     <string name="progress_eta">حدود %1$s مانده</string>
     <string name="progress_elapsed">گذشت %1$s</string>
     <string name="progress_stopped_by_user">لغو شد</string>
@@ -174,17 +142,13 @@
     <!-- Result -->
     <string name="result_title_success">انجام شد!</string>
     <string name="result_title_failed">مشکلی پیش آمد</string>
-    <string name="result_saved">ذخیره شد</string>
     <string name="result_reduction">حجم %1$s کاهش یافت</string>
     <string name="result_before_size">قبل</string>
     <string name="result_after_size">بعد</string>
-    <string name="result_time_taken">زمان: %1$s</string>
     <string name="result_compress_another">فشرده‌سازی فایل دیگر</string>
     <string name="result_view_history">مشاهده تاریخچه</string>
     <string name="result_share_output">اشتراک‌گذاری</string>
     <string name="result_open_output">باز کردن فایل</string>
-    <string name="result_saved_to">ذخیره در %1$s</string>
-    <string name="result_error_detail">%1$s</string>
     <string name="result_items_success">%1$d از %2$d فایل با موفقیت فشرده شد</string>
     <string name="result_share_sheet_title">اشتراک‌گذاری فایل فشرده</string>
     <string name="result_batch_files">%1$d از %2$d فایل موفق</string>
@@ -198,20 +162,16 @@
     <string name="history_clear_confirm_title">تاریخچه پاک شود؟</string>
     <string name="history_clear_confirm_msg">این کار فقط فهرست تاریخچه را حذف می‌کند. فایل‌های ذخیره‌شده روی دستگاه می‌مانند.</string>
     <string name="history_clear_confirm_yes">پاک شود</string>
-    <string name="history_cleared">تاریخچه پاک شد</string>
     <string name="history_reduced">-%1$s</string>
-    <string name="history_status_done">فشرده شد</string>
     <string name="history_status_failed">ناموفق</string>
     <string name="history_status_cancelled">لغو شد</string>
     <string name="history_status_interrupted">ناقص ماند</string>
     <string name="history_status_running">در حال پردازش</string>
-    <string name="history_recompress">فشرده‌سازی دوباره</string>
     <string name="history_time_ago">%1$s پیش</string>
 
     <!-- App settings -->
     <string name="app_settings_title">تنظیمات</string>
     <string name="settings_section_appearance">ظاهر</string>
-    <string name="theme_mode">پوسته</string>
     <string name="theme_system">مطابق سیستم</string>
     <string name="theme_light">روشن</string>
     <string name="theme_dark">تیره</string>
@@ -231,10 +191,6 @@
     <!-- Permissions -->
     <string name="perm_notification_title">نمایش پیشرفت فشرده‌سازی؟</string>
     <string name="perm_notification_body">اعلان به شما امکان می‌دهد فشرده‌سازی‌های طولانی را حتی در پس‌زمینه دنبال و کنترل کنید. هیچ داده‌ای از دستگاه شما خارج نمی‌شود.</string>
-    <string name="perm_storage_title">اجازه ذخیره فایل‌ها؟</string>
-    <string name="perm_storage_body">دستگاه برای ذخیره فایل‌های فشرده در گالری و برنامه فایل‌ها به دسترسی ذخیره‌سازی نیاز دارد.</string>
-    <string name="perm_rationale_notification">اعلان‌ها پیشرفت کارهای طولانی را نشان می‌دهند و از هر جایی می‌توانید توقف یا لغو کنید. اجازه می‌دهید در پس‌زمینه ادامه یابد؟</string>
-
     <!-- Errors -->
     <string name="error_generic">هنگام پردازش این فایل مشکلی پیش آمد.</string>
     <string name="error_file_empty">این فایل خالی است و قابل فشرده‌سازی نیست.</string>
@@ -248,7 +204,6 @@
     <string name="error_cancelled">فشرده‌سازی لغو شد.</string>
     <string name="error_metadata_write">نوشتن متادیتا در فایل خروجی ممکن نشد.</string>
     <string name="error_output">ذخیره فایل خروجی ممکن نشد.</string>
-    <string name="error_pick_failed">خواندن فایل انتخاب‌شده ممکن نشد.</string>
     <string name="error_low_storage_warn_title">فضای ذخیره‌سازی کم است</string>
     <string name="error_low_storage_warn_body">تنها حدود %1$s فضای خالی است و خروجی تخمینی حدود %2$s نیاز دارد. بهتر است قبل از فشرده‌سازی فضا آزاد کنید.</string>
     <string name="error_encode_failed">رمزگذاری ناموفق بود. تنظیم دیگری یا کدک نرم‌افزاری را امتحان کنید.</string>
@@ -262,20 +217,8 @@
     <string name="notif_done_title">فشرده‌سازی تمام شد</string>
     <string name="notif_done_text">%1$d فایل فشرده شد. برای مشاهده لمس کنید.</string>
     <string name="notif_failed_title">فشرده‌سازی ناموفق بود</string>
-    <string name="notif_paused_title">فشرده‌سازی متوقف شد</string>
-
-    <!-- Units / formats -->
-    <string name="unit_bytes">بایت</string>
-    <string name="unit_kb">کیلوبایت</string>
-    <string name="unit_mb">مگابایت</string>
-    <string name="unit_gb">گیگابایت</string>
-    <string name="time_sec">%1$d ثانیه</string>
-    <string name="time_min">%1$d دقیقه %2$d ثانیه</string>
-    <string name="time_hour">%1$d ساعت %2$d دقیقه</string>
-    <string name="duration_format">%1$s</string>
+    <!-- Units / formats --><string name="time_sec">%1$d ثانیه</string>
     <string name="unknown">نامشخص</string>
-    <string name="free_space_unknown">نامشخص</string>
-
     <!-- Misc -->
     <string name="estimate_note">تخمین‌ها بر اساس نوع فایل و تنظیمات است. نتیجه واقعی ممکن است کمی متفاوت باشد.</string>
     <string name="advanced_hint">کیفیت، رزولوشن، بیت‌ریت و موارد دیگر را دقیق تنظیم کنید.</string>
@@ -314,8 +257,6 @@
     <!-- Premium -->
     <string name="premium_title">حمایت مالی / ارتقا به نسخه طلایی</string>
     <string name="premium_desc">با ۹۹ هزار تومان، تمام تبلیغات را برای همیشه حذف کنید و از ما حمایت کنید.</string>
-    <string name="premium_buy">خرید اشتراک (۹۹,۰۰۰ تومان)</string>
-    <string name="premium_thank_you">از حمایت شما سپاسگزاریم! نسخه طلایی فعال است.</string>
 
     <!-- App Links -->
     <string name="other_apps_title">برنامه‌های دیگر سازنده</string>

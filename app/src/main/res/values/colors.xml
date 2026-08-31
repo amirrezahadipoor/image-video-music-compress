@@ -3,6 +3,4 @@
     <color name="splash_background">#12131B</color>
     <color name="window_background_light">#F7F7FB</color>
     <color name="window_background_dark">#0E0F16</color>
-    <color name="icon_background_start">#2E2C6B</color>
-    <color name="icon_background_end">#6C5CE7</color>
 </resources>

@@ -1,5 +1,6 @@
 package com.compressly.ui.viewmodels
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
@@ -23,6 +24,9 @@ import java.io.File
  * Cancels and debounces preview regeneration so slider changes don't
  * saturate the disk with temp files.
  */
+// The factory passes applicationContext, so this never leaks an Activity;
+// lint's StaticFieldLeak heuristic cannot see through the factory.
+@SuppressLint("StaticFieldLeak")
 class PhotoPreviewViewModel(private val context: Context) : ViewModel() {
 
     sealed class PreviewState {

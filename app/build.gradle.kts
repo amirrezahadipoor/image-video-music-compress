@@ -25,8 +25,9 @@ android {
         }
     }
 
-    // Two distribution flavors: a clean offline "play" build and a
-    // "bazaar" build prepared for the Cafe Bazaar store + Tapsell ads.
+    // Two distribution flavors: a clean offline "play" build (no store SDK,
+    // local debugging only) and a "bazaar" build prepared for the Cafe
+    // Bazaar store: Poolakey billing + Adivery ads.
     flavorDimensions += "store"
     productFlavors {
         val bazaarRsa = (System.getenv("BAZAAR_RSA_KEY") ?: "")
@@ -73,7 +74,7 @@ android {
             )
         }
         debug {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             applicationIdSuffix = ".debug"
         }
     }
@@ -170,7 +171,8 @@ dependencies {
     "bazaarImplementation"("com.adivery:sdk:4.9.0")
 
     // Poolakey — Cafe Bazaar in-app billing SDK (version 2.2.0)
-    // Only included in the bazaar flavor; the play flavor uses Google's billing.
+    // Only included in the bazaar flavor; the play flavor has no billing
+    // integration at all (NoopBillingManager in the main sourceSet).
     "bazaarImplementation"("com.github.cafebazaar.Poolakey:poolakey:2.2.0")
 
     testImplementation(libs.junit)

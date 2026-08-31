@@ -171,9 +171,10 @@ class AudioCompressor(private val context: Context) {
                     var outIndex = decoder.dequeueOutputBuffer(info, 0)
                     while (outIndex >= 0 || outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                         if (outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                            pcmFloat = decoder.outputFormat.getInteger(
-                                MediaFormat.KEY_PCM_ENCODING,
-                                android.media.AudioFormat.ENCODING_PCM_16BIT
+                            pcmFloat = com.compressly.core.engine.MediaUtil.pcmEncodingOf(
+
+                                decoder.outputFormat
+
                             ) == android.media.AudioFormat.ENCODING_PCM_FLOAT
                         } else {
                             if (info.size > 0) {

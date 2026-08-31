@@ -533,9 +533,8 @@ class MediaCodecTranscoder(private val context: Context) {
                     // took ten minutes. Non-realtime priority with no
                     // operating-rate cap gives the encoder freedom to run flat
                     // out and to trade time for size.
-                    if (android.os.Build.VERSION.SDK_INT >= 23) {
-                        setInteger(MediaFormat.KEY_PRIORITY, 1)
-                    }
+                    // KEY_PRIORITY exists since API 23; minSdk is 26, so no guard needed.
+                    setInteger(MediaFormat.KEY_PRIORITY, 1)
                 }
             }
 
@@ -667,7 +666,7 @@ private suspend fun mergePass(
             if (videoDone) return false
             val sz = videoExtractor.readSampleData(videoBuf, 0)
             if (sz < 0) { videoDone = true; return false }
-            videoInfo.set(0, sz, videoExtractor.sampleTime, videoExtractor.sampleFlags)
+            videoInfo.set(0, sz, videoExtractor.sampleTime, sampleFlagsToCodecFlags(videoExtractor.sampleFlags))
             videoExtractor.advance()
             return true
         }
@@ -683,7 +682,7 @@ private suspend fun mergePass(
                 ae.advance()
                 if (pts < audioOffset) continue
                 if (audioEnd > 0 && pts > audioEnd) { audioDone = true; return false }
-                audioInfo.set(0, sz, (pts - audioOffset).coerceAtLeast(0), flags)
+                audioInfo.set(0, sz, (pts - audioOffset).coerceAtLeast(0), sampleFlagsToCodecFlags(flags))
                 return true
             }
         }
@@ -770,6 +769,14 @@ private suspend fun mergePass(
 
     private fun findTrack(extractor: MediaExtractor, prefix: String): Int? =
         com.compressly.core.engine.MediaUtil.findTrack(extractor, prefix)
+
+    /**
+     * MediaExtractor sample flags and MediaCodec buffer flags are different
+     * constants; MediaMuxer.writeSampleData() expects the latter (BUFFER_FLAG_*).
+     * Both use bit 1 for sync/key frames, so the conversion is exact.
+     */
+    private fun sampleFlagsToCodecFlags(flags: Int): Int =
+        if (flags and MediaExtractor.SAMPLE_FLAG_SYNC != 0) MediaCodec.BUFFER_FLAG_KEY_FRAME else 0
 
     private fun audioMimeIs(uri: Uri, mime: String): Boolean {
         return runCatching {

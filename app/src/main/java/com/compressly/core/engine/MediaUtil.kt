@@ -124,4 +124,19 @@ object MediaUtil {
         val frames = sourceSize / bytesPerSrcFrame
         return frames * dstCh * 2
     }
+
+    /**
+     * Reads KEY_PCM_ENCODING (16-bit by default when absent), safely on every
+     * supported API level.
+     *
+     * API-FIX: `MediaFormat.getInteger(key, defaultValue)` overload only exists
+     * from API 29, but minSdk is 26 — on Android 8.x decoding any audio track
+     * (or a video's soundtrack) crashed with NoSuchMethodError right here.
+     * KEY_PCM_ENCODING itself exists since API 24, so the single-argument
+     * getInteger() inside runCatching is valid on all supported API levels;
+     * a missing key throws and falls back to 16-bit PCM.
+     */
+    fun pcmEncodingOf(format: MediaFormat): Int = runCatching {
+        format.getInteger(MediaFormat.KEY_PCM_ENCODING)
+    }.getOrDefault(android.media.AudioFormat.ENCODING_PCM_16BIT)
 }

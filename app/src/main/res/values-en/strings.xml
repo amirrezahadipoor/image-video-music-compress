@@ -12,24 +12,14 @@
     <string name="action_open">Open</string>
     <string name="action_retry">Try again</string>
     <string name="action_done">Done</string>
-    <string name="action_close">Close</string>
     <string name="action_back">Back</string>
-    <string name="action_next">Next</string>
     <string name="action_allow">Allow</string>
     <string name="action_not_now">Not now</string>
-    <string name="action_choose_files">Choose files</string>
-
-    <!-- Media types -->
-    <string name="media_photo">Photo</string>
-    <string name="media_video">Video</string>
-    <string name="media_audio">Audio</string>
-    <string name="media_photos">Photos</string>
+    <!-- Media types --><string name="media_photos">Photos</string>
     <string name="media_videos">Videos</string>
     <string name="media_audio_files">Audio files</string>
 
-    <!-- Home -->
-    <string name="home_greeting">Welcome</string>
-    <string name="home_hero_title">Smaller, on your device</string>
+    <!-- Home --><string name="home_hero_title">Smaller, on your device</string>
     <string name="home_hero_subtitle" formatted="false">Fully offline. No upload.</string>
     <string name="hero_offline_badge" formatted="false">100% Offline</string>
     <string name="home_compress_photo">Compress Photo</string>
@@ -46,16 +36,7 @@
     <string name="home_jobs_active">%1$d job(s) in progress</string>
     <string name="home_tap_to_choose">Choose a type to start</string>
 
-    <!-- File picking -->
-    <string name="pick_title_photo">Select photos</string>
-    <string name="pick_title_video">Select videos</string>
-    <string name="pick_title_audio">Select audio files</string>
-    <string name="pick_error_none">No files were selected.</string>
-    <string name="pick_error_too_large">One or more files are over the 2 GB limit.</string>
-    <string name="pick_error_unsupported_photo">One or more files are not supported photos.</string>
-    <string name="pick_error_unsupported_video">One or more files are not supported videos.</string>
-    <string name="pick_error_unsupported_audio">One or more files are not supported audio files.</string>
-
+    <!-- File picking --><string name="pick_error_too_large">One or more files are over the 2 GB limit.</string>
     <!-- Compression settings -->
     <string name="settings_title_photo">Photo settings</string>
     <string name="settings_title_video">Video settings</string>
@@ -66,14 +47,10 @@
     <string name="settings_advanced_toggle">Advanced options</string>
     <string name="settings_estimated_size">Estimated output size</string>
     <string name="settings_original_size">Original size</string>
-    <string name="settings_est_saving">Estimated saving</string>
-    <string name="settings_est_saving_range">%1$s-%2$s</string>
     <string name="settings_output_format">Output format</string>
     <string name="settings_quality">Quality</string>
     <string name="settings_quality_value">%1$d%%</string>
     <string name="settings_metadata">Metadata (EXIF / ID3)</string>
-    <string name="settings_metadata_preserve">Preserve</string>
-    <string name="settings_metadata_strip">Strip for privacy</string>
     <string name="settings_metadata_preserve_desc">Keeps camera info, tags and orientation.</string>
     <string name="settings_metadata_strip_desc">Removes location and camera details. Smaller files.</string>
 
@@ -89,7 +66,6 @@
     <string name="preset_high_compression_desc">Much smaller, slight loss</string>
     <string name="preset_max_compression">Smallest</string>
     <string name="preset_recommended">Suggested</string>
-    <string name="preset_saving_badge">%1$s%%</string>
     <string name="preset_no_gain">No saving</string>
     <string name="preset_picker_hint">You can pick a stronger grade. Numbers are for this file.</string>
     <string name="preset_max_compression_desc">Smallest file</string>
@@ -118,8 +94,6 @@
     <string name="video_resolution_720">720p (HD)</string>
     <string name="video_resolution_480">480p (SD)</string>
     <string name="video_resolution_custom">Custom</string>
-    <string name="video_bitrate">Bitrate</string>
-    <string name="video_bitrate_auto">Auto (by quality level)</string>
     <string name="video_fps">Frame rate</string>
     <string name="video_fps_original">Original</string>
     <string name="video_fps_30">30 fps</string>
@@ -138,9 +112,6 @@
     <string name="video_trim_on">Trim to a shorter clip</string>
     <string name="video_trim_start">Start</string>
     <string name="video_trim_end">End</string>
-    <string name="video_trim_invalid">End must be after start.</string>
-    <string name="video_info_duration">Duration</string>
-
     <!-- Audio options -->
     <string name="audio_bitrate">Bitrate</string>
     <string name="audio_bitrate_64">64 kbps</string>
@@ -148,8 +119,6 @@
     <string name="audio_bitrate_192">192 kbps</string>
     <string name="audio_bitrate_256">256 kbps</string>
     <string name="audio_bitrate_320">320 kbps</string>
-    <string name="audio_mode_vbr">VBR (variable bitrate)</string>
-    <string name="audio_mode_cbr">CBR (constant bitrate)</string>
     <string name="audio_output_format">Output format</string>
     <string name="audio_format_m4a">AAC (M4A) - best quality per size</string>
     <string name="audio_format_mp3">MP3 - widest compatibility</string>
@@ -164,7 +133,6 @@
     <string name="progress_paused">Paused</string>
     <string name="progress_complete">Complete</string>
     <string name="progress_failed">Failed</string>
-    <string name="progress_item_of">Item %1$d of %2$d</string>
     <string name="progress_eta">About %1$s left</string>
     <string name="progress_elapsed">Elapsed %1$s</string>
     <string name="progress_stopped_by_user">Cancelled</string>
@@ -174,17 +142,13 @@
     <!-- Result -->
     <string name="result_title_success">Done!</string>
     <string name="result_title_failed">Something went wrong</string>
-    <string name="result_saved">Saved</string>
     <string name="result_reduction">Size reduced by %1$s</string>
     <string name="result_before_size">Before</string>
     <string name="result_after_size">After</string>
-    <string name="result_time_taken">Took %1$s</string>
     <string name="result_compress_another">Compress another</string>
     <string name="result_view_history">View history</string>
     <string name="result_share_output">Share</string>
     <string name="result_open_output">Open file</string>
-    <string name="result_saved_to">Saved to %1$s</string>
-    <string name="result_error_detail">%1$s</string>
     <string name="result_items_success">%1$d of %2$d files compressed successfully</string>
     <string name="result_share_sheet_title">Share compressed file</string>
     <string name="result_batch_files">%1$d of %2$d files succeeded</string>
@@ -198,20 +162,16 @@
     <string name="history_clear_confirm_title">Clear history?</string>
     <string name="history_clear_confirm_msg">This removes the history list. Files you already saved stay on your device.</string>
     <string name="history_clear_confirm_yes">Clear</string>
-    <string name="history_cleared">History cleared</string>
     <string name="history_reduced">-%1$s</string>
-    <string name="history_status_done">Compressed</string>
     <string name="history_status_failed">Failed</string>
     <string name="history_status_cancelled">Cancelled</string>
     <string name="history_status_interrupted">Interrupted</string>
     <string name="history_status_running">Processing</string>
-    <string name="history_recompress">Recompress</string>
     <string name="history_time_ago">%1$s ago</string>
 
     <!-- App settings -->
     <string name="app_settings_title">Settings</string>
     <string name="settings_section_appearance">Appearance</string>
-    <string name="theme_mode">Theme</string>
     <string name="theme_system">Follow system</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
@@ -231,10 +191,6 @@
     <!-- Permissions -->
     <string name="perm_notification_title">Show compression progress?</string>
     <string name="perm_notification_body">A notification lets you follow and control long compressions, even when the app is in the background. No data leaves your device.</string>
-    <string name="perm_storage_title">Allow saving files?</string>
-    <string name="perm_storage_body">Your device needs storage access so compressed files can be saved to your gallery and files apps.</string>
-    <string name="perm_rationale_notification">Notifications show the progress of long jobs and let you pause or cancel them from anywhere. Allow to keep going in the background?</string>
-
     <!-- Errors -->
     <string name="error_generic">Something went wrong while processing this file.</string>
     <string name="error_file_empty">This file is empty and cannot be compressed.</string>
@@ -248,7 +204,6 @@
     <string name="error_cancelled">Compression was cancelled.</string>
     <string name="error_metadata_write">Could not write metadata to the output file.</string>
     <string name="error_output">Could not save the output file.</string>
-    <string name="error_pick_failed">Could not read the selected file.</string>
     <string name="error_low_storage_warn_title">Low storage space</string>
     <string name="error_low_storage_warn_body">Only about %1$s is free, and the estimated output needs around %2$s. It is safer to free up space before compressing.</string>
     <string name="error_encode_failed">Encoding failed. Try a different setting or a software codec.</string>
@@ -262,20 +217,8 @@
     <string name="notif_done_title">Compression finished</string>
     <string name="notif_done_text">%1$d file(s) compressed. Tap to view.</string>
     <string name="notif_failed_title">Compression failed</string>
-    <string name="notif_paused_title">Compression paused</string>
-
-    <!-- Units / formats -->
-    <string name="unit_bytes">B</string>
-    <string name="unit_kb">KB</string>
-    <string name="unit_mb">MB</string>
-    <string name="unit_gb">GB</string>
-    <string name="time_sec">%1$ds</string>
-    <string name="time_min">%1$dm %2$ds</string>
-    <string name="time_hour">%1$dh %2$dm</string>
-    <string name="duration_format">%1$s</string>
+    <!-- Units / formats --><string name="time_sec">%1$ds</string>
     <string name="unknown">Unknown</string>
-    <string name="free_space_unknown">Unknown</string>
-
     <!-- Misc -->
     <string name="estimate_note">Estimates are based on file type and settings. The real result may differ slightly.</string>
     <string name="advanced_hint">Fine-tune quality, resolution, bitrate and more.</string>
