@@ -55,7 +55,10 @@ val AppTypography = Typography(
         fontWeight = FontWeight.SemiBold,
         fontSize = 16.sp,
         lineHeight = 22.sp,
-        letterSpacing = 0.1.sp
+        letterSpacing = 0.1.sp,
+        // Tabular figures: file sizes and percentages line up in columns
+        // instead of jittering as digits change width.
+        fontFeatureSettings = "tnum"
     ),
     titleSmall = TextStyle(
         fontFamily = VazirmatnFontFamily,
@@ -68,7 +71,8 @@ val AppTypography = Typography(
         fontFamily = VazirmatnFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
-        lineHeight = 24.sp
+        lineHeight = 24.sp,
+        fontFeatureSettings = "tnum"
     ),
     bodyMedium = TextStyle(
         fontFamily = VazirmatnFontFamily,
@@ -94,7 +98,8 @@ val AppTypography = Typography(
         fontWeight = FontWeight.Medium,
         fontSize = 12.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.4.sp
+        letterSpacing = 0.4.sp,
+        fontFeatureSettings = "tnum"
     ),
     labelSmall = TextStyle(
         fontFamily = VazirmatnFontFamily,

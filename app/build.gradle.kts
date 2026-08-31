@@ -14,8 +14,11 @@ android {
         applicationId = "ir.siliksama.hajmino"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.0.3"
+        // The version NAME stays 1.0.0 per the release policy; versionCode is
+        // the only thing that changes between builds so Android can still
+        // install an update over a previous build.
+        versionCode = 5
+        versionName = "1.0.0"
 
         // Keep only the two bundled locales -> smaller resources.
         resConfigs("fa", "en")
