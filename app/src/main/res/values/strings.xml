@@ -78,20 +78,23 @@
     <string name="settings_metadata_strip_desc">جزئیات مکان و دوربین حذف می‌شود. فایل سبک‌تر.</string>
 
     <!-- Smart mode -->
-    <string name="preset_smart">هوشمند</string>
-    <string name="preset_smart_desc">خودش بهترین تعادل کیفیت و حجم را انتخاب می‌کند.</string>
+    <string name="preset_smart">خودکار</string>
+    <string name="preset_smart_desc">برای هر فایل بهترین درجه را پیشنهاد می‌کند.</string>
     <!-- Presets -->
-    <string name="preset_max_quality">حداکثر کیفیت</string>
-    <string name="preset_max_quality_desc">کیفیت نزدیک به اصل، کاهش حجم کم.</string>
+    <string name="preset_max_quality">کیفیت بالا</string>
+    <string name="preset_max_quality_desc">نزدیک به اصل</string>
     <string name="preset_balanced">متعادل</string>
-    <string name="preset_balanced_desc">کیفیت عالی همراه با کاهش حجم چشمگیر.</string>
-    <string name="preset_high_compression">فشرده‌سازی بالا</string>
-    <string name="preset_high_compression_desc">فایل کوچک‌تر با افت کیفیت جزئی.</string>
-    <string name="preset_max_compression">حداکثر فشرده‌سازی</string>
+    <string name="preset_balanced_desc">کیفیت خوب، حجم کمتر</string>
+    <string name="preset_high_compression">فشرده</string>
+    <string name="preset_high_compression_desc">حجم کمتر، افت جزئی</string>
+    <string name="preset_max_compression">حداکثر فشرده</string>
     <string name="preset_recommended">پیشنهادی</string>
-    <string name="preset_saving_badge">تا %1$s٪</string>
-    <string name="preset_picker_hint">هر زمان گزینه‌ای را خودتان تغییر دهید، حالت هوشمند خاموش می‌شود.</string>
-    <string name="preset_max_compression_desc">کوچک‌ترین فایل ممکن، مناسب پیام‌رسان‌ها.</string>
+    <string name="preset_saving_badge">%1$s٪</string>
+    <string name="preset_no_gain">بدون کاهش</string>
+    <string name="preset_picker_hint">می‌توانید درجهٔ قوی‌تری انتخاب کنید. اعداد، تخمین همین فایل هستند.</string>
+    <string name="preset_max_compression_desc">کمترین حجم</string>
+    <string name="analysis_banner">پیشنهاد برای این فایل: %1$s</string>
+    <string name="analysis_working">در حال بررسی فایل…</string>
 
     <!-- Photo options -->
     <string name="photo_resize">تغییر اندازه</string>

@@ -11,6 +11,7 @@ import com.compressly.Selection
 import com.compressly.core.engine.MediaInspector
 import com.compressly.core.engine.JobControl
 import com.compressly.core.engine.audio.WaveformSampler
+import com.compressly.core.engine.estimate.GradeAdvisor
 import com.compressly.core.engine.estimate.SizeEstimator
 import com.compressly.core.engine.model.AudioSettings
 import com.compressly.core.engine.model.CompressionPreset
@@ -64,7 +65,10 @@ class SettingsViewModel(private val container: AppContainer, private val context
         val waveform: List<Float> = emptyList(),
         val ready: Boolean = false,
         val lowSpaceWarning: Boolean = false,
-        val startingJob: Boolean = false
+        val startingJob: Boolean = false,
+        val analyzing: Boolean = true,
+        val recommended: CompressionPreset? = null,
+        val gradeEstimates: Map<CompressionPreset, Long> = emptyMap()
     )
 
     sealed class PreviewState {
@@ -80,6 +84,8 @@ class SettingsViewModel(private val container: AppContainer, private val context
     private var previewJob: Job? = null
     private var lastPreviewFile: File? = null
     private var firstInfo: MediaInfo? = null
+    /** Once the user taps a grade, analysis must not override it. */
+    private var userPickedGrade = false
 
     init {
         // Atomically consume the selection to avoid losing it on fast config changes.
@@ -123,6 +129,7 @@ class SettingsViewModel(private val container: AppContainer, private val context
                     h265Available = CodecSupport.hasEncoder("video/hevc")
                 )
             }
+            applyAnalysis(info, originalSize, first.uri)
             refreshEstimate()
             if (s.mediaType == MediaType.AUDIO) {
                 runCatching { WaveformSampler.samplePeaks(context, first.uri) }
@@ -139,7 +146,10 @@ class SettingsViewModel(private val container: AppContainer, private val context
 
     // ---- Preset & advanced ------------------------------------------------
 
-    fun selectPreset(preset: CompressionPreset) = applyPreset(preset)
+    fun selectPreset(preset: CompressionPreset) {
+        userPickedGrade = true
+        applyPreset(preset)
+    }
 
     private fun applyPreset(preset: CompressionPreset, preserveMetadata: Boolean? = null) {
         val s = _state.value
@@ -236,6 +246,27 @@ class SettingsViewModel(private val container: AppContainer, private val context
     }
 
     // ---- Estimates --------------------------------------------------------
+
+    private fun applyAnalysis(info: MediaInfo?, originalSize: Long, uri: Uri) {
+        if (info == null || originalSize <= 0L) {
+            _state.update { it.copy(analyzing = false) }
+            if (!userPickedGrade && _state.value.preset == CompressionPreset.SMART) {
+                applyPreset(CompressionPreset.BALANCED)
+            }
+            return
+        }
+        val mime = runCatching { context.contentResolver.getType(uri) }.getOrNull()
+        val snap = GradeAdvisor.advise(_state.value.mediaType, info, originalSize, mime)
+        val shouldSuggest = !userPickedGrade && _state.value.preset == CompressionPreset.SMART
+        _state.update {
+            it.copy(
+                analyzing = false,
+                recommended = snap.recommended,
+                gradeEstimates = snap.estimates
+            )
+        }
+        if (shouldSuggest) applyPreset(snap.recommended)
+    }
 
     private fun refreshEstimate() {
         val s = _state.value

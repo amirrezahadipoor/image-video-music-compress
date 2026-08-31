@@ -116,7 +116,12 @@ class MediaCodecTranscoder(private val context: Context) {
             //     once more at a proportionally corrected rate. This is what
             //     makes "compress harder" actually produce a smaller file.
             val videoDurationMs = trimmedDurationMs(plannedInfo.durationMs, trimStartUs, trimEndUs)
-            val correction = VideoPlanner.correctedBitrate(plan.bitrate, tempVideo.length(), videoDurationMs)
+            val correction = VideoPlanner.correctedBitrate(
+                plan.bitrate,
+                tempVideo.length(),
+                videoDurationMs,
+                aggressive = plan.aggressiveCorrection
+            )
             if (correction != null) {
                 control.checkActive()
                 Storage.deleteQuietly(tempVideo)
@@ -144,7 +149,7 @@ class MediaCodecTranscoder(private val context: Context) {
                 onProgress(0.80f)
             }
 
-            val wantsAudio = settings.audioMode != VideoAudioMode.STRIP && info.hasAudio
+            val wantsAudio = settings.audioMode != VideoAudioMode.STRIP && plannedInfo.hasAudio
 
             // 2. Audio: passthrough or transcode.
             var audioAlreadyTrimmed = false
@@ -244,8 +249,22 @@ class MediaCodecTranscoder(private val context: Context) {
                     MediaFormat.KEY_COLOR_FORMAT,
                     MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface
                 )
-                if (encoderSupportsBitrateMode(encoderMime, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)) {
-                    setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)
+                val requestedMode = if (plan.preferCbr)
+                    MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR
+                else
+                    MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
+                when {
+                    encoderSupportsBitrateMode(encoderMime, requestedMode) ->
+                        setInteger(MediaFormat.KEY_BITRATE_MODE, requestedMode)
+                    requestedMode == MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR &&
+                        encoderSupportsBitrateMode(
+                            encoderMime,
+                            MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
+                        ) ->
+                        setInteger(
+                            MediaFormat.KEY_BITRATE_MODE,
+                            MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
+                        )
                 }
                 // This is an offline transcode, not a live capture. The old
                 // code asked for realtime priority (0) and pinned

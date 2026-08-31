@@ -149,7 +149,8 @@ fun AppSettingsScreen(
                         // saving badge - there is no file in context here.
                         PresetPicker(
                             selected = defaultPreset,
-                            onSelect = viewModel::setDefaultPreset
+                            onSelect = viewModel::setDefaultPreset,
+                            showSmart = true
                         )
                         Spacer(Modifier.height(16.dp))
                         ToggleRow(

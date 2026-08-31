@@ -78,20 +78,23 @@
     <string name="settings_metadata_strip_desc">Removes location and camera details. Smaller files.</string>
 
     <!-- Smart mode -->
-    <string name="preset_smart">Smart</string>
-    <string name="preset_smart_desc">Picks the best balance of quality and size for you.</string>
+    <string name="preset_smart">Auto</string>
+    <string name="preset_smart_desc">Suggests the best grade for each file.</string>
     <!-- Presets -->
-    <string name="preset_max_quality">Maximum Quality</string>
-    <string name="preset_max_quality_desc">Near-original quality, small size drop.</string>
+    <string name="preset_max_quality">High quality</string>
+    <string name="preset_max_quality_desc">Closest to the original</string>
     <string name="preset_balanced">Balanced</string>
-    <string name="preset_balanced_desc">Great quality with a big size drop.</string>
-    <string name="preset_high_compression">High Compression</string>
-    <string name="preset_high_compression_desc">Smaller file with slight quality loss.</string>
-    <string name="preset_max_compression">Maximum Compression</string>
-    <string name="preset_recommended">Recommended</string>
-    <string name="preset_saving_badge">up to %1$s%%</string>
-    <string name="preset_picker_hint">Changing any option yourself turns Smart off.</string>
-    <string name="preset_max_compression_desc">The smallest file possible, good for messaging.</string>
+    <string name="preset_balanced_desc">Good quality, smaller file</string>
+    <string name="preset_high_compression">Smaller</string>
+    <string name="preset_high_compression_desc">Much smaller, slight loss</string>
+    <string name="preset_max_compression">Smallest</string>
+    <string name="preset_recommended">Suggested</string>
+    <string name="preset_saving_badge">%1$s%%</string>
+    <string name="preset_no_gain">No saving</string>
+    <string name="preset_picker_hint">You can pick a stronger grade. Numbers are for this file.</string>
+    <string name="preset_max_compression_desc">Smallest file</string>
+    <string name="analysis_banner">Suggested for this file: %1$s</string>
+    <string name="analysis_working">Analysing the file…</string>
 
     <!-- Photo options -->
     <string name="photo_resize">Resize</string>

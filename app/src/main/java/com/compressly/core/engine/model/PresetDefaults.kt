@@ -67,9 +67,9 @@ object PresetDefaults {
         CompressionPreset.BALANCED to
             VideoDefaults(0.6, 0.080, VideoResolution.ORIGINAL, null, VideoAudioMode.KEEP, 192, 30, 50),
         CompressionPreset.HIGH_COMPRESSION to
-            VideoDefaults(0.35, 0.050, VideoResolution.R1080, null, VideoAudioMode.COMPRESS, 112, 55, 72),
+            VideoDefaults(0.35, 0.050, VideoResolution.R1080, null, VideoAudioMode.COMPRESS, 96, 55, 72),
         CompressionPreset.MAXIMUM_COMPRESSION to
-            VideoDefaults(0.2, 0.028, VideoResolution.R720, 30, VideoAudioMode.COMPRESS, 80, 75, 90),
+            VideoDefaults(0.18, 0.022, VideoResolution.R720, 24, VideoAudioMode.COMPRESS, 64, 75, 92),
         // Smart sits between Balanced and High Compression: it is the default,
         // and its promise is to compress as hard as it can while staying above
         // ~70% perceptual quality. At 0.085 it was ABOVE Balanced's 0.080, so

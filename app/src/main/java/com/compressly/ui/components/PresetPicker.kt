@@ -17,12 +17,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Compress
-import androidx.compose.material.icons.outlined.HighQuality
-import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -32,26 +28,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.compressly.core.engine.estimate.GradeAdvisor
 import com.compressly.core.engine.model.CompressionPreset
-import com.compressly.core.engine.model.MediaType
-import com.compressly.core.engine.model.PresetDefaults
-import com.compressly.ui.theme.GradientPrimary
+import com.compressly.core.util.Formats
 import ir.siliksama.hajmino.R
-
-private fun presetIcon(preset: CompressionPreset): ImageVector = when (preset) {
-    CompressionPreset.SMART -> Icons.Outlined.AutoAwesome
-    CompressionPreset.MAXIMUM_QUALITY -> Icons.Outlined.HighQuality
-    CompressionPreset.BALANCED -> Icons.Outlined.Tune
-    CompressionPreset.HIGH_COMPRESSION -> Icons.Outlined.Compress
-    CompressionPreset.MAXIMUM_COMPRESSION -> Icons.Outlined.Archive
-}
 
 private fun presetTitle(preset: CompressionPreset): Int = when (preset) {
     CompressionPreset.SMART -> R.string.preset_smart
@@ -70,36 +53,37 @@ private fun presetDesc(preset: CompressionPreset): Int = when (preset) {
 }
 
 /**
- * Compression level picker.
+ * Four named grades. When [estimates] and [originalSize] are set (a file has
+ * been analysed) each row shows the expected size and percent for *this* file.
+ * [recommended] is the grade the analyser picked; the user can tap a stronger one.
  *
- * One list, five named choices, each with an icon, a one-line description and
- * the saving it typically delivers. It replaces the old Smart-card-plus-gauge
- * combination, where the four manual tiers were unlabelled coloured bars, dimmed
- * to 35 % and made non-clickable while Smart was on - you could not tell what
- * you were choosing, and tapping a bar did nothing at all.
- *
- * Every row is always readable and always tappable; the selected one is simply
- * highlighted.
- *
- * @param mediaType when null (e.g. on the app-settings screen, where there is no
- * file in context) the saving badge is hidden.
+ * On the app-settings screen there is no file, so Smart + the four grades
+ * are listed without numbers.
  */
 @Composable
 fun PresetPicker(
     selected: CompressionPreset,
     onSelect: (CompressionPreset) -> Unit,
     modifier: Modifier = Modifier,
-    mediaType: MediaType? = null
+    originalSize: Long = 0L,
+    estimates: Map<CompressionPreset, Long> = emptyMap(),
+    recommended: CompressionPreset? = null,
+    analyzing: Boolean = false,
+    showSmart: Boolean = false
 ) {
+    val grades = if (showSmart) CompressionPreset.all else CompressionPreset.ordered
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        CompressionPreset.all.forEach { preset ->
+        grades.forEach { preset ->
             PresetRow(
                 preset = preset,
                 selected = preset == selected,
-                mediaType = mediaType,
+                recommended = preset == recommended && !showSmart,
+                originalSize = originalSize,
+                estimatedSize = estimates[preset],
+                analyzing = analyzing,
                 onSelect = onSelect
             )
         }
@@ -116,12 +100,15 @@ fun PresetPicker(
 private fun PresetRow(
     preset: CompressionPreset,
     selected: Boolean,
-    mediaType: MediaType?,
+    recommended: Boolean,
+    originalSize: Long,
+    estimatedSize: Long?,
+    analyzing: Boolean,
     onSelect: (CompressionPreset) -> Unit
 ) {
     val primary = MaterialTheme.colorScheme.primary
     val bg by animateColorAsState(
-        targetValue = if (selected) primary.copy(alpha = 0.09f)
+        targetValue = if (selected) primary.copy(alpha = 0.10f)
         else MaterialTheme.colorScheme.surface,
         label = "presetBg"
     )
@@ -129,6 +116,9 @@ private fun PresetRow(
         targetValue = if (selected) primary else MaterialTheme.colorScheme.outlineVariant,
         label = "presetBorder"
     )
+    val saving = if (originalSize > 0 && estimatedSize != null) {
+        GradeAdvisor.savingFraction(originalSize, estimatedSize)
+    } else null
 
     Surface(
         modifier = Modifier
@@ -143,36 +133,28 @@ private fun PresetRow(
         border = BorderStroke(if (selected) 1.5.dp else 1.dp, border)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // ---- Icon tile ----
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        if (selected) Brush.horizontalGradient(GradientPrimary)
-                        else Brush.horizontalGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.surfaceVariant,
-                                MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        )
-                    ),
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(if (selected) primary else MaterialTheme.colorScheme.outlineVariant),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = presetIcon(preset),
-                    contentDescription = null,
-                    tint = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
-                )
+                if (selected) {
+                    Icon(
+                        imageVector = Icons.Outlined.Check,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
             }
 
             Spacer(Modifier.width(12.dp))
 
-            // ---- Title + description ----
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -181,18 +163,29 @@ private fun PresetRow(
                         fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    if (preset == CompressionPreset.SMART) {
-                        Spacer(Modifier.width(6.dp))
+                    if (recommended) {
+                        Spacer(Modifier.width(8.dp))
                         Surface(
                             shape = RoundedCornerShape(6.dp),
                             color = primary.copy(alpha = 0.14f)
                         ) {
-                            Text(
-                                text = stringResource(R.string.preset_recommended),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = primary,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = primary,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = stringResource(R.string.preset_recommended),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = primary
+                                )
+                            }
                         }
                     }
                 }
@@ -206,41 +199,35 @@ private fun PresetRow(
 
             Spacer(Modifier.width(10.dp))
 
-            // ---- Saving badge + selection mark ----
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                if (mediaType != null) {
-                    val (_, max) = PresetDefaults.reductionRange(preset, mediaType)
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
-                    ) {
+            Column(horizontalAlignment = Alignment.End) {
+                when {
+                    analyzing && estimatedSize == null -> {
                         Text(
-                            text = stringResource(R.string.preset_saving_badge, "$max"),
-                            style = MaterialTheme.typography.labelSmall,
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                            text = "…",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                }
-                Box(
-                    modifier = Modifier
-                        .size(20.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (selected) primary else MaterialTheme.colorScheme.outlineVariant
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (selected) {
-                        Icon(
-                            imageVector = Icons.Outlined.Check,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(13.dp)
+                    saving != null && saving > 0.02 -> {
+                        Text(
+                            text = "−" + Formats.percent(saving),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (selected) primary else MaterialTheme.colorScheme.onSurface
+                        )
+                        if (estimatedSize != null) {
+                            Text(
+                                text = Formats.humanSize(estimatedSize),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    estimatedSize != null -> {
+                        Text(
+                            text = stringResource(R.string.preset_no_gain),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }

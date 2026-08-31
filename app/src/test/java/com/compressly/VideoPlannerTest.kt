@@ -519,16 +519,59 @@ class VideoPlannerTest {
     }
 
     @Test
+    fun aggressiveTiersAskForCbrAndTighterCorrection() {
+        val max = VideoPlanner.plan(
+            uhd,
+            PresetDefaults.videoSettingsFor(CompressionPreset.MAXIMUM_COMPRESSION),
+            CompressionPreset.MAXIMUM_COMPRESSION
+        )
+        assertTrue(max.preferCbr)
+        assertTrue(max.aggressiveCorrection)
+        val high = VideoPlanner.plan(
+            uhd,
+            PresetDefaults.videoSettingsFor(CompressionPreset.HIGH_COMPRESSION),
+            CompressionPreset.HIGH_COMPRESSION
+        )
+        assertTrue(high.preferCbr)
+        assertFalse(high.aggressiveCorrection)
+        val balanced = VideoPlanner.plan(
+            uhd,
+            PresetDefaults.videoSettingsFor(CompressionPreset.BALANCED),
+            CompressionPreset.BALANCED
+        )
+        assertFalse(balanced.preferCbr)
+        assertFalse(balanced.aggressiveCorrection)
+    }
+
+    @Test
+    fun aggressiveCorrectionTriggersOnASmallerOvershoot() {
+        // 10% overshoot is inside the default 15% tolerance...
+        assertEquals(
+            null,
+            VideoPlanner.correctedBitrate(2_000_000, bytesFor(2_200_000), 60_000, aggressive = false)
+        )
+        // ...but MAX compression re-encodes it.
+        val corrected = VideoPlanner.correctedBitrate(
+            2_000_000, bytesFor(2_200_000), 60_000, aggressive = true
+        )
+        assertTrue("got $corrected", corrected != null && corrected < 2_000_000)
+    }
+
+    @Test
     fun theCeilingSqueezesABloatedSource() {
         // 4K at 60 Mbps: the old source-share rule for MAXIMUM_COMPRESSION
         // produced ~1.3 Mbps, which is still enormous for a 720p output.
         val settings = PresetDefaults.videoSettingsFor(CompressionPreset.MAXIMUM_COMPRESSION)
         val target = VideoPlanner.targetVideoBitrate(uhd, settings, CompressionPreset.MAXIMUM_COMPRESSION)
         val (w, h) = VideoPlanner.outputDims(uhd, settings, CompressionPreset.MAXIMUM_COMPRESSION)
-        val ceiling = (w.toLong() * h * VideoPlanner.resolvedFps(settings, uhd) *
-            PresetDefaults.videoDefaults[CompressionPreset.MAXIMUM_COMPRESSION]!!.bpp).toInt()
+        val bpp = PresetDefaults.videoDefaults[CompressionPreset.MAXIMUM_COMPRESSION]!!.bpp
+        val ceiling = VideoPlanner.qualityTarget(
+            w.toLong() * h,
+            VideoPlanner.resolvedFps(settings, uhd),
+            bpp
+        )
         assertTrue("target $target should sit at the ceiling $ceiling", target <= ceiling)
-        assertTrue("target $target is not aggressive enough", target < 1_000_000)
+        assertTrue("target $target is not aggressive enough", target < 800_000)
     }
 
     @Test
@@ -577,7 +620,7 @@ class VideoPlannerTest {
         // MAXIMUM_COMPRESSION asks for 30 fps; a 24 fps film cannot supply it.
         val film = fhd60Portrait.copy(frameRate = 24)
         val settings = PresetDefaults.videoSettingsFor(CompressionPreset.MAXIMUM_COMPRESSION)
-        assertEquals(30, settings.frameRate)
+        assertEquals(24, settings.frameRate)
         assertEquals(24, VideoPlanner.resolvedFps(settings, film))
         assertFalse("and no frames are dropped", VideoPlanner.dropsFrames(settings, film))
     }

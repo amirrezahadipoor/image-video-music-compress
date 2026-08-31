@@ -57,6 +57,7 @@ import coil.compose.AsyncImage
 import com.compressly.CompresslyApp
 import ir.siliksama.hajmino.R
 import com.compressly.core.engine.model.AudioFormat
+import com.compressly.core.engine.model.CompressionPreset
 import com.compressly.core.engine.model.MediaType
 import com.compressly.core.engine.model.PhotoFormat
 import com.compressly.core.engine.model.PhotoResize
@@ -210,10 +211,41 @@ fun CompressionSettingsScreen(
 
                 // ---- Compression level ----
                 SectionHeader(stringResource(R.string.settings_preset_section))
+                if (state.analyzing) {
+                    Text(
+                        text = stringResource(R.string.analysis_working),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                } else {
+                    state.recommended?.let { rec ->
+                        val recTitle = stringResource(
+                            when (rec) {
+                                CompressionPreset.MAXIMUM_QUALITY -> R.string.preset_max_quality
+                                CompressionPreset.BALANCED -> R.string.preset_balanced
+                                CompressionPreset.HIGH_COMPRESSION -> R.string.preset_high_compression
+                                CompressionPreset.MAXIMUM_COMPRESSION -> R.string.preset_max_compression
+                                CompressionPreset.SMART -> R.string.preset_smart
+                            }
+                        )
+                        Text(
+                            text = stringResource(R.string.analysis_banner, recTitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+                }
                 PresetPicker(
-                    selected = state.preset,
+                    selected = if (state.preset == CompressionPreset.SMART)
+                        state.recommended ?: CompressionPreset.BALANCED
+                    else state.preset,
                     onSelect = viewModel::selectPreset,
-                    mediaType = mediaType
+                    originalSize = state.originalSize,
+                    estimates = state.gradeEstimates,
+                    recommended = state.recommended,
+                    analyzing = state.analyzing
                 )
 
                 Spacer(Modifier.height(20.dp))

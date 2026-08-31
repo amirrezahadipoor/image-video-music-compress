@@ -403,15 +403,25 @@ object VideoPlanner {
      * overshoot, clamped so one wild pass cannot collapse the next one into
      * unwatchable quality.
      */
-    fun correctedBitrate(targetBitrate: Int, actualBytes: Long, durationMs: Long): Int? {
+    fun correctedBitrate(targetBitrate: Int, actualBytes: Long, durationMs: Long): Int? =
+        correctedBitrate(targetBitrate, actualBytes, durationMs, aggressive = false)
+
+    fun correctedBitrate(
+        targetBitrate: Int,
+        actualBytes: Long,
+        durationMs: Long,
+        aggressive: Boolean
+    ): Int? {
         if (targetBitrate <= 0) return null
         if (durationMs < MIN_CORRECTABLE_DURATION_MS) return null
         if (actualBytes < MIN_CORRECTABLE_BYTES) return null
         val actual = measuredBitrate(actualBytes, durationMs)
         if (actual <= 0) return null
-        if (actual <= (targetBitrate * OVERSHOOT_TOLERANCE).toLong()) return null
+        val tolerance = if (aggressive) 1.06 else OVERSHOOT_TOLERANCE
+        if (actual <= (targetBitrate * tolerance).toLong()) return null
         val corrected = (targetBitrate.toLong() * targetBitrate / actual).toInt()
-        val floor = (targetBitrate * MIN_CORRECTION_RATIO).toInt()
+        val minRatio = if (aggressive) 0.32 else MIN_CORRECTION_RATIO
+        val floor = (targetBitrate * minRatio).toInt()
         return corrected.coerceAtLeast(floor).coerceIn(MIN_BITRATE, MAX_BITRATE)
     }
 
@@ -430,7 +440,14 @@ object VideoPlanner {
         /** Whether frames must be dropped to reach [fps]. */
         val dropFrames: Boolean,
         /** Seconds between key frames. */
-        val iFrameInterval: Int
+        val iFrameInterval: Int,
+        /**
+         * Aggressive tiers ask the encoder for CBR so KEY_BIT_RATE is a
+         * budget, not a VBR hint the SoC is free to ignore.
+         */
+        val preferCbr: Boolean = false,
+        /** Tighter overshoot tolerance + deeper correction floor. */
+        val aggressiveCorrection: Boolean = false
     )
 
     /**
@@ -442,13 +459,17 @@ object VideoPlanner {
         val (w, h) = outputDims(info, settings, preset)
         val bitrate = targetVideoBitrate(info, settings, preset)
         val fps = resolvedFps(settings, info)
+        val aggressive = preset == CompressionPreset.MAXIMUM_COMPRESSION ||
+            preset == CompressionPreset.HIGH_COMPRESSION
         return Plan(
             width = w,
             height = h,
             bitrate = bitrate,
             fps = fps,
             dropFrames = dropsFrames(settings, info),
-            iFrameInterval = iFrameIntervalSeconds(bitrate, w, h)
+            iFrameInterval = iFrameIntervalSeconds(bitrate, w, h),
+            preferCbr = aggressive,
+            aggressiveCorrection = preset == CompressionPreset.MAXIMUM_COMPRESSION
         )
     }
 
