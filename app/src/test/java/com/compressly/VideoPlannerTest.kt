@@ -338,6 +338,23 @@ class VideoPlannerTest {
     // ---- key frames -------------------------------------------------------
 
     @Test
+    fun keyFrameIntervalAccountsForTheRealFrameRate() {
+        // FIX: a 60 fps clip at 4 Mbps gives every frame half the bits a 30 fps
+        // clip does, so its GOP must widen exactly like a halved bitrate.
+        assertEquals(
+            VideoPlanner.iFrameIntervalSeconds(2_000_000, 1920, 1080),
+            VideoPlanner.iFrameIntervalSeconds(4_000_000, 1920, 1080, fps = 60)
+        )
+    }
+
+    fun keyFrameIntervalNeverShrinksWithFrameRate() {
+        // More frames per second must never select a SHORTER GOP at the same
+        // bitrate (the old fixed-30 budget did exactly that at 60 fps).
+        val at30 = VideoPlanner.iFrameIntervalSeconds(1_500_000, 1280, 720, fps = 30)
+        val at60 = VideoPlanner.iFrameIntervalSeconds(1_500_000, 1280, 720, fps = 60)
+        assertTrue("at60 ($at60) should be >= at30 ($at30)", at60 >= at30)
+    }
+
     fun keyFrameIntervalWidensAtVeryLowBitrates() {
         assertTrue(VideoPlanner.iFrameIntervalSeconds(250_000, 1280, 720) >= 4)
         assertEquals(2, VideoPlanner.iFrameIntervalSeconds(5_000_000, 1920, 1080))

@@ -35,6 +35,16 @@ object ComplexityAnalyzer {
     /** Number of samples: 7 keeps the probe under ~0.5 s on mid-range phones. */
     private const val SAMPLES = 7
 
+    /**
+     * Clips shorter than this are sampled with OPTION_CLOSEST instead of
+     * OPTION_CLOSEST_SYNC. MEDIA-FIX: on many devices OPTION_CLOSEST_SYNC snaps
+     * every probe to the same keyframe when the sample spacing is below the
+     * GOP length — identical frames then produce a motion of ~0 and a still
+     * clip, no matter how much it actually moves. Decoding straight to the
+     * requested time is only a few extra frames per probe for clips this short.
+     */
+    private const val SHORT_CLIP_SYNC_MS = 15_000L
+
     fun analyze(context: Context, uri: Uri, durationMs: Long, cancelCheck: (() -> Boolean)? = null): Result? {
         if (durationMs < MIN_DURATION_MS) return null
         val retriever = MediaMetadataRetriever()
@@ -48,7 +58,7 @@ object ComplexityAnalyzer {
             for (i in 0 until SAMPLES) {
                 cancelCheck?.let { if (it()) return null }
                 val timeUs = (durationMs * (2 * i + 1) / (2 * SAMPLES)) * 1000L
-                val frame = grabScaled(retriever, timeUs) ?: continue
+                val frame = grabScaled(retriever, timeUs, durationMs) ?: continue
                 try {
                     val luma = IntArray(frame.width * frame.height)
                     val argb = IntArray(frame.width * frame.height)
@@ -57,7 +67,15 @@ object ComplexityAnalyzer {
 
                     detailSamples += ComplexityMath.detailOf(luma)
                     colorSamples += ComplexityMath.colorOf(argb)
-                    prevLuma?.let { motionSamples += ComplexityMath.motionOf(it, luma) }
+                    // MOTION-FIX: a probe that returned the *same* frame as the
+                    // previous one carries no motion information — counting it
+                    // as a 0-difference pair drags a real pan down to "static".
+                    // Skip the pair; a genuinely frozen shot then has no pairs
+                    // at all and scores 0, which is the honest answer anyway.
+                    val prev = prevLuma
+                    if (prev != null && !prev.contentEquals(luma)) {
+                        motionSamples += ComplexityMath.motionOf(prev, luma)
+                    }
                     prevLuma = luma
                 } finally {
                     frame.recycle()
@@ -67,7 +85,10 @@ object ComplexityAnalyzer {
 
             val detail = ComplexityMath.median(detailSamples)
             val color = ComplexityMath.median(colorSamples)
-            val motion = if (motionSamples.isEmpty()) 0f else ComplexityMath.median(motionSamples)
+            // Median + max blend (motionScore): median keeps the statistic
+            // robust, max makes sure a single fast section is never priced as
+            // a still shot.
+            val motion = ComplexityMath.motionScore(motionSamples)
             Result(
                 complexity = ComplexityMath.score(detail, motion, color),
                 motion = motion,
@@ -83,19 +104,19 @@ object ComplexityAnalyzer {
     }
 
     /** One frame at [timeUs], already scaled down to [TARGET_EDGE]. */
-    private fun grabScaled(retriever: MediaMetadataRetriever, timeUs: Long): Bitmap? = runCatching {
+    private fun grabScaled(retriever: MediaMetadataRetriever, timeUs: Long, durationMs: Long): Bitmap? = runCatching {
+        val option = if (durationMs < SHORT_CLIP_SYNC_MS)
+            MediaMetadataRetriever.OPTION_CLOSEST
+        else
+            MediaMetadataRetriever.OPTION_CLOSEST_SYNC
         if (android.os.Build.VERSION.SDK_INT >= 27) {
             // getScaledFrameAtTime decodes straight to the target size; the
             // hardware decoder does the scaling, so a 4K frame never materialises.
-            retriever.getScaledFrameAtTime(
-                timeUs,
-                MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
-                TARGET_EDGE, TARGET_EDGE
-            )
+            retriever.getScaledFrameAtTime(timeUs, option, TARGET_EDGE, TARGET_EDGE)
         } else {
             // API 26: full frame then downscale. Only 7 frames, released
             // immediately; guarded by the outer runCatching against OOM.
-            val full = retriever.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC) ?: return@runCatching null
+            val full = retriever.getFrameAtTime(timeUs, option) ?: return@runCatching null
             val scale = minOf(
                 TARGET_EDGE.toFloat() / full.width,
                 TARGET_EDGE.toFloat() / full.height,

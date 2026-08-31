@@ -151,7 +151,7 @@ class MediaCodecTranscoder(private val context: Context) {
                     // lower one, and short GOPs are exactly what eats the budget.
                     plan = plan.copy(
                         bitrate = correction,
-                        iFrameInterval = VideoPlanner.iFrameIntervalSeconds(correction, plan.width, plan.height)
+                        iFrameInterval = VideoPlanner.iFrameIntervalSeconds(correction, plan.width, plan.height, plan.fps)
                     ),
                     rotation = rotation,
                     trimStartUs = trimStartUs,

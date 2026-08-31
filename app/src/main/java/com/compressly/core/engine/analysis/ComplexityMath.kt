@@ -128,4 +128,20 @@ object ComplexityMath {
         return if (sorted.size % 2 == 1) sorted[mid]
         else (sorted[mid - 1] + sorted[mid]) / 2f
     }
+
+    /**
+     * Motion statistic that prices a clip by what it actually contains.
+     *
+     * A pure median hides the short hard stretches — a 3-minute talking head
+     * with one 4-second fast pan needs the bits for that pan, not for the
+     * average frame. A pure max is the opposite failure: one corrupt probe
+     * would price the whole clip as action. With only a handful of probe
+     * pairs, the honest middle is an even blend of the two: the median keeps
+     * it robust, the max makes sure a single fast section is never silently
+     * compressed at talking-head rates (bounded by the source-share brake
+     * upstream, so even a wild value cannot inflate a file).
+     */
+    fun motionScore(pairs: List<Float>): Float =
+        if (pairs.isEmpty()) 0f
+        else 0.5f * median(pairs) + 0.5f * (pairs.maxOrNull() ?: 0f)
 }

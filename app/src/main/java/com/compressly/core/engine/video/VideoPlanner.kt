@@ -578,7 +578,7 @@ object VideoPlanner {
             bitrate = bitrate,
             fps = fps,
             dropFrames = dropsFrames(settings, info),
-            iFrameInterval = iFrameIntervalSeconds(bitrate, w, h),
+            iFrameInterval = iFrameIntervalSeconds(bitrate, w, h, fps),
             preferCbr = aggressive,
             aggressiveCorrection = preset == CompressionPreset.MAXIMUM_COMPRESSION
         )
@@ -653,10 +653,17 @@ object VideoPlanner {
      * very low bitrate lets single I-frames eat the whole budget, which is why
      * aggressive tiers used to overshoot their size and look blocky.
      */
-    fun iFrameIntervalSeconds(targetBitrate: Int, width: Int, height: Int): Int {
+    fun iFrameIntervalSeconds(targetBitrate: Int, width: Int, height: Int): Int =
+        iFrameIntervalSeconds(targetBitrate, width, height, fps = 30)
+
+    fun iFrameIntervalSeconds(targetBitrate: Int, width: Int, height: Int, fps: Int): Int {
         val pixels = (width.toLong() * height).coerceAtLeast(1)
-        // Roughly "how many bits does one frame get".
-        val bitsPerFrame = targetBitrate.toDouble() / 30.0
+        val rate = fps.coerceIn(1, 240)
+        // Roughly "how many bits does one frame get" — at the REAL rate the
+        // encoder is driven at. FIX: a fixed 30 fps here budgeted 60 fps
+        // footage as if each frame were twice as fat, so 1080p60 always chose
+        // a 2 s GOP even at rates where a 4 s one was the honest fit.
+        val bitsPerFrame = targetBitrate.toDouble() / rate
         return when {
             bitsPerFrame / pixels < 0.02 -> 5
             bitsPerFrame / pixels < 0.04 -> 4

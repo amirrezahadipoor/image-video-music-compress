@@ -97,4 +97,26 @@ class ComplexityMathTest {
         assertEquals(4f, ComplexityMath.median(listOf(1f, 3f, 5f, 7f)), 0.001f)
         assertEquals(0f, ComplexityMath.median(emptyList()), 0.001f)
     }
+
+    @Test
+    fun motionScore_singleHardStretchIsNotHidden() {
+        // A 3-minute clip with one fast pan: the median (0.05) would price the
+        // whole clip as a still shot, but the blend still sees the pan.
+        val pairs = listOf(0.04f, 0.05f, 0.05f, 0.06f, 0.05f, 0.62f)
+        val med = ComplexityMath.median(pairs)
+        val scored = ComplexityMath.motionScore(pairs)
+        assertTrue("motionScore ($scored) must exceed the median ($med)", scored > med)
+        // Exactly the documented blend: 0.5*0.05 + 0.5*0.62.
+        assertEquals(0.5f * 0.05f + 0.5f * 0.62f, scored, 0.001f)
+    }
+
+    @Test
+    fun motionScore_isRobustAndEmptySafe() {
+        assertEquals(0f, ComplexityMath.motionScore(emptyList()), 0f)
+        assertEquals(0f, ComplexityMath.motionScore(listOf(0f, 0f, 0f)), 0f)
+        // A fully static clip scores 0 even when one pair is missing — no pair
+        // at all means nothing moved, which is the honest answer for a frozen
+        // shot, not a compression failure.
+        assertEquals(0f, ComplexityMath.motionScore(listOf(0f, 0.02f, 0f)), 0.02f)
+    }
 }
