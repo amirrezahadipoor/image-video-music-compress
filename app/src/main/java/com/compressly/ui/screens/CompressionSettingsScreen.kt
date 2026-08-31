@@ -70,6 +70,7 @@ import com.compressly.core.util.SoundEffects
 import com.compressly.ui.components.ChipSelector
 import com.compressly.ui.components.GradientSummaryBar
 import com.compressly.ui.components.InfoRow
+import com.compressly.ui.components.SmartAnalysisCard
 import com.compressly.ui.components.PresetPicker
 import com.compressly.ui.components.SectionHeader
 import com.compressly.ui.components.ShimmerBox
@@ -207,6 +208,14 @@ fun CompressionSettingsScreen(
                 } else if (mediaType == MediaType.PHOTO) {
                     MultiPhotoThumb(state.items.firstOrNull()?.uri)
                     Spacer(Modifier.height(20.dp))
+                }
+
+                // ---- Smart content analysis (video) ----
+                if (mediaType == MediaType.VIDEO) {
+                    state.info?.takeIf { it.hasComplexity }?.let { info ->
+                        SmartAnalysisCard(info = info, video = state.video)
+                        Spacer(Modifier.height(20.dp))
+                    }
                 }
 
                 // ---- Compression level ----

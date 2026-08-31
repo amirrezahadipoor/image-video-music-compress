@@ -69,6 +69,14 @@
     <string name="preset_no_gain">No saving</string>
     <string name="preset_picker_hint">You can pick a stronger grade. Numbers are for this file.</string>
     <string name="preset_max_compression_desc">Smallest file</string>
+    <string name="analysis_content_title">Smart content analysis</string>
+    <string name="analysis_content_motion">Motion</string>
+    <string name="analysis_content_detail">Detail</string>
+    <string name="analysis_content_color">Colour</string>
+    <string name="analysis_content_static">Static</string>
+    <string name="analysis_content_gentle">Typical</string>
+    <string name="analysis_content_dynamic">Fast motion</string>
+    <string name="analysis_smart_resolution">Smart picked {0} to protect quality (source {1})</string>
     <string name="analysis_banner">Suggested for this file: %1$s</string>
     <string name="analysis_working">Analysing the file…</string>
 

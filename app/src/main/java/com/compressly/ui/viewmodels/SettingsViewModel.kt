@@ -28,6 +28,7 @@ import com.compressly.core.engine.photo.PhotoCompressor
 import com.compressly.core.engine.video.CodecSupport
 import com.compressly.core.util.Storage
 import com.compressly.core.util.Uris
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -129,8 +130,16 @@ class SettingsViewModel(private val container: AppContainer, private val context
                     h265Available = CodecSupport.hasEncoder("video/hevc")
                 )
             }
-            applyAnalysis(info, originalSize, first.uri)
-            refreshEstimate()
+            // ANALYSIS-FIX: videos get a content probe before the numbers are
+            // promised. The enriched MediaInfo feeds both the grade advice and
+            // the live estimate, so the Smart budget shown to the user is the
+            // one the encoder will really use.
+            if (s.mediaType == MediaType.VIDEO && info?.hasVideo == true && info.durationMs > 0) {
+                analyseContent(first.uri, info, originalSize)
+            } else {
+                applyAnalysis(info, originalSize, first.uri)
+                refreshEstimate()
+            }
             if (s.mediaType == MediaType.AUDIO) {
                 runCatching { WaveformSampler.samplePeaks(context, first.uri) }
                     .getOrDefault(emptyList())
@@ -141,6 +150,31 @@ class SettingsViewModel(private val container: AppContainer, private val context
             if (s.mediaType == MediaType.PHOTO && s.items.size == 1) {
                 regeneratePreview()
             }
+        }
+    }
+
+    /**
+     * Runs the content probe for a video and folds the measurement into the
+     * same [MediaInfo] the estimate is computed from. Non-fatal: any failure
+     * leaves the neutral path in place.
+     */
+    private fun analyseContent(uri: Uri, base: MediaInfo, originalSize: Long) {
+        viewModelScope.launch(Dispatchers.Default) {
+            val analysed = runCatching {
+                com.compressly.core.engine.analysis.ComplexityAnalyzer.analyze(
+                    context, uri, base.durationMs
+                )
+            }.getOrNull()
+            val enriched = if (analysed != null) base.copy(
+                complexity = analysed.complexity,
+                motion = analysed.motion,
+                detail = analysed.detail,
+                color = analysed.color
+            ) else base
+            firstInfo = enriched
+            _state.update { it.copy(info = enriched) }
+            applyAnalysis(enriched, originalSize, uri)
+            refreshEstimate()
         }
     }
 

@@ -41,6 +41,29 @@ class Compressor(private val context: Context) {
                 ?: com.compressly.core.engine.model.MediaInfo(hasVideo = fallbackHasVideo)
         }
 
+    /**
+     * ANALYSIS-FIX: the same MediaInfo the encoder plans from must also carry
+     * the measured content complexity, or the live estimate and the encoded
+     * result would disagree. Runs once per video file (cached above), costs a
+     * few hundred ms off the main thread, and silently degrades to "unknown"
+     * — the planner then uses the neutral path.
+     */
+    private fun analysedInfoOf(uri: Uri, fallbackHasVideo: Boolean): com.compressly.core.engine.model.MediaInfo {
+        val cached = infoCache[uri.toString()]
+        if (cached != null && (cached.hasComplexity || !cached.hasVideo)) return cached
+        val base = mediaInfoOf(uri, fallbackHasVideo)
+        if (!base.hasVideo || base.durationMs <= 0) return base
+        val analysis = com.compressly.core.engine.analysis.ComplexityAnalyzer.analyze(
+            context, uri, base.durationMs
+        ) ?: return base
+        return base.copy(
+            complexity = analysis.complexity,
+            motion = analysis.motion,
+            detail = analysis.detail,
+            color = analysis.color
+        ).also { infoCache[uri.toString()] = it }
+    }
+
     suspend fun compressItem(
         jobId: Long,
         item: InputItem,
@@ -144,7 +167,9 @@ class Compressor(private val context: Context) {
         control: JobControl,
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
-        val info = mediaInfoOf(item.uri, fallbackHasVideo = true)
+        // ANALYSIS-FIX: content-aware planning — the MediaInfo carries the
+        // measured complexity so Smart prices THIS clip, not "an average clip".
+        val info = analysedInfoOf(item.uri, fallbackHasVideo = true)
         // Nothing is being changed about the video AND re-encoding would not
         // shrink it: hand the original file straight back instead of spending a
         // decode+encode pass (and a generation of quality) for nothing.

@@ -47,6 +47,24 @@ object VideoPlanner {
     const val SMART_MAX_EDGE = 1920
 
     /**
+     * Smart resolution ladder, best first. Longer edges are offered when the
+     * bits-per-pixel budget says the content can actually afford them, so a
+     * clean slow 4K clip stays 4K while a noisy 4K pan gets 1080p — the same
+     * perceptual floor at the resolution the bitrate deserves.
+     */
+    val SMART_EDGE_LADDER = intArrayOf(1920, 1280, 854)
+
+    /**
+     * Perceptual floor for "Smart stays above ~70 %": the smallest
+     * bits-per-pixel it will accept (H.264 measured against typical phone
+     * encodes; HEVC needs ~55 % of that). Below this, blocking is visible
+     * before the size target is reached — this is what pushes Smart down a
+     * resolution step instead.
+     */
+    const val WATCHABLE_BPP_H264 = 0.045
+    const val WATCHABLE_BPP_H265 = 0.026
+
+    /**
      * The lowest rate Smart will aim for on its own initiative. Higher than
      * [MIN_BITRATE] on purpose: 250 kbps is what the hardware encoder can
      * tolerate, 500 kbps is what Smart considers watchable. The source cap can
@@ -168,6 +186,19 @@ object VideoPlanner {
                 capH = minOf(capH, h)
             }
         }
+        // SMART-RES-FIX: the smart edge above is only the hard ceiling. When the
+        // complexity budget says the content cannot afford that resolution,
+        // Smart steps DOWN the ladder on its own — that is the whole promise:
+        // the strongest compression that keeps perceptual quality above ~70 %.
+        if (preset == CompressionPreset.SMART && settings.resolution == VideoResolution.ORIGINAL) {
+            val chosenEdge = smartResolutionEdge(info, settings)
+            val displayEdge = maxOf(displayW, displayH)
+            if (displayEdge > chosenEdge) {
+                val (w, h) = longEdgeCap(chosenEdge, displayW, displayH)
+                capW = minOf(capW, w)
+                capH = minOf(capH, h)
+            }
+        }
 
         val scale = minOf(1.0, capW.toDouble() / displayW, capH.toDouble() / displayH)
         // roundToInt, not toInt: a 1080->720 scale is 0.6666666666666666 in
@@ -226,7 +257,15 @@ object VideoPlanner {
             // have the brake, came out smaller. That inversion is what made the
             // default mode weaker than the tier below it.
             val share = source * (PresetDefaults.videoDefaults[preset]?.bitrateFactor ?: 0.55)
-            minOf(smartBitrate(outW, outH, fps, settings.codec), share.toInt())
+            // ANALYSIS-FIX: the base bpp is a content-neutral quality anchor.
+            // Real footage is not content-neutral — a fast pan needs more bits
+            // than a talking head at the same perceived quality — so the Smart
+            // target is scaled by the measured complexity of THIS file. Still
+            // capped by the source share: analysis can never inflate a file.
+            val analysed = smartBitrate(
+                outW, outH, fps, settings.codec, info.complexity
+            )
+            minOf(analysed, share.toInt())
         } else {
             tierBitrate(info, settings, preset, outW, outH, source)
         }
@@ -239,12 +278,75 @@ object VideoPlanner {
      * Quality-aware Smart target: bits per pixel per frame, priced against the
      * resolution and frame rate the encoder will really write.
      */
-    fun smartBitrate(width: Int, height: Int, fps: Int, codec: VideoCodec): Int {
+    fun smartBitrate(width: Int, height: Int, fps: Int, codec: VideoCodec): Int =
+        smartBitrate(width, height, fps, codec, complexity = -1f)
+
+    /**
+     * Content-aware Smart target. [complexity] is the measured 0..1 score of
+     * THIS file (from ComplexityAnalyzer); -1 means "not analysed" and behaves
+     * exactly like the plain [smartBitrate] — analysis is purely additive.
+     */
+    fun smartBitrate(width: Int, height: Int, fps: Int, codec: VideoCodec, complexity: Float): Int {
         if (width <= 0 || height <= 0) return 4_000_000
         val bpp = PresetDefaults.videoDefaults[CompressionPreset.SMART]?.bpp ?: 0.062
-        var bitrate = qualityTarget(width.toLong() * height, fps, bpp)
+        val complexityFactor = if (complexity >= 0f)
+            com.compressly.core.engine.analysis.ComplexityMath.bitrateFactor(complexity)
+        else 1f
+        var bitrate = (qualityTarget(width.toLong() * height, fps, bpp) * complexityFactor).toInt()
         if (codec == VideoCodec.H265) bitrate = (bitrate * H265_EFFICIENCY).toInt()
         return bitrate.coerceIn(SMART_MIN_BITRATE, 16_000_000)
+    }
+
+    /**
+     * The long edge Smart actually encodes at, when the user left resolution
+     * on ORIGINAL.
+     *
+     * Decision: for each rung of the ladder, how many bits would the encoder
+     * really get there (Smart bpp budget × measured complexity, capped by the
+     * source-share brake), versus how many bits that resolution needs to stay
+     * above the watchable bpp floor. The largest rung whose budget covers its
+     * floor is used. Result:
+     *
+     *  - a slow, carefully-shot 4K clip stays 4K-capable at 1920 (it can pay
+     *    the 1080p floor easily) — exactly the old fixed cap;
+     *  - a noisy, heavy-motion 4K clip whose source is only 12 Mbps gets 720p
+     *    or 480p, because paying 2.8 Mbps for 1080p would demolish the budget
+     *    and produce blocks — the old code kept 1080p and made it blocky;
+     *  - un-analysed files take the complexity-neutral path and behave exactly
+     *    like the old fixed 1920 cap.
+     */
+    fun smartResolutionEdge(info: MediaInfo, settings: VideoSettings): Int {
+        val displayEdge = maxOf(info.effectiveWidth, info.effectiveHeight)
+        if (displayEdge <= SMART_MAX_EDGE) return SMART_MAX_EDGE
+        val fps = (settings.frameRate ?: info.frameRate.takeIf { it > 0 } ?: 30).coerceIn(1, 240)
+        val displayW = info.effectiveWidth
+        val displayH = info.effectiveHeight
+        val floor = if (settings.codec == VideoCodec.H265) WATCHABLE_BPP_H265 else WATCHABLE_BPP_H264
+        // The same source-share brake targetVideoBitrate applies afterwards.
+        val sourceShare = effectiveSourceBitrate(info) * 0.55
+
+        for (edge in SMART_EDGE_LADDER) {
+            val (w, h) = dimsAtLongEdge(edge, displayW, displayH)
+            val pixels = w.toLong() * h
+            // What the encoder will really be told at this rung.
+            val affordable = minOf(
+                smartBitrate(w, h, fps, settings.codec, info.complexity),
+                sourceShare.toInt()
+            )
+            // What this resolution needs to stay above the watchable floor.
+            val needed = qualityTarget(pixels, fps, floor)
+            if (affordable >= needed) return edge
+        }
+        return SMART_EDGE_LADDER.last()
+    }
+
+    /** Scales stored-orientation dimensions down to a given long edge (aspect kept). */
+    private fun dimsAtLongEdge(edge: Int, displayW: Int, displayH: Int): Pair<Int, Int> {
+        val long = maxOf(displayW, displayH).coerceAtLeast(1)
+        val scale = edge.toDouble() / long
+        val w = ((displayW * scale).roundToInt() - ((displayW * scale).roundToInt() % 16)).coerceAtLeast(16)
+        val h = ((displayH * scale).roundToInt() - ((displayH * scale).roundToInt() % 16)).coerceAtLeast(16)
+        return w to h
     }
 
     /** H.265 needs roughly this share of the H.264 bits for the same quality. */

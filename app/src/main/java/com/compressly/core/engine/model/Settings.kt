@@ -25,8 +25,8 @@ data class PhotoSettings(
     val resize: PhotoResize = PhotoResize.NONE,
     val customMaxWidth: Int = 1600,
     val preserveMetadata: Boolean = true,
-    /** Smart mode: the engine adaptively drops quality (85 -> 65) until the
-     *  size target is met, never below ~70% perceptual quality. */
+    /** Smart mode: the engine adaptively drops quality (85 → 78 → 72) until
+     *  the size target is met, never below ~70% perceptual quality. */
     val smart: Boolean = false
 )
 

@@ -23,7 +23,9 @@ object PresetDefaults {
         CompressionPreset.BALANCED to PhotoDefaults(82, PhotoResize.NONE, 0, 35, 60),
         CompressionPreset.HIGH_COMPRESSION to PhotoDefaults(62, PhotoResize.R1920, 0, 65, 80),
         CompressionPreset.MAXIMUM_COMPRESSION to PhotoDefaults(40, PhotoResize.R1280, 0, 82, 92),
-        // Smart: adaptive quality 85->65 with a 1920 cap for large images.
+        // Smart: adaptive quality 85 → 78 → 72 (never below 72) with a 1920
+        // cap for large images — the engine promised "quality above 70%" and
+        // the old ladder down to 65 silently broke it.
         CompressionPreset.SMART to PhotoDefaults(85, PhotoResize.R1920, 0, 30, 85)
     )
 

@@ -69,6 +69,14 @@
     <string name="preset_no_gain">بدون کاهش</string>
     <string name="preset_picker_hint">می‌توانید درجهٔ قوی‌تری انتخاب کنید. اعداد، تخمین همین فایل هستند.</string>
     <string name="preset_max_compression_desc">کمترین حجم</string>
+    <string name="analysis_content_title">تحلیل هوشمند محتوا</string>
+    <string name="analysis_content_motion">حرکت</string>
+    <string name="analysis_content_detail">جزئیات</string>
+    <string name="analysis_content_color">رنگ</string>
+    <string name="analysis_content_static">آرام</string>
+    <string name="analysis_content_gentle">معمولی</string>
+    <string name="analysis_content_dynamic">پرتحرک</string>
+    <string name="analysis_smart_resolution">هوشمند، خروجی {0} را برای حفظ کیفیت انتخاب کرد (منبع {1})</string>
     <string name="analysis_banner">پیشنهاد برای این فایل: %1$s</string>
     <string name="analysis_working">در حال بررسی فایل…</string>
 

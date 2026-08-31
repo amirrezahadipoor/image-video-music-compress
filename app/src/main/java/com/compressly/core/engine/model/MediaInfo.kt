@@ -23,10 +23,22 @@ data class MediaInfo(
     val audioChannels: Int = 0,
     val title: String? = null,
     val artist: String? = null,
-    val album: String? = null
+    val album: String? = null,
+    /**
+     * Content analysis (0..1): how expensive this footage is to compress well.
+     * Together with [motion]/[detail]/[color], filled by ComplexityAnalyzer.
+     * -1 means "not analysed" — every planner/heuristic falls back to the
+     * neutral 0.5 behaviour, so analysis is purely additive.
+     */
+    val complexity: Float = -1f,
+    val motion: Float = -1f,
+    val detail: Float = -1f,
+    val color: Float = -1f
 ) {
     val effectiveWidth: Int get() = if (rotation == 90 || rotation == 270) height else width
     val effectiveHeight: Int get() = if (rotation == 90 || rotation == 270) width else height
+
+    val hasComplexity: Boolean get() = complexity >= 0f
 }
 
 /** Tags plus embedded cover art, for audio metadata preservation. */

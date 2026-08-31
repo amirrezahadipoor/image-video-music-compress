@@ -106,6 +106,21 @@ object GradeAdvisor {
         if (longEdge >= 1280 && bps >= 8_000_000 && highSav >= 0.30) {
             return CompressionPreset.HIGH_COMPRESSION
         }
+        // ANALYSIS-FIX: the recommendation knows what the footage is. Static
+        // footage (a lecture, a screen recording) survives aggressive grades
+        // with almost no visible loss, so High is a good deal; fast action
+        // shows artifacts much earlier, so the advice holds at Balanced even
+        // when High would save a lot. Content-aware, not one-size-fits-all.
+        if (info.complexity >= 0f) {
+            val dynamic = info.complexity >= 0.70f
+            val static = info.complexity <= 0.15f
+            if (static && highSav >= 0.30 && highSav - balSav >= 0.10) {
+                return CompressionPreset.HIGH_COMPRESSION
+            }
+            if (dynamic && balSav >= 0.18) {
+                return CompressionPreset.BALANCED
+            }
+        }
         if (highSav >= 0.45 && highSav - balSav >= 0.12) {
             return CompressionPreset.HIGH_COMPRESSION
         }
