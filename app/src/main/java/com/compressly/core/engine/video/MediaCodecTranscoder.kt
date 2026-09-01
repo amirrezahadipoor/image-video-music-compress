@@ -105,9 +105,14 @@ class MediaCodecTranscoder(private val context: Context) {
                 ?: throw VideoCompressionException(ERR_NO_VIDEO)
             File(outputPath).outputStream().use { out -> input.use { it.copyTo(out, 256 * 1024) } }
             onProgress(1f)
-            val copiedCodec =
-                if (plannedInfo.mimeType?.lowercase().contains("hevc") == true) "h265" else "h264"
-            return Stats(File(outputPath).length(), plannedInfo.durationMs, copiedCodec)
+            val isHevc = (plannedInfo.mimeType ?: "").contains("hevc", ignoreCase = true)
+            // Labeled (local) return: a plain `return` is prohibited inside a
+            // suspend lambda, but the value flows out as withContext's result.
+            return@withContext Stats(
+                File(outputPath).length(),
+                plannedInfo.durationMs,
+                if (isHevc) "h265" else "h264"
+            )
         }
         val outW = plan.width
         val outH = plan.height
