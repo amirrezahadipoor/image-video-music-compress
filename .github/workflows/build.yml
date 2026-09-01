@@ -140,15 +140,21 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: ./gradlew :app:connectedBazaarDebugAndroidTest --no-daemon
-  # ── Baseline Profile — measured on a real Android runtime ──────────────
-  # Generates app/src/main/generated/baselineProfiles/ on a Gradle-managed
-  # emulator (aosp, rootable) and uploads it as an artifact. Commit the
-  # uploaded profile to ship it: subsequent release builds then AOT-compile
-  # the startup path (Android 12+ applies it at install time; older devices
-  # via ProfileInstaller). Never blocks the Bazaar build above.
+  # ── Baseline Profile — generated and COMMITTED on a real Android runtime ──
+  # AUTO-COMMIT: when the measured profile differs from the committed one it
+  # is committed straight to main by the workflow bot, so the NEXT build ships
+  # it (no manual artifact downloading). The commit triggers a new run where
+  # the job finds no changes and exits quietly. Never blocks the Bazaar build
+  # below.
   baseline-profile:
-    name: Generate Baseline Profile (managed device)
+    name: Generate + commit Baseline Profile (managed device)
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 60
+    concurrency:
+      group: baseline-profile
+      cancel-in-progress: true
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -176,11 +182,16 @@ jobs:
           ./gradlew :app:generateBaselineProfile --no-daemon --stacktrace \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
 
-      - name: Upload generated Baseline Profile
-        uses: actions/upload-artifact@v6
-        if: always()
-        with:
-          name: baseline-profile
-          path: app/src/main/generated/baselineProfiles/
-          if-no-files-found: error
-
+      - name: Auto-commit the refreshed profile
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet --exit-code -- app/src/main/generated/; then
+            echo "profile unchanged — nothing to commit"
+          else
+            git add app/src/main/generated/
+            git commit -m "chore(perf): refresh measured Baseline Profile"
+            git push origin main
+            echo "refreshed profile committed and pushed"
+          fi
