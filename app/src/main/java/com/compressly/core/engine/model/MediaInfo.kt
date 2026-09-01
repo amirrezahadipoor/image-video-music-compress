@@ -33,7 +33,9 @@ data class MediaInfo(
     val complexity: Float = -1f,
     val motion: Float = -1f,
     val detail: Float = -1f,
-    val color: Float = -1f
+    val color: Float = -1f,
+    /** Scene changes found by the content probe (0 when not analysed). */
+    val sceneCuts: Int = 0
 ) {
     val effectiveWidth: Int get() = if (rotation == 90 || rotation == 270) height else width
     val effectiveHeight: Int get() = if (rotation == 90 || rotation == 270) width else height

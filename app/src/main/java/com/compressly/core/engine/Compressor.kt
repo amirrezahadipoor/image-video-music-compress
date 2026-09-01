@@ -60,7 +60,8 @@ class Compressor(private val context: Context) {
             complexity = analysis.complexity,
             motion = analysis.motion,
             detail = analysis.detail,
-            color = analysis.color
+            color = analysis.color,
+            sceneCuts = analysis.sceneCuts
         ).also { infoCache[uri.toString()] = it }
     }
 

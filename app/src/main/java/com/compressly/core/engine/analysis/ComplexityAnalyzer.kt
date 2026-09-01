@@ -26,8 +26,24 @@ object ComplexityAnalyzer {
         val complexity: Float,
         val motion: Float,
         val detail: Float,
-        val color: Float
+        val color: Float,
+        /** Consecutive sampled pairs that look like a scene change. */
+        val sceneCuts: Int = 0
     )
+
+    /**
+     * CACHE-FIX: the settings screen re-runs the 7-frame probe every time it
+     * is opened for the same file (and the job runner does too). The probe is
+     * cheap but not free — a few hundred ms of decoder work on a low-end
+     * phone, plus a visible delay before the estimate updates. The result is a
+     * pure function of the file, so keep a small TTL cache keyed by URI.
+     * 64 entries / 15 min is far more than a user needs; anything stale is
+     * simply recomputed. Never grows unbounded (cleared when full), and the
+     * check happens before any MediaMetadataRetriever work.
+     */
+    private val cache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Result>>()
+    private const val CACHE_TTL_MS = 15 * 60_000L
+    private const val CACHE_MAX = 64
 
     private const val TARGET_EDGE = 160
     private const val MIN_DURATION_MS = 300L
@@ -45,8 +61,17 @@ object ComplexityAnalyzer {
      */
     private const val SHORT_CLIP_SYNC_MS = 15_000L
 
+    /** Histogram distance above which two sampled frames count as a scene change. */
+    private const val CUT_DISTANCE = 0.30f
+
     fun analyze(context: Context, uri: Uri, durationMs: Long, cancelCheck: (() -> Boolean)? = null): Result? {
         if (durationMs < MIN_DURATION_MS) return null
+        // Cache hit: skip the decoder entirely (see CACHE-FIX above).
+        if (cancelCheck == null) {
+            cache[uri.toString()]?.let { (ts, result) ->
+                if (System.currentTimeMillis() - ts < CACHE_TTL_MS) return result
+            }
+        }
         val retriever = MediaMetadataRetriever()
         return try {
             retriever.setDataSource(context, uri)
@@ -54,6 +79,7 @@ object ComplexityAnalyzer {
             val colorSamples = ArrayList<Float>(SAMPLES)
             val motionSamples = ArrayList<Float>(SAMPLES)
             var prevLuma: IntArray? = null
+            var sceneCuts = 0
 
             for (i in 0 until SAMPLES) {
                 cancelCheck?.let { if (it()) return null }
@@ -75,6 +101,12 @@ object ComplexityAnalyzer {
                     val prev = prevLuma
                     if (prev != null && !prev.contentEquals(luma)) {
                         motionSamples += ComplexityMath.motionOf(prev, luma)
+                        // Scene-cut count: histogram distance between the two
+                        // sampled frames. Cheap (16 bins) and robust against a
+                        // pan, which motion alone cannot distinguish from a cut.
+                        if (ComplexityMath.histogramDistance(prev, luma) >= CUT_DISTANCE) {
+                            sceneCuts++
+                        }
                     }
                     prevLuma = luma
                 } finally {
@@ -90,11 +122,17 @@ object ComplexityAnalyzer {
             // a still shot.
             val motion = ComplexityMath.motionScore(motionSamples)
             Result(
-                complexity = ComplexityMath.score(detail, motion, color),
+                complexity = ComplexityMath.score(detail, motion, color, sceneCuts),
                 motion = motion,
                 detail = detail,
-                color = color
-            )
+                color = color,
+                sceneCuts = sceneCuts
+            ).also { result ->
+                if (cancelCheck == null) {
+                    if (cache.size >= CACHE_MAX) cache.clear()
+                    cache[uri.toString()] = System.currentTimeMillis() to result
+                }
+            }
         } catch (t: Throwable) {
             // Any probe failure is non-fatal by design.
             null

@@ -324,4 +324,8 @@
     <string name="support_card_copy">Copy card number</string>
     <string name="support_card_copied">Card number copied</string>
     <string name="support_note">This page is entirely optional; no feature depends on it.</string>
+    <plurals name="analysis_content_scenes">
+        <item quantity="one">%1$d scene change</item>
+        <item quantity="other">%1$d scene changes</item>
+    </plurals>
 </resources>

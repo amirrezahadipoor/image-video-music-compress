@@ -169,7 +169,8 @@ class SettingsViewModel(private val container: AppContainer, private val context
                 complexity = analysed.complexity,
                 motion = analysed.motion,
                 detail = analysed.detail,
-                color = analysed.color
+                color = analysed.color,
+                sceneCuts = analysed.sceneCuts
             ) else base
             firstInfo = enriched
             _state.update { it.copy(info = enriched) }

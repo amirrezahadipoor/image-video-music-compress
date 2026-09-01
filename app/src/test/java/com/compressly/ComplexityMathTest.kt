@@ -119,4 +119,48 @@ class ComplexityMathTest {
         // shot, not a compression failure.
         assertEquals(0f, ComplexityMath.motionScore(listOf(0f, 0.02f, 0f)), 0.02f)
     }
+
+    @Test
+    fun histogram_distanceSameSceneIsSmall() {
+        // Same content shifted slightly (a pan): histograms stay close.
+        val a = IntArray(200) { 40 + (it / 10) % 60 }
+        val b = IntArray(200) { 45 + (it / 10) % 60 }
+        assertTrue(ComplexityMath.histogramDistance(a, b) < 0.30f)
+        assertEquals(0f, ComplexityMath.histogramDistance(a, a.copyOf()), 0.001f)
+    }
+
+    @Test
+    fun histogram_distanceAcrossScenesIsLarge() {
+        // Two totally different scenes: almost no histogram overlap.
+        val dark = IntArray(400) { (it % 2) * 20 + 5 }
+        val bright = IntArray(400) { 200 + (it % 3) * 15 }
+        assertTrue(
+            "cut distance ${ComplexityMath.histogramDistance(dark, bright)} must be large",
+            ComplexityMath.histogramDistance(dark, bright) >= 0.60f
+        )
+    }
+
+    @Test
+    fun histogram_distanceEmptyIsZero() {
+        assertEquals(0f, ComplexityMath.histogramDistance(IntArray(0), IntArray(0)), 0f)
+    }
+
+    @Test
+    fun score_sceneCutsOnlyAdd() {
+        val flat = scoreNoCuts(0.10f, 0.05f, 0.15f)
+        assertTrue(flat >= 0f && flat <= 1f)
+        // 3-arg form is exactly the 4-arg form with zero cuts.
+        assertEquals(
+            ComplexityMath.score(0.10f, 0.05f, 0.15f),
+            ComplexityMath.score(0.10f, 0.05f, 0.15f, 0),
+            0.0001f
+        )
+        // More cuts never lower the score, and the boost caps at 4 cuts.
+        val two = ComplexityMath.score(0.10f, 0.05f, 0.15f, 2)
+        val nine = ComplexityMath.score(0.10f, 0.05f, 0.15f, 9)
+        assertTrue(two > flat)
+        assertEquals(nine, ComplexityMath.score(0.10f, 0.05f, 0.15f, 4), 0.0001f)
+    }
 }
+
+private fun scoreNoCuts(d: Float, m: Float, c: Float) = ComplexityMath.score(d, m, c)

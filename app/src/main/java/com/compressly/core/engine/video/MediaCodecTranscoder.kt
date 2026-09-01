@@ -168,7 +168,18 @@ class MediaCodecTranscoder(private val context: Context) {
             // 2. Audio: passthrough or transcode.
             var audioAlreadyTrimmed = false
             if (wantsAudio) {
-                val passthroughAac = settings.audioMode == VideoAudioMode.KEEP && audioMimeIs(inputUri, MIME_AAC)
+                // AUDIO-PASS: KEEP copies the file's own AAC track straight into
+                // the output — no decode/encode, no generation of loss. A
+                // COMPRESS request whose planned rate lands at/above the source
+                // (the planner caps it there) is the same honesty rule applied
+                // to video: re-encoding for nothing only adds loss, so the track
+                // is copied instead. Only a genuinely lower target re-encodes.
+                val plannedAudioRate = VideoPlanner.audioBitrateBps(plannedInfo, settings, preset)
+                val noGainCompress = settings.audioMode == VideoAudioMode.COMPRESS &&
+                    plannedInfo.audioBitrate > 0 &&
+                    plannedAudioRate >= (plannedInfo.audioBitrate * VideoPlanner.NO_GAIN_RATIO.toDouble()).toInt()
+                val passthroughAac = audioMimeIs(inputUri, MIME_AAC) &&
+                    (settings.audioMode == VideoAudioMode.KEEP || noGainCompress)
                 if (passthroughAac) {
                     tempAudioUri = inputUri // copy samples directly during merge
                 } else {

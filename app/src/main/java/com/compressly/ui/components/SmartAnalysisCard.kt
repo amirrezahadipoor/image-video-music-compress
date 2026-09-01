@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -88,6 +89,17 @@ fun SmartAnalysisCard(
                 label = stringResource(R.string.analysis_content_color),
                 value = info.color.coerceIn(0f, 1f)
             )
+            if (info.sceneCuts > 0) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = pluralStringResource(
+                        R.plurals.analysis_content_scenes, info.sceneCuts, info.sceneCuts
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
+                )
+            }
             val sourceEdge = maxOf(info.effectiveWidth, info.effectiveHeight)
             val smartEdge = VideoPlanner.smartResolutionEdge(info, video)
             if (sourceEdge > smartEdge) {

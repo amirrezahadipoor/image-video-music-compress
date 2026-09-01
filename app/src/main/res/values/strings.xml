@@ -331,4 +331,8 @@
     <string name="support_card_copy">کپی شماره کارت</string>
     <string name="support_card_copied">شماره کارت کپی شد</string>
     <string name="support_note">این صفحه کاملاً اختیاری است؛ هیچ قابلیتی از برنامه به حمایت مالی وابسته نیست.</string>
+    <plurals name="analysis_content_scenes">
+        <item quantity="one">%1$d تغییر صحنه</item>
+        <item quantity="other">%1$d تغییر صحنه</item>
+    </plurals>
 </resources>

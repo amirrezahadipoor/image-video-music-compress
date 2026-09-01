@@ -95,9 +95,22 @@ object ComplexityMath {
      * clip (detail 0.45, motion 0.45, colour 0.35) scores ~0.50.
      */
     fun score(detail: Float, motion: Float, color: Float): Float =
-        (0.12f * detail.coerceIn(0f, 1f) +
+        score(detail, motion, color, sceneCuts = 0)
+
+    /**
+     * [sceneCuts] — how many of the sampled consecutive pairs look like a
+     * scene change. A cut resets inter-frame prediction: the encoder must send
+     * a fresh key frame (or suffer visible blocking at long GOPs), so a
+     * cut-heavy clip genuinely costs more bits than a one-shot take with the
+     * same motion. The boost is deliberately small (+0.05 per cut, capped at
+     * +0.20): motion already carries most of the signal, this only stops
+     * multi-scene clips from being priced as a single still shot.
+     */
+    fun score(detail: Float, motion: Float, color: Float, sceneCuts: Int): Float =
+        ((0.12f * detail.coerceIn(0f, 1f) +
             0.60f * motion.coerceIn(0f, 1f) +
-            0.28f * color.coerceIn(0f, 1f)).coerceIn(0f, 1f)
+            0.28f * color.coerceIn(0f, 1f)) +
+            0.05f * sceneCuts.coerceIn(0, 4)).coerceIn(0f, 1f)
 
     /**
      * How much extra bitrate an encode of this content deserves, relative to
@@ -127,6 +140,27 @@ object ComplexityMath {
         val mid = sorted.size / 2
         return if (sorted.size % 2 == 1) sorted[mid]
         else (sorted[mid - 1] + sorted[mid]) / 2f
+    }
+
+    /**
+     * Scene-cut test between two frames: 1 minus the normalised intersection
+     * of their 16-bin luma histograms. Two frames of the SAME scene (even
+     * with fast motion or a pan) keep a similar luminance histogram; two
+     * frames of DIFFERENT scenes share almost none of it, so the distance
+     * jumps to ~0.5+. Retina-safe: 16 bins over 0..255, integer arithmetic.
+     */
+    fun histogramDistance(a: IntArray, b: IntArray): Float {
+        val n = min(a.size, b.size)
+        if (n == 0) return 0f
+        val ha = IntArray(16)
+        val hb = IntArray(16)
+        for (i in 0 until n) {
+            ha[(a[i].coerceIn(0, 255) * 16) / 256]++
+            hb[(b[i].coerceIn(0, 255) * 16) / 256]++
+        }
+        var intersect = 0L
+        for (k in 0 until 16) intersect += min(ha[k], hb[k])
+        return (1.0 - intersect.toDouble() / n).toFloat().coerceIn(0f, 1f)
     }
 
     /**
