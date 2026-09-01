@@ -76,6 +76,8 @@ import com.compressly.Selection
 import ir.siliksama.hajmino.R
 import com.compressly.core.data.db.HistoryEntry
 import com.compressly.core.engine.model.InputItem
+import com.compressly.core.engine.model.ItemPhase
+import com.compressly.core.engine.model.JobState
 import com.compressly.core.engine.model.MediaType
 import com.compressly.core.util.Bidi
 import com.compressly.core.util.Formats
@@ -235,7 +237,10 @@ fun HomeScreen(
             item { HeroCard(totalSaved) }
             // UI-2 BEAUTY: Active jobs banner takes priority over everything else when visible.
             if (activeJobs.isNotEmpty()) {
-                item { ActiveJobsBanner(activeJobs.size) { onOpenJob(activeJobs.first().jobId) } }
+                // The banner now shows the in-flight files of the first job
+                // with their own progress, so a parallel photo batch is not
+                // just an opaque count.
+                item { ActiveJobsBanner(activeJobs.first()) { onOpenJob(activeJobs.first().jobId) } }
             }
             item {
                 SectionTitle(stringResource(R.string.home_tap_to_choose))
@@ -543,9 +548,11 @@ private fun HeroCard(totalSaved: Long) {
 }
 
 @Composable
-private fun ActiveJobsBanner(count: Int, onOpenJob: () -> Unit) {
+private fun ActiveJobsBanner(job: JobState, onOpenJob: () -> Unit) {
     val primary = MaterialTheme.colorScheme.primary
-    val onPrimary = MaterialTheme.colorScheme.onPrimary
+    val inFlight = job.items.filter {
+        it.phase == ItemPhase.PREPARING || it.phase == ItemPhase.COMPRESSING || it.phase == ItemPhase.FINALIZING
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -559,12 +566,28 @@ private fun ActiveJobsBanner(count: Int, onOpenJob: () -> Unit) {
         // Pulsing live indicator instead of static dot
         com.compressly.ui.components.PulsingDot(color = primary, size = 10.dp)
         Spacer(Modifier.width(12.dp))
-        Text(
-            text = stringResource(R.string.home_jobs_active, count),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Spacer(Modifier.weight(1f))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.home_jobs_active, job.items.size),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            // In-flight files of a parallel batch, each with its own progress.
+            // The name + percent is wrapped in a BiDi isolate so a file name
+            // like IMG_2024.jpg cannot reorder the digits around it.
+            inFlight.take(2).forEach { item ->
+                Text(
+                    text = Bidi.isolate(
+                        "${item.fileName} — ${(item.weightedFraction * 100).toInt()}%"
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        Spacer(Modifier.width(8.dp))
         Text(
             text = stringResource(R.string.action_open),
             style = MaterialTheme.typography.labelLarge,

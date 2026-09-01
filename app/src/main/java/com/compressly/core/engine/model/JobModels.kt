@@ -32,7 +32,23 @@ data class ItemState(
     /** 0..1 within the current phase. */
     val fraction: Float = 0f,
     val error: String? = null
-)
+) {
+    /**
+     * Phase-weighted overall fraction of this item, 0..1 — the same scale the
+     * job bar uses, so the home banner and the progress screen can never
+     * disagree about how far a single file has come.
+     */
+    val weightedFraction: Float
+        get() = when (phase) {
+            ItemPhase.QUEUED -> 0f
+            ItemPhase.PREPARING -> 0.05f + fraction * 0.10f
+            ItemPhase.COMPRESSING -> 0.15f + fraction * 0.80f
+            ItemPhase.FINALIZING -> 0.95f + fraction * 0.05f
+            ItemPhase.DONE -> 1f
+            ItemPhase.FAILED -> 0f
+            ItemPhase.CANCELLED -> 0f
+        }
+}
 
 /** Whole-job progress snapshot. */
 data class JobState(
@@ -58,15 +74,7 @@ data class JobState(
             val total = items.size
             var sum = 0f
             for (item in items) {
-                sum += when (item.phase) {
-                    ItemPhase.QUEUED -> 0f
-                    ItemPhase.PREPARING -> 0.05f + item.fraction * 0.10f
-                    ItemPhase.COMPRESSING -> 0.15f + item.fraction * 0.80f
-                    ItemPhase.FINALIZING -> 0.95f + item.fraction * 0.05f
-                    ItemPhase.DONE -> 1f
-                    ItemPhase.FAILED -> 0f
-                    ItemPhase.CANCELLED -> 0f
-                }
+                sum += item.weightedFraction
             }
             return (sum / total).coerceIn(0f, 1f)
         }
