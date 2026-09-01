@@ -548,8 +548,11 @@ private fun HeroCard(totalSaved: Long) {
 @Composable
 private fun ActiveJobsBanner(job: JobState, onOpenJob: () -> Unit) {
     val primary = MaterialTheme.colorScheme.primary
+    // BANNER-FIX: keep the first two items visible until BOTH finish (a
+    // finished photo shows 100% while its sibling still runs), so the two
+    // percentages of a parallel photo pair are always on screen together.
     val inFlight = job.items.filter {
-        it.phase == ItemPhase.PREPARING || it.phase == ItemPhase.COMPRESSING || it.phase == ItemPhase.FINALIZING
+        it.phase != ItemPhase.QUEUED && it.phase != ItemPhase.CANCELLED && it.phase != ItemPhase.FAILED
     }
     Row(
         modifier = Modifier
