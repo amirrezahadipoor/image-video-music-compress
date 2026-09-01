@@ -106,6 +106,14 @@ android {
                 "proguard-rules.pro"
             )
         }
+        // Benchmark build type for the :benchmark macrobenchmark module —
+        // mirrors release so the measured APK matches what users install;
+        // only ever built locally/on demand, never published.
+        create("benchmark") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
+        }
         debug {
             // CI-FIX (smoke job): the debug build used to run R8 too, and R8's
             // missing-class check (active for this variant in AGP 8.7) failed
