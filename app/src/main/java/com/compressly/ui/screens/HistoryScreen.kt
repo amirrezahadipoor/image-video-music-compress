@@ -51,6 +51,7 @@ import coil.request.videoFrameMillis
 import ir.siliksama.hajmino.R
 import com.compressly.core.data.db.HistoryEntry
 import com.compressly.core.engine.model.MediaType
+import com.compressly.core.util.Bidi
 import com.compressly.core.util.Formats
 import com.compressly.ui.components.AdSlot
 import com.compressly.ui.components.EmptyState
@@ -220,7 +221,7 @@ private fun HistoryRow(
             Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = entry.fileName,
+                    text = Bidi.isolate(entry.fileName),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,

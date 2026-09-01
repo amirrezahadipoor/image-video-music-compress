@@ -49,6 +49,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.compressly.CompresslyApp
 import ir.siliksama.hajmino.R
 import com.compressly.core.data.db.HistoryEntry
+import com.compressly.core.util.Bidi
 import com.compressly.core.util.Formats
 import com.compressly.ui.components.ActionButton
 import com.compressly.ui.components.GhostButton
@@ -181,7 +182,7 @@ private fun SuccessContent(
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = entry.fileName,
+            text = Bidi.isolate(entry.fileName),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -327,7 +328,7 @@ private fun FailureContent(
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = entry.fileName,
+            text = Bidi.isolate(entry.fileName),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

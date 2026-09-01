@@ -49,6 +49,7 @@ import com.compressly.core.util.SoundEffects
 import com.compressly.ui.components.InlineProgress
 import com.compressly.ui.components.LoadingState
 import com.compressly.ui.components.ProgressRing
+import com.compressly.core.util.Bidi
 import com.compressly.core.util.Formats
 import com.compressly.ui.viewmodels.JobViewModel
 import kotlinx.coroutines.delay
@@ -331,7 +332,7 @@ private fun ItemRow(
         Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = item.fileName,
+                    text = Bidi.isolate(item.fileName),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
