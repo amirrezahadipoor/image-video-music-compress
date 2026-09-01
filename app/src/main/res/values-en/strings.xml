@@ -328,4 +328,9 @@
         <item quantity="one">%1$d scene change</item>
         <item quantity="other">%1$d scene changes</item>
     </plurals>
+    <string name="settings_section_output">Output folder</string>
+    <string name="settings_output_desc">Compressed files are saved to a folder you choose instead of the default Hajmino folders.</string>
+    <string name="settings_output_default">Default (Hajmino folders)</string>
+    <string name="settings_output_pick">Choose folder…</string>
+    <string name="settings_output_reset">Back to default</string>
 </resources>

@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import androidx.documentfile.provider.DocumentFile
 import com.compressly.core.engine.model.MediaType
 import com.compressly.core.util.Storage
 import java.io.File
@@ -23,6 +24,20 @@ import java.util.concurrent.ConcurrentHashMap
  * are never visible to the user; on failure/cancel the row is deleted.
  */
 object OutputStore {
+
+    /**
+     * Optional custom output folder (SAF tree URI, see AppSettingsScreen).
+     * null = the default MediaStore folders. Set by CompresslyApp from the
+     * persisted setting, and immediately by the settings view model.
+     */
+    @Volatile
+    private var customTreeUri: String? = null
+
+    fun setCustomTreeUri(uri: String?) {
+        customTreeUri = uri
+    }
+
+    fun customTreeUri(): String? = customTreeUri
 
     fun createOutputUri(
         context: Context,
@@ -70,6 +85,13 @@ object OutputStore {
         displayName: String,
         mimeType: String
     ): Uri {
+        // Custom output folder: write into the SAF tree under Hajmino/<type>.
+        // Any failure falls back to the default MediaStore path below — a
+        // folder preference must never be able to break a job.
+        customTreeUri?.let { tree ->
+            runCatching { publishToTree(context, tree, mediaType, tempFile, displayName, mimeType) }
+                .getOrNull()?.let { return it }
+        }
         val uniqueName = uniqueNameFor(displayName, mimeType)
         val uri = createOutputUri(context, mediaType, displayName, mimeType, uniqueName)
         try {
@@ -91,7 +113,41 @@ object OutputStore {
     /** Removes a previously published output (cancel/failure cleanup). */
     fun delete(context: Context, uri: Uri?) {
         if (uri == null) return
-        runCatching { context.contentResolver.delete(uri, null, null) }
+        // SAF documents need DocumentFile; MediaStore rows delete directly.
+        runCatching { DocumentFile.fromSingleUri(context, uri)?.delete() ?: false }
+            .getOrDefault(false).let { deleted ->
+                if (!deleted) runCatching { context.contentResolver.delete(uri, null, null) }
+            }
+    }
+
+    /** Writes [tempFile] into the custom tree: <tree>/Hajmino/<Photos|Videos|Audio>. */
+    private fun publishToTree(
+        context: Context,
+        treeUri: String,
+        mediaType: MediaType,
+        tempFile: File,
+        displayName: String,
+        mimeType: String
+    ): Uri {
+        val tree = DocumentFile.fromTreeUri(context, Uri.parse(treeUri))
+            ?: throw IOException("Invalid output folder")
+        val root = tree.findFile("Hajmino") ?: tree.createDirectory("Hajmino")
+            ?: throw IOException("Cannot create folder")
+        val subName = when (mediaType) {
+            MediaType.PHOTO -> "Photos"
+            MediaType.VIDEO -> "Videos"
+            MediaType.AUDIO -> "Audio"
+        }
+        val sub = root.findFile(subName) ?: root.createDirectory(subName)
+            ?: throw IOException("Cannot create subfolder")
+        val uniqueName = uniqueNameFor(displayName, mimeType)
+        val doc = sub.createFile(mimeType, uniqueName)
+            ?: throw IOException("Cannot create file")
+        context.contentResolver.openOutputStream(doc.uri)?.use { out ->
+            tempFile.inputStream().use { input -> input.copyTo(out, 256 * 1024) }
+        } ?: throw IOException("Cannot open output stream")
+        Storage.deleteQuietly(tempFile)
+        return doc.uri
     }
 
     private fun relativePathFor(mediaType: MediaType): String = when (mediaType) {

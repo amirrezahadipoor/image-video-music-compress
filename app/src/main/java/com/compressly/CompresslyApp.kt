@@ -71,6 +71,14 @@ class CompresslyApp : Application() {
         appScope.launch {
             container.historyRepository.markInterruptedOnStartup()
         }
+
+        // Custom output folder (SAF tree) — mirror the persisted value into
+        // OutputStore so background jobs see it without touching DataStore.
+        appScope.launch {
+            container.settingsRepository.outputTreeUri.collect { uri ->
+                com.compressly.core.data.OutputStore.setCustomTreeUri(uri)
+            }
+        }
         appScope.launch {
             val premium = container.settingsRepository.isPremium.first()
             container.billingManager.restoreLocalPremium(premium)

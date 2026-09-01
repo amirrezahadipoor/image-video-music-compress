@@ -178,6 +178,9 @@ dependencies {
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
+    // SAF folder support (custom output folder, folder picker)
+    implementation("androidx.documentfile:documentfile:1.0.1")
+
     // Image loading (local files only - fully offline)
     implementation(libs.coil.compose)
     implementation(libs.coil.video)

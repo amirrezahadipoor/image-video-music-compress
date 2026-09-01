@@ -335,4 +335,9 @@
         <item quantity="one">%1$d تغییر صحنه</item>
         <item quantity="other">%1$d تغییر صحنه</item>
     </plurals>
+    <string name="settings_section_output">پوشه خروجی</string>
+    <string name="settings_output_desc">فایلهای فشردهشده بهجای پوشههای پیشفرض، در پوشهای که خودتان انتخاب میکنید ذخیره میشوند.</string>
+    <string name="settings_output_default">پیشفرض (پوشههای Hajmino)</string>
+    <string name="settings_output_pick">انتخاب پوشه…</string>
+    <string name="settings_output_reset">بازگشت به پیشفرض</string>
 </resources>

@@ -3,6 +3,7 @@ package com.compressly.ui.screens
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,8 +22,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -52,6 +57,22 @@ fun AppSettingsScreen(
     val preserveMetadata by viewModel.preserveMetadataDefault.collectAsStateWithLifecycle()
     val language by viewModel.language.collectAsStateWithLifecycle()
     val soundEnabled by viewModel.soundEnabled.collectAsStateWithLifecycle()
+    val outputTreeUri by viewModel.outputTreeUri.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val treePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { tree ->
+        if (tree != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    tree,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            }
+            viewModel.setOutputTree(tree.toString())
+        }
+    }
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         Column(
@@ -166,6 +187,46 @@ fun AppSettingsScreen(
                 Spacer(Modifier.height(24.dp))
 
                 // ---- About ----
+                SectionHeader(stringResource(R.string.settings_section_output))
+                androidx.compose.material3.Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = stringResource(R.string.settings_output_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = outputTreeUri?.let { uri ->
+                                runCatching {
+                                    androidx.documentfile.provider.DocumentFile
+                                        .fromTreeUri(context, android.net.Uri.parse(uri))?.name
+                                }.getOrNull()?.takeIf { it.isNotBlank() }
+                                    ?: uri.substringAfterLast(':').substringAfterLast('/')
+                            } ?: stringResource(R.string.settings_output_default),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { treePicker.launch(null) }) {
+                                Text(stringResource(R.string.settings_output_pick))
+                            }
+                            if (outputTreeUri != null) {
+                                TextButton(onClick = { viewModel.setOutputTree(null) }) {
+                                    Text(stringResource(R.string.settings_output_reset))
+                                }
+                            }
+                        }
+                    }
+                }
+
                 SectionHeader(stringResource(R.string.settings_section_about))
                 Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface) {
                     Column(modifier = Modifier.padding(20.dp)) {

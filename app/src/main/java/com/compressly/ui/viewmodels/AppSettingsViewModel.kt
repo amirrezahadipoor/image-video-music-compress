@@ -34,6 +34,9 @@ class AppSettingsViewModel(container: AppContainer) : ViewModel() {
     val soundEnabled: StateFlow<Boolean> = repository.soundEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
+    val outputTreeUri: StateFlow<String?> = repository.outputTreeUri
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { repository.setThemeMode(mode) }
     }
@@ -52,6 +55,13 @@ class AppSettingsViewModel(container: AppContainer) : ViewModel() {
 
     fun setSoundEnabled(value: Boolean) {
         viewModelScope.launch { repository.setSoundEnabled(value) }
+    }
+
+    fun setOutputTree(uri: String?) {
+        // Mirror immediately (no DataStore round-trip) so the very next job
+        // already writes there.
+        com.compressly.core.data.OutputStore.setCustomTreeUri(uri)
+        viewModelScope.launch { repository.setOutputTreeUri(uri) }
     }
 
     companion object {

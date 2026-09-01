@@ -24,6 +24,7 @@ class SettingsRepository(private val context: Context) {
     private val keyLanguage = stringPreferencesKey("language")
     private val keySound = booleanPreferencesKey("sound_enabled")
     private val keyPremium = booleanPreferencesKey("is_premium")
+    private val keyOutputTree = stringPreferencesKey("output_tree_uri")
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { prefs ->
         runCatching { ThemeMode.valueOf(prefs[keyTheme] ?: "SYSTEM") }.getOrDefault(ThemeMode.SYSTEM)
@@ -48,6 +49,13 @@ class SettingsRepository(private val context: Context) {
     val soundEnabled: Flow<Boolean> =
         context.dataStore.data.map { prefs -> prefs[keySound] ?: true }
 
+    /**
+     * Optional custom output folder (SAF tree URI, persisted). null = the
+     * default Pictures/Movies/Music/Hajmino MediaStore folders.
+     */
+    val outputTreeUri: Flow<String?> =
+        context.dataStore.data.map { prefs -> prefs[keyOutputTree] }
+
     suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { it[keyTheme] = mode.name }
     }
@@ -68,6 +76,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSoundEnabled(value: Boolean) {
         context.dataStore.edit { it[keySound] = value }
+    }
+
+    suspend fun setOutputTreeUri(uri: String?) {
+        context.dataStore.edit {
+            if (uri == null) it.remove(keyOutputTree) else it[keyOutputTree] = uri
+        }
     }
 
     suspend fun setPremium(value: Boolean) {
