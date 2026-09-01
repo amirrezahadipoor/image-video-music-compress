@@ -5,7 +5,7 @@
 
     <!-- Common actions -->
     <string name="action_compress">Compress</string>
-    <string name="action_cancel">Cancel</string>
+
     <string name="action_pause">Pause</string>
     <string name="action_resume">Resume</string>
     <string name="action_share">Share</string>
@@ -333,4 +333,14 @@
     <string name="settings_output_default">Default (Hajmino folders)</string>
     <string name="settings_output_pick">Choose folder…</string>
     <string name="settings_output_reset">Back to default</string>
+    <string name="folder_pick_title">Pick a folder, compress it all</string>
+    <string name="folder_pick_desc">Choose a whole album or folder — every photo, video or audio file inside is compressed in one batch.</string>
+    <string name="folder_title">What should be compressed?</string>
+    <string name="folder_found">%1$d compressible files found.</string>
+    <string name="folder_truncated">Too many files — only the first 500 were scanned.</string>
+    <string name="folder_empty">No supported files found in this folder.</string>
+    <string name="folder_photos">Photos (%1$d)</string>
+    <string name="folder_videos">Videos (%1$d)</string>
+    <string name="folder_audios">Audio files (%1$d)</string>
+    <string name="action_cancel">Cancel</string>
 </resources>

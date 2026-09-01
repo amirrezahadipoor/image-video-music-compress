@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.MusicNote
@@ -37,10 +38,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.rememberCoroutineScope
+import com.compressly.core.data.FolderMediaScanner
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -158,6 +168,37 @@ fun HomeScreen(
         pendingDocsType?.let { acceptPicked(it, uris) }
     }
 
+    // ── Folder / album picker (SAF tree) ─────────────────────────────────
+    val scope = rememberCoroutineScope()
+    var folderSnapshot by remember { mutableStateOf<FolderMediaScanner.Snapshot?>(null) }
+    val folderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { tree ->
+        if (tree != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    tree,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+            scope.launch {
+                val snap = withContext(Dispatchers.IO) {
+                    runCatching { FolderMediaScanner.scan(context, tree) }
+                        .getOrDefault(FolderMediaScanner.Snapshot(emptyList(), emptyList(), emptyList(), false))
+                }
+                if (snap.total == 0) {
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.folder_empty),
+                        Toast.LENGTH_LONG
+                    ).show()
+                } else {
+                    folderSnapshot = snap
+                }
+            }
+        }
+    }
+
     fun pick(type: MediaType) {
         val mimes = when (type) {
             MediaType.PHOTO -> arrayOf("image/jpeg", "image/png", "image/webp", "image/heic", "image/heif")
@@ -200,6 +241,9 @@ fun HomeScreen(
                 SectionTitle(stringResource(R.string.home_tap_to_choose))
             }
             item { ModuleCards(onPick = ::pick) }
+            item {
+                FolderPickRow(onClick = { folderPicker.launch(null) })
+            }
             // UI-2 BEAUTY: Premium banner moved after module cards so it doesn't
             // block the primary call-to-action. Non-intrusive placement.
             // SCREEN-FIX: shown in EVERY flavor. The old `STORE == "bazaar"`
@@ -247,6 +291,113 @@ fun HomeScreen(
             }
         } // end LazyColumn
         } // end Box (AnimatedBlobs container)
+
+            // Folder scan result: choose what to compress.
+            folderSnapshot?.let { snap ->
+                AlertDialog(
+                    onDismissRequest = { folderSnapshot = null },
+                    title = { Text(stringResource(R.string.folder_title)) },
+                    text = {
+                        Column {
+                            if (snap.truncated) {
+                                Text(
+                                    text = stringResource(R.string.folder_truncated),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Spacer(Modifier.height(8.dp))
+                            }
+                            Text(
+                                text = stringResource(R.string.folder_found, snap.total),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            // One action per non-empty type — nothing is ever
+                            // dropped silently; the user picks what to compress.
+                            if (snap.photos.isNotEmpty()) {
+                                TextButton(onClick = {
+                                    val uris = snap.photos.map { it.uri }
+                                    folderSnapshot = null
+                                    acceptPicked(MediaType.PHOTO, uris)
+                                }) { Text(stringResource(R.string.folder_photos, snap.photos.size)) }
+                            }
+                            if (snap.videos.isNotEmpty()) {
+                                TextButton(onClick = {
+                                    val uris = snap.videos.map { it.uri }
+                                    folderSnapshot = null
+                                    acceptPicked(MediaType.VIDEO, uris)
+                                }) { Text(stringResource(R.string.folder_videos, snap.videos.size)) }
+                            }
+                            if (snap.audios.isNotEmpty()) {
+                                TextButton(onClick = {
+                                    val uris = snap.audios.map { it.uri }
+                                    folderSnapshot = null
+                                    acceptPicked(MediaType.AUDIO, uris)
+                                }) { Text(stringResource(R.string.folder_audios, snap.audios.size)) }
+                            }
+                        }
+                    },
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(onClick = { folderSnapshot = null }) {
+                            Text(stringResource(R.string.action_cancel))
+                        }
+                    }
+                )
+            }
+    }
+}
+
+// ---------------------------------------------------------------------
+
+@Composable
+private fun FolderPickRow(onClick: () -> Unit) {
+    val context = LocalContext.current
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    SoundEffects.play(SoundEffects.Type.CLICK)
+                    onClick()
+                }
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.FolderOpen,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.folder_pick_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.folder_pick_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
