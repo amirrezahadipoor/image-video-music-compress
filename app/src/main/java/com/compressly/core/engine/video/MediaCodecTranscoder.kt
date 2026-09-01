@@ -297,7 +297,7 @@ class MediaCodecTranscoder(private val context: Context) {
         trimEndUs: Long,
         control: JobControl,
         onProgress: (Float) -> Unit
-    ): EncoderChoice {
+    ): VideoPassResult {
         val outW = plan.width
         val outH = plan.height
         val targetBitrate = plan.bitrate
