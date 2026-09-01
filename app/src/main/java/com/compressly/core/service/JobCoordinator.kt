@@ -7,6 +7,7 @@ import com.compressly.core.data.HistoryRepository
 import com.compressly.core.data.db.HistoryEntry
 import com.compressly.core.engine.CompressionCancelledException
 import com.compressly.core.engine.Compressor
+import com.compressly.core.engine.photo.PhotoBatch
 import com.compressly.core.engine.JobControl
 import com.compressly.core.engine.errorKeyOf
 import com.compressly.core.engine.model.CompressionResult
@@ -201,9 +202,19 @@ class JobCoordinator(
             // results/history — only throughput changes.
             val parallelPhotos = settings is CompressionSettings.Photo && items.size >= 2
             if (parallelPhotos) {
-                val gate = Semaphore(2)
+                // BATCH-SCHED-FIX: heaviest first — the two long-running
+                // photos land in the parallel slots at the start instead of
+                // queueing behind small ones — and memory-aware concurrency:
+                // a source big enough to hit the 4096 px decode clamp (or one
+                // that cannot be probed) never shares its slot with another
+                // heavy decode. Ordinary photos keep the 2-way parallelism.
+                val ordered = PhotoBatch.heaviestFirst(items) { it.sizeBytes }
+                val permits = PhotoBatch.concurrencyFor(
+                    ordered.map { PhotoBatch.pixelCountOf(context, it.uri) }
+                )
+                val gate = Semaphore(permits)
                 coroutineScope {
-                    items.map { item ->
+                    ordered.map { item ->
                         launch(Dispatchers.Default) {
                             gate.withPermit {
                                 if (!jobCancelled.get()) processOne(item)
