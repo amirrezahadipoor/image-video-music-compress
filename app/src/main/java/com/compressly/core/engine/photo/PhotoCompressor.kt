@@ -37,6 +37,14 @@ import java.io.OutputStream
  */
 class PhotoCompressor(private val context: Context) {
 
+    /**
+     * The quality rung the last Smart encode actually landed on (0 = unknown).
+     * Smart descends its ladder until the size target is met, so the number
+     * shown to the user must be the real one, not the ladder's first rung.
+     */
+    @Volatile
+    var lastQualityUsed: Int = 0
+
     suspend fun compress(
         uri: Uri,
         sourceMime: String?,
@@ -140,9 +148,13 @@ class PhotoCompressor(private val context: Context) {
                 // 85/75/65 ladder ended at 65, quietly violating Smart's
                 // "never below ~70% perceptual quality" promise whenever the
                 // 50%-of-source target needed the last rung.
+                // SMART-PHOTO-ADVISOR: the ladder now starts on the rung this
+                // image deserves (text high, smooth high, noisy lower) and still
+                // descends until the 50 % target is met — content-aware like the
+                // video engine, same size guarantee.
                 val qualities = when {
                     isPng -> intArrayOf(0)
-                    settings.smart -> intArrayOf(85, 78, 72)
+                    settings.smart -> SmartPhotoAdvisor.ladderFor(photoMetricsOf(bitmap))
                     else -> intArrayOf(settings.quality.coerceIn(1, 100))
                 }
                 val effectiveSmart = settings.smart && !isPng
@@ -159,6 +171,7 @@ class PhotoCompressor(private val context: Context) {
                         }
                     }
                     encoded = true
+                    lastQualityUsed = q
                     if (!effectiveSmart) break
                     if (tempOut.length() <= targetBytes) break
                 }
@@ -310,6 +323,32 @@ class PhotoCompressor(private val context: Context) {
             ExifInterface.ORIENTATION_ROTATE_180 -> 180
             ExifInterface.ORIENTATION_ROTATE_270 -> 270
             else -> 0
+        }
+    }
+
+
+    /** Strided ARGB sample of [bitmap] for the Smart ladder — a few thousand pixels are plenty. */
+    private fun photoMetricsOf(bitmap: android.graphics.Bitmap): SmartPhotoAdvisor.Metrics {
+        val w = bitmap.width
+        val h = bitmap.height
+        if (w <= 0 || h <= 0) return SmartPhotoAdvisor.Metrics(0f, 0, 0f)
+        val target = 6_000
+        val step = kotlin.math.max(1, (w * h) / target)
+        val sample = ArrayList<Int>(target)
+        var y = 0
+        while (y < h) {
+            var x = 0
+            while (x < w) {
+                sample += bitmap.getPixel(x, y)
+                x += step
+            }
+            y += step
+        }
+        return try {
+            SmartPhotoAdvisor.metricsOf(sample.toIntArray())
+        } catch (t: Throwable) {
+            // Measurement must never break the encode; fall back to neutral.
+            SmartPhotoAdvisor.Metrics(0.25f, 16, 0.2f)
         }
     }
 

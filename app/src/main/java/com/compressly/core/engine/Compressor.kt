@@ -146,7 +146,8 @@ class Compressor(private val context: Context) {
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
         val mime = context.contentResolver.getType(item.uri)
-        val temp = PhotoCompressor(context).compress(item.uri, mime, settings, control) {
+        val photoEngine = PhotoCompressor(context)
+        val temp = photoEngine.compress(item.uri, mime, settings, control) {
             onProgress(ItemPhase.COMPRESSING, it)
         }
         val outMime = when {
@@ -159,11 +160,14 @@ class Compressor(private val context: Context) {
         }
         // SUMMARY-HONESTY-FIX: PNG is lossless — "85% quality, PNG" claims a
         // quality level the encoder never applied. Report it as lossless.
+        // The ladder may have descended below the nominal rung; report the
+        // quality the encoder ACTUALLY used (photoEngine.lastQualityUsed).
+        val realQuality = photoEngine.lastQualityUsed.takeIf { it > 0 } ?: settings.quality
         val summary = when {
             settings.outputFormat == PhotoFormat.PNG ||
                 (settings.outputFormat == PhotoFormat.SOURCE && mime == "image/png") ->
                 "${outMime.removePrefix("image/").uppercase()} (lossless)"
-            else -> "${settings.quality}% quality, ${outMime.removePrefix("image/").uppercase()}"
+            else -> "$realQuality% quality, ${outMime.removePrefix("image/").uppercase()}"
         }
         return publishOrKeepOriginal(item, MediaType.PHOTO, temp, outMime, summary, onProgress)
     }
