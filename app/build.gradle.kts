@@ -17,11 +17,14 @@ android {
         // The version NAME stays 1.0.0 per the release policy; versionCode is
         // the only thing that changes between builds so Android can still
         // install an update over a previous build.
-        versionCode = 6
+        versionCode = 7
         versionName = "1.0.0"
 
         // Keep only the two bundled locales -> smaller resources.
         resConfigs("fa", "en")
+
+        // Instrumented tests (real device/emulator smoke test).
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -194,4 +197,8 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+
+    // Instrumented smoke test: runs the real MediaCodec pipeline on a device.
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
 }
