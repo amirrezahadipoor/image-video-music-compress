@@ -22,6 +22,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -164,6 +167,45 @@ fun PulsingDot(
                 .background(color)
         )
     }
+}
+
+/**
+ * A beating heart — the optional donation entry point on the dashboard.
+ * Two quick pulse-cycles per loop read as a heartbeat rather than a generic
+ * pulsing dot, so the icon says "support" without a single word.
+ */
+@Composable
+fun BeatingHeart(
+    tint: Color = Color(0xFFE5487B),
+    size: Dp = 22.dp,
+    modifier: Modifier = Modifier,
+    contentDescription: String? = null
+) {
+    val t = rememberInfiniteTransition(label = "heartbeat")
+    val scale by t.animateFloat(
+        1f, 1.16f,
+        infiniteRepeatable(
+            tween(360, easing = FastOutSlowInEasing),
+            RepeatMode.Reverse
+        ),
+        label = "heart_scale"
+    )
+    val alpha by t.animateFloat(
+        0.9f, 1f,
+        infiniteRepeatable(
+            tween(360, easing = FastOutSlowInEasing),
+            RepeatMode.Reverse
+        ),
+        label = "heart_alpha"
+    )
+    Icon(
+        imageVector = Icons.Filled.Favorite,
+        contentDescription = contentDescription,
+        tint = tint.copy(alpha = alpha),
+        modifier = modifier
+            .size(size)
+            .scale(scale)
+    )
 }
 
 /**

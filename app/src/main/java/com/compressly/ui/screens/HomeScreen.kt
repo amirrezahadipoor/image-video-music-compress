@@ -70,6 +70,7 @@ import com.compressly.core.engine.model.MediaType
 import com.compressly.core.util.Formats
 import com.compressly.core.util.Uris
 import com.compressly.ui.components.AdSlot
+import com.compressly.ui.components.BeatingHeart
 import com.compressly.ui.components.RotatingGear
 import com.compressly.core.util.SoundEffects
 import com.compressly.ui.theme.GradientAudio
@@ -84,6 +85,7 @@ fun HomeScreen(
     onOpenHistory: () -> Unit,
     onOpenAppSettings: () -> Unit,
     onOpenPremium: () -> Unit,
+    onOpenSupport: () -> Unit,
     onOpenJob: (Long) -> Unit,
     onOpenEntry: (Long) -> Unit,
     viewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory)
@@ -187,7 +189,7 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            item { HomeHeader(onOpenHistory, onOpenAppSettings) }
+            item { HomeHeader(onOpenHistory, onOpenAppSettings, onOpenSupport) }
             item { HeroCard(totalSaved) }
             // UI-2 BEAUTY: Active jobs banner takes priority over everything else when visible.
             if (activeJobs.isNotEmpty()) {
@@ -250,7 +252,11 @@ fun HomeScreen(
 // ---------------------------------------------------------------------
 
 @Composable
-private fun HomeHeader(onOpenHistory: () -> Unit, onOpenAppSettings: () -> Unit) {
+private fun HomeHeader(
+    onOpenHistory: () -> Unit,
+    onOpenAppSettings: () -> Unit,
+    onOpenSupport: () -> Unit
+) {
     var spin by remember { mutableStateOf(0) }
     Row(
         modifier = Modifier
@@ -274,6 +280,17 @@ private fun HomeHeader(onOpenHistory: () -> Unit, onOpenAppSettings: () -> Unit)
                 text = stringResource(R.string.app_tagline),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        // Beating heart: the optional donation entry — top of the dashboard.
+        IconButton(onClick = {
+            SoundEffects.play(SoundEffects.Type.CLICK)
+            onOpenSupport()
+        }) {
+            BeatingHeart(
+                tint = Color(0xFFE5487B),
+                size = 24.dp,
+                contentDescription = stringResource(R.string.support_title)
             )
         }
         IconButton(onClick = onOpenHistory) {

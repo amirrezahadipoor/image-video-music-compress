@@ -17,7 +17,7 @@ android {
         // The version NAME stays 1.0.0 per the release policy; versionCode is
         // the only thing that changes between builds so Android can still
         // install an update over a previous build.
-        versionCode = 5
+        versionCode = 6
         versionName = "1.0.0"
 
         // Keep only the two bundled locales -> smaller resources.
@@ -36,17 +36,31 @@ android {
         val bazaarRsa = (System.getenv("BAZAAR_RSA_KEY") ?: "")
             .replace("\\", "\\\\")
             .replace("\"", "\\\"")
+        // Optional donation card (support screen). Read from the environment
+        // or gradle.properties; when empty the card section is hidden and the
+        // screen only offers the Café Bazaar support link. Never committed to
+        // git — the repository MUST NOT contain the author's card number.
+        fun cfg(name: String): String =
+            (System.getenv(name) ?: (project.findProperty(name) as String?) ?: "")
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+        val supportCardNumber = cfg("SUPPORT_CARD_NUMBER")
+        val supportCardHolder = cfg("SUPPORT_CARD_HOLDER")
         create("play") {
             dimension = "store"
             buildConfigField("String", "STORE", "\"play\"")
             buildConfigField("boolean", "ADS_ENABLED", "false")
             buildConfigField("String", "BAZAAR_RSA_KEY", "\"\"")
+            buildConfigField("String", "SUPPORT_CARD_NUMBER", "\"$supportCardNumber\"")
+            buildConfigField("String", "SUPPORT_CARD_HOLDER", "\"$supportCardHolder\"")
         }
         create("bazaar") {
             dimension = "store"
             buildConfigField("String", "STORE", "\"bazaar\"")
             buildConfigField("boolean", "ADS_ENABLED", "true")
             buildConfigField("String", "BAZAAR_RSA_KEY", "\"$bazaarRsa\"")
+            buildConfigField("String", "SUPPORT_CARD_NUMBER", "\"$supportCardNumber\"")
+            buildConfigField("String", "SUPPORT_CARD_HOLDER", "\"$supportCardHolder\"")
         }
     }
 

@@ -26,6 +26,7 @@ import com.compressly.ui.screens.ProgressScreen
 import com.compressly.ui.screens.PremiumScreen
 import com.compressly.ui.screens.PrivacyPolicyScreen
 import com.compressly.ui.screens.ResultScreen
+import com.compressly.ui.screens.SupportScreen
 import kotlinx.coroutines.launch
 
 /**
@@ -87,6 +88,7 @@ fun AppNavHost(navController: NavHostController) {
                 onOpenHistory = { navController.navigate(Routes.HISTORY) },
                 onOpenAppSettings = { navController.navigate(Routes.APP_SETTINGS) },
                 onOpenPremium = { navController.navigate(Routes.PREMIUM) },
+                onOpenSupport = { navController.navigate(Routes.SUPPORT) },
                 onOpenJob = { jobId ->
                     navController.navigate(Routes.progress(jobId)) {
                         popUpTo(Routes.HOME) { inclusive = false }
@@ -164,6 +166,10 @@ fun AppNavHost(navController: NavHostController) {
                 onBack = { navController.popBackStack() },
                 onOpenPrivacy = { navController.navigate(Routes.PRIVACY) }
             )
+        }
+
+        composable(Routes.SUPPORT) {
+            SupportScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Routes.PRIVACY) {

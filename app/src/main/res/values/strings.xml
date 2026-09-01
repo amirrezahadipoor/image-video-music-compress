@@ -319,4 +319,16 @@
         <item quantity="other">%1$d از %2$d فایل موفق</item>
     </plurals>
 
+    <string name="support_title">حمایت مالی</string>
+    <string name="support_body">هاجمینو رایگان است و رایگان می‌ماند. اگر برایتان مفید بوده، با یک حمایت کوچک به ادامه‌ی توسعه‌اش کمک کنید؛ هر مبلغی، هر چند کوچک، برای ما محرک است.</string>
+    <string name="support_bazaar_title">حمایت در کافه‌بازار</string>
+    <string name="support_bazaar_body">در صفحه‌ی برنامه در کافه‌بازار، دکمه‌ی «حمایت مالی» را بزنید و هر مبلغی که دوست دارید پرداخت کنید.</string>
+    <string name="support_bazaar_open">رفتن به کافه‌بازار</string>
+    <string name="support_bazaar_error">کافه‌بازار نصب نیست؛ لینک در مرورگر باز شد.</string>
+    <string name="support_card_title">کارت به کارت</string>
+    <string name="support_card_body">شماره کارت را کپی کنید و به نام صاحب کارت واریز کنید.</string>
+    <string name="support_card_holder">به نام %1$s واریز کنید. شماره کارت را کپی و پرداخت را انجام دهید.</string>
+    <string name="support_card_copy">کپی شماره کارت</string>
+    <string name="support_card_copied">شماره کارت کپی شد</string>
+    <string name="support_note">این صفحه کاملاً اختیاری است؛ هیچ قابلیتی از برنامه به حمایت مالی وابسته نیست.</string>
 </resources>

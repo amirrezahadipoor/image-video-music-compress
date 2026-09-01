@@ -312,4 +312,16 @@
         <item quantity="other">%1$d of %2$d files succeeded</item>
     </plurals>
 
+    <string name="support_title">Support the developer</string>
+    <string name="support_body">Hajmino is free and will stay free. If it has been useful to you, a small donation helps keep it alive — any amount, however small, means a lot.</string>
+    <string name="support_bazaar_title">Support on Café Bazaar</string>
+    <string name="support_bazaar_body">Open the app page on Café Bazaar, tap the "Support developer" button and pay any amount you like.</string>
+    <string name="support_bazaar_open">Open Café Bazaar</string>
+    <string name="support_bazaar_error">Café Bazaar is not installed; the link opened in your browser.</string>
+    <string name="support_card_title">Card-to-card</string>
+    <string name="support_card_body">Copy the card number and transfer to the card holder.</string>
+    <string name="support_card_holder">Transfer to: %1$s. Copy the card number to complete the payment.</string>
+    <string name="support_card_copy">Copy card number</string>
+    <string name="support_card_copied">Card number copied</string>
+    <string name="support_note">This page is entirely optional; no feature depends on it.</string>
 </resources>
