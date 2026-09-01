@@ -48,4 +48,36 @@ class PhotoBatchTest {
         assertEquals(1, PhotoBatch.concurrencyFor(listOf(12_000_000L, null)))
         assertEquals(1, PhotoBatch.concurrencyFor(listOf(null, null)))
     }
+
+    // ── memory-class rule: large batches on low-memory phones ───────────────
+
+    @Test
+    fun `large photo batch on a 192MB phone runs one at a time`() {
+        val ordinary = List(200) { 12_000_000L }
+        assertEquals(1, PhotoBatch.concurrencyFor(ordinary, memoryClassMb = 192, batchSize = 200))
+    }
+
+    @Test
+    fun `same large batch on a 256MB phone keeps both slots`() {
+        val ordinary = List(200) { 12_000_000L }
+        assertEquals(2, PhotoBatch.concurrencyFor(ordinary, memoryClassMb = 256, batchSize = 200))
+    }
+
+    @Test
+    fun `small batch on a low-memory phone still runs in parallel`() {
+        val ordinary = List(50) { 12_000_000L }
+        assertEquals(2, PhotoBatch.concurrencyFor(ordinary, memoryClassMb = 192, batchSize = 50))
+    }
+
+    @Test
+    fun `a heavy photo wins over the memory-class rule`() {
+        val heavy = listOf(12_000_000L, 48_000_000L) + List(198) { 9_000_000L }
+        assertEquals(1, PhotoBatch.concurrencyFor(heavy, memoryClassMb = 256, batchSize = 200))
+    }
+
+    @Test
+    fun `defaults keep the historical behaviour`() {
+        assertEquals(2, PhotoBatch.concurrencyFor(listOf(12_000_000L, 9_000_000L)))
+        assertEquals(2, PhotoBatch.concurrencyFor(List(999) { 12_000_000L }))
+    }
 }

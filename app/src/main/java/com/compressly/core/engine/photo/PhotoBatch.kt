@@ -29,10 +29,29 @@ object PhotoBatch {
     /**
      * Slot count for a photo batch. `null` counts (unprobeable source) are
      * treated conservatively as "too big" — correct is preferred over fast.
+     *
+     * MEM-BOUND-FIX: on the 2 GB / 192 MB heap class still common on Android
+     * 8-9, a big batch (>= [LARGE_BATCH_ITEMS] photos) runs one at a time:
+     * two 4096 px decodes with their rotation copies peak ~270 MB of native
+     * bitmap memory, and a 200-photo batch also accumulates ImageLoader/Coil
+     * caches and history writes. Dropping to one slot keeps peak memory flat
+     * and provably inside the budget; ordinary batches keep 2-way parallelism.
      */
-    fun concurrencyFor(pixelCounts: List<Long?>): Int =
-        if (pixelCounts.any { it == null || it >= MAX_PIXELS_FOR_PARALLEL }) 1
-        else MAX_PHOTOS_IN_FLIGHT
+    fun concurrencyFor(
+        pixelCounts: List<Long?>,
+        memoryClassMb: Int? = null,
+        batchSize: Int = pixelCounts.size
+    ): Int {
+        if (pixelCounts.any { it == null || it >= MAX_PIXELS_FOR_PARALLEL }) return 1
+        if (memoryClassMb != null && memoryClassMb <= LOW_MEMORY_CLASS_MB && batchSize >= LARGE_BATCH_ITEMS) return 1
+        return MAX_PHOTOS_IN_FLIGHT
+    }
+
+    /** Heap class (ActivityManager.getMemoryClass) at or below this value is "low memory". */
+    const val LOW_MEMORY_CLASS_MB = 192
+
+    /** Batches of this many photos or more are considered large. */
+    const val LARGE_BATCH_ITEMS = 100
 
     /**
      * Heaviest first, stable: the two long-running photos land in the

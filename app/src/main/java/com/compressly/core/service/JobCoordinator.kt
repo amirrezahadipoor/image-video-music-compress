@@ -223,7 +223,15 @@ class JobCoordinator(
                 // heavy decode. Ordinary photos keep the 2-way parallelism.
                 val ordered = PhotoBatch.heaviestFirst(items) { it.sizeBytes }
                 val permits = PhotoBatch.concurrencyFor(
-                    ordered.map { PhotoBatch.pixelCountOf(context, it.uri) }
+                    ordered.map { PhotoBatch.pixelCountOf(context, it.uri) },
+                    // MEM-BOUND-FIX: on the 3 GB phone class still common in
+                    // the Bazaar market a big photo batch (>= 100 files) falls
+                    // back to one slot, keeping peak native bitmap memory flat
+                    // for a whole 200-photo folder job.
+                    memoryClassMb = runCatching {
+                        (context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).memoryClass
+                    }.getOrNull(),
+                    batchSize = ordered.size
                 )
                 val gate = Semaphore(permits)
                 coroutineScope {
@@ -240,7 +248,12 @@ class JobCoordinator(
                     }.joinAll()
                 }
             } else {
-                for (item in items) {
+                // QUEUE-FIX: heavy media first. For video/audio the largest
+                // file is the long pole of the batch, so it starts right away
+                // instead of queueing behind the small ones: the user sees
+                // real progress at once and the batch drains smoothly.
+                val ordered = PhotoBatch.heaviestFirst(items) { it.sizeBytes }
+                for (item in ordered) {
                     if (jobCancelled.get()) break
                     processOne(item)
                 }
