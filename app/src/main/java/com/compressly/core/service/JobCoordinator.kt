@@ -20,13 +20,18 @@ import com.compressly.core.engine.model.MediaType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -43,9 +48,10 @@ class JobCoordinator(
     val jobs: StateFlow<Map<Long, JobState>> = _jobs.asStateFlow()
 
     private val controls = ConcurrentHashMap<Long, JobControl>()
+    /** Per-item controls: with parallel photo batches more than one item can be in flight. */
+    private val itemControls = ConcurrentHashMap<Long, ConcurrentHashMap<Long, JobControl>>()
     private val jobPaused = ConcurrentHashMap<Long, Boolean>()
     private val cancelledItems = ConcurrentHashMap<Long, MutableSet<Long>>()
-    private val currentItems = ConcurrentHashMap<Long, Long>()
     private val nextJobId = AtomicLong(1)
 
     fun enqueue(
@@ -66,18 +72,21 @@ class JobCoordinator(
     fun pause(jobId: Long) {
         jobPaused[jobId] = true
         controls[jobId]?.pause()
+        itemControls[jobId]?.values?.forEach { it.pause() }
         updateJob(jobId) { it.copy(isPaused = true) }
     }
 
     fun resume(jobId: Long) {
         jobPaused[jobId] = false
         controls[jobId]?.resume()
+        itemControls[jobId]?.values?.forEach { it.resume() }
         updateJob(jobId) { it.copy(isPaused = false) }
     }
 
     fun cancel(jobId: Long) {
         updateJob(jobId) { it.copy(status = JobStatus.CANCELLING, isPaused = false) }
         controls[jobId]?.cancel()
+        itemControls[jobId]?.values?.forEach { it.cancel() }
     }
 
     /**
@@ -86,21 +95,21 @@ class JobCoordinator(
      */
     fun cancelItem(jobId: Long, itemId: Long) {
         cancelledItems.getOrPut(jobId) { ConcurrentHashMap.newKeySet() }.add(itemId)
-        if (currentItems[jobId] == itemId) {
-            controls[jobId]?.cancel()
-        }
+        // PARALLEL-PHOTO-SAFE: cancel only the control of THIS item — in a
+        // parallel batch the sibling item must keep running.
+        itemControls[jobId]?.get(itemId)?.cancel()
         updateItem(jobId, itemId) { it.copy(phase = ItemPhase.CANCELLED, fraction = 0f) }
     }
 
     // ------------------------------------------------------------------
 
     private suspend fun runJob(jobId: Long, items: List<InputItem>, settings: CompressionSettings) {
-        var control = JobControl(startPaused = jobPaused[jobId] == true)
+        val control = JobControl(startPaused = jobPaused[jobId] == true)
         controls[jobId] = control
-        var jobCancelled = false
-        var anySuccess = false
-        var anyFailure = false
-        var anyCancelled = false
+        val anySuccess = AtomicBoolean(false)
+        val anyFailure = AtomicBoolean(false)
+        val anyCancelled = AtomicBoolean(false)
+        val jobCancelled = AtomicBoolean(false)
         // COORD-L1 FIX: use a live lookup instead of a snapshot.
         // A snapshot taken here is stale once cancelItem() adds an ID after
         // the snapshot is captured but before the item is processed —  the
@@ -110,9 +119,17 @@ class JobCoordinator(
         // which is safe because ConcurrentHashMap.newKeySet() is thread-safe.
         fun isItemCancelled(itemId: Long) =
             cancelledItems[jobId]?.contains(itemId) == true
-        try {
-            val compressor = Compressor(context)
-            for (item in items) {
+
+        val compressor = Compressor(context)
+
+        /** Runs one item to completion (sequential path and parallel lane). */
+        suspend fun processOne(item: InputItem) {
+            // PARALLEL-PHOTO-FIX: each item has its OWN control so that in a
+            // parallel batch cancelling one photo does not abort its sibling,
+            // and pause/resume reach every in-flight item.
+            val itemControl = JobControl(startPaused = jobPaused[jobId] == true)
+            itemControls.getOrPut(jobId) { ConcurrentHashMap() }[item.itemId] = itemControl
+            try {
                 // CRASH-RECOVERY-FIX: every item gets a RUNNING history row
                 // BEFORE any work starts. If the process dies mid-compression,
                 // markInterruptedOnStartup() now has a row to find and can mark
@@ -124,31 +141,28 @@ class JobCoordinator(
 
                 // Items individually cancelled while queued are skipped.
                 if (isItemCancelled(item.itemId)) {
-                    anyCancelled = true
+                    anyCancelled.set(true)
                     updateItem(jobId, item.itemId) { it.copy(phase = ItemPhase.CANCELLED) }
                     historyRepository.update(
                         entryFrom(settings.mediaType(), cancelledResult(jobId, item))
                             .copy(id = runningRow)
                     )
-                    continue
+                    return
                 }
-                currentItems[jobId] = item.itemId
                 updateItem(jobId, item.itemId) { it.copy(phase = ItemPhase.PREPARING, fraction = 0f) }
                 val result = try {
-                    control.checkActive()
-                    compressor.compressItem(jobId, item, settings, control) { phase, frac ->
+                    itemControl.checkActive()
+                    compressor.compressItem(jobId, item, settings, itemControl) { phase: ItemPhase, frac: Float ->
                         updateItem(jobId, item.itemId) { it.copy(phase = phase, fraction = frac) }
                     }
                 } catch (e: CompressionCancelledException) {
                     if (isItemCancelled(item.itemId)) {
                         // Only this item was cancelled; keep the rest of the batch.
-                        anyCancelled = true
+                        anyCancelled.set(true)
                         updateItem(jobId, item.itemId) { it.copy(phase = ItemPhase.CANCELLED) }
-                        control = JobControl(startPaused = jobPaused[jobId] == true)
-                        controls[jobId] = control
                         cancelledResult(jobId, item)
                     } else {
-                        jobCancelled = true
+                        jobCancelled.set(true)
                         updateItem(jobId, item.itemId) { it.copy(phase = ItemPhase.CANCELLED) }
                         cancelledResult(jobId, item)
                     }
@@ -162,19 +176,53 @@ class JobCoordinator(
                     )
                 }
                 if (result.success) {
-                    anySuccess = true
+                    anySuccess.set(true)
                 } else if (result.error == "cancelled") {
-                    anyCancelled = true
+                    anyCancelled.set(true)
                 } else {
-                    anyFailure = true
+                    anyFailure.set(true)
                 }
                 // Finalize the RUNNING row created at the start of this item.
                 historyRepository.update(
                     entryFrom(settings.mediaType(), result).copy(id = runningRow)
                 )
-                if (jobCancelled) break
+            } finally {
+                itemControls[jobId]?.remove(item.itemId)
             }
-            if (jobCancelled) {
+        }
+
+        try {
+            // PARALLEL-PHOTO-FIX: photos are CPU-bound and independent, so a
+            // batch of >=2 runs two at a time (roughly half the wall time on
+            // multi-core devices, which is practically every phone since 2017).
+            // Video/audio keep one-at-a-time: encoders and memory are the
+            // bottleneck there, and two hardware encodes on one SoC only fight
+            // each other. The order of completion still yields identical
+            // results/history — only throughput changes.
+            val parallelPhotos = settings is CompressionSettings.Photo && items.size >= 2
+            if (parallelPhotos) {
+                val gate = Semaphore(2)
+                coroutineScope {
+                    items.map { item ->
+                        launch(Dispatchers.Default) {
+                            gate.withPermit {
+                                if (!jobCancelled.get()) processOne(item)
+                                else {
+                                    // Already-cancelled job: mark remaining items CANCELLED.
+                                    anyCancelled.set(true)
+                                    updateItem(jobId, item.itemId) { it.copy(phase = ItemPhase.CANCELLED) }
+                                }
+                            }
+                        }
+                    }.joinAll()
+                }
+            } else {
+                for (item in items) {
+                    if (jobCancelled.get()) break
+                    processOne(item)
+                }
+            }
+            if (jobCancelled.get()) {
                 // Mark the remaining (unprocessed) items as cancelled for clarity.
                 _jobs.update { jobs ->
                     val job = jobs[jobId] ?: return@update jobs
@@ -189,13 +237,13 @@ class JobCoordinator(
             }
         } finally {
             controls.remove(jobId)
-            currentItems.remove(jobId)
+            itemControls.remove(jobId)
             jobPaused.remove(jobId)
             cancelledItems.remove(jobId)
             val finalStatus = when {
-                jobCancelled -> JobStatus.CANCELLED
-                !anySuccess && anyFailure -> JobStatus.FAILED
-                !anySuccess && anyCancelled -> JobStatus.CANCELLED
+                jobCancelled.get() -> JobStatus.CANCELLED
+                !anySuccess.get() && anyFailure.get() -> JobStatus.FAILED
+                !anySuccess.get() && anyCancelled.get() -> JobStatus.CANCELLED
                 else -> JobStatus.COMPLETED
             }
             updateJob(jobId) { it.copy(status = finalStatus, isPaused = false) }
