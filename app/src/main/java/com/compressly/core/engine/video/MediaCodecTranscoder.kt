@@ -87,6 +87,28 @@ class MediaCodecTranscoder(private val context: Context) {
         // the encoder is configured with exactly the numbers the live estimate
         // in the UI was computed from.
         val plan = VideoPlanner.plan(plannedInfo, settings, preset)
+
+        // ENGINE-NOOP-FIX: the job asks for no change at all (same codec,
+        // resolution, fps, audio — isNoOpTranscode) and the planner's target
+        // sits at/above the source rate (isNoGainTarget): re-encoding can
+        // only add a generation of loss, and on files thinner than the
+        // encoder floor it can even make the file BIGGER — the MIN_BITRATE
+        // clamp in targetVideoBitrate() defeats the 97 % no-gain cap, and the
+        // corrective pass never engages below MIN_CORRECTABLE_BYTES. Copy the
+        // original instead of encoding. (Compressor's keep-original check
+        // covers the app path; this is the same rule at engine level so the
+        // transcoder is honest for ANY caller, not just Compressor.)
+        if (VideoPlanner.isNoOpTranscode(plannedInfo, settings, preset) &&
+            VideoPlanner.isNoGainTarget(plannedInfo, settings, preset)
+        ) {
+            val input = context.contentResolver.openInputStream(inputUri)
+                ?: throw VideoCompressionException(ERR_NO_VIDEO)
+            File(outputPath).outputStream().use { out -> input.use { it.copyTo(out, 256 * 1024) } }
+            onProgress(1f)
+            val copiedCodec =
+                if (plannedInfo.mimeType?.lowercase().contains("hevc") == true) "h265" else "h264"
+            return Stats(File(outputPath).length(), plannedInfo.durationMs, copiedCodec)
+        }
         val outW = plan.width
         val outH = plan.height
         val targetBitrate = plan.bitrate
