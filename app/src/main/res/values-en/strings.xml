@@ -49,7 +49,7 @@
     <string name="settings_quality">Quality</string>
     <string name="settings_quality_value">%1$d%%</string>
     <string name="settings_metadata">Metadata (EXIF / ID3)</string>
-    <string name="settings_metadata_preserve_desc">Keeps camera info, tags and orientation.</string>
+    <string name="settings_metadata_preserve_desc">Keeps camera info, tags, orientation and GPS location — choose strip if you plan to share the file.</string>
     <string name="settings_metadata_strip_desc">Removes location and camera details. Smaller files.</string>
 
     <!-- Smart mode -->

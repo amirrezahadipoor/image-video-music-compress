@@ -14,11 +14,13 @@
     <!-- WAKELOCK: prevents Xiaomi/Huawei/OnePlus from killing the service mid-compression -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- BACKUP-FIX: allowBackup=false is the whole policy (no cloud copy of
+     the history DB). The dataExtractionRules/fullBackupContent attributes
+     were dead config — they are ignored while allowBackup is false, so they
+     were removed to avoid implying a backup that never happens. -->
     <application
         android:name="com.compressly.CompresslyApp"
         android:allowBackup="false"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"

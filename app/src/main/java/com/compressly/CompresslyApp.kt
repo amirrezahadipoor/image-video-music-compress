@@ -57,8 +57,10 @@ class CompresslyApp : Application() {
         Coil.setImageLoader(imageLoader)
 
         // Apply sound preference (default on) to the sound engine.
-        // Use ProcessLifecycleOwner so the scope is tied to the app lifecycle
-        // and gets cancelled when the process dies (no coroutine leak).
+        // Plain app-lifetime scope (NOT ProcessLifecycleOwner — there is no
+        // lifecycle dependency here). The SupervisorJob keeps the process
+        // alive for the duration of the app, which is exactly the lifetime
+        // these collectors need; nothing to cancel on process death.
         val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         appScope.launch {
             container.settingsRepository.soundEnabled.collect { enabled ->

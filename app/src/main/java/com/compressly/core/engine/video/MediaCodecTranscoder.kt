@@ -107,7 +107,7 @@ class MediaCodecTranscoder(private val context: Context) {
             // VIDEO-FIX-1: the pass returns the encoder it actually used, so the
             // result summary can report the real codec (H.265 -> H.264 fallback
             // must not be labelled H.265).
-            val firstPassChoice = videoPass(
+            var firstPass = videoPass(
                 inputUri = inputUri,
                 outputPath = tempVideo.absolutePath,
                 info = plannedInfo,
@@ -120,6 +120,10 @@ class MediaCodecTranscoder(private val context: Context) {
                 control = control,
                 onProgress = { p -> onProgress(p * 0.50f) }
             )
+            // Where the final video stream really starts (original timeline).
+            // Audio must be re-based from THIS point, not from trimStartUs, or
+            // the soundtrack leads the picture by the key-frame gap.
+            var videoStartUs = if (trimStartUs > 0) firstPass.firstKeptPtsUs else 0L
 
             // 1b. Corrective pass. Hardware encoders treat KEY_BIT_RATE as a
             //     hint in VBR mode and routinely overshoot it, so the planner's
@@ -137,7 +141,9 @@ class MediaCodecTranscoder(private val context: Context) {
             if (correction != null) {
                 control.checkActive()
                 Storage.deleteQuietly(tempVideo)
-                videoPass(
+                // The corrective pass re-encodes from scratch, so the first
+                // kept frame can land at a different PTS — re-measure.
+                firstPass = videoPass(
                     inputUri = inputUri,
                     outputPath = tempVideo.absolutePath,
                     info = plannedInfo,
@@ -145,7 +151,7 @@ class MediaCodecTranscoder(private val context: Context) {
                     // Re-use the encoder the first pass proved working; never
                     // re-negotiate between passes (a different choice could
                     // change the bitstream behaviour halfway through).
-                    choices = listOf(firstPassChoice),
+                    choices = listOf(firstPass.choice),
                     // The key-frame interval has to follow the corrected rate:
                     // the GOP that fitted the first pass is too short for the
                     // lower one, and short GOPs are exactly what eats the budget.
@@ -159,6 +165,7 @@ class MediaCodecTranscoder(private val context: Context) {
                     control = control,
                     onProgress = { p -> onProgress(0.50f + p * 0.30f) }
                 )
+                videoStartUs = if (trimStartUs > 0) firstPass.firstKeptPtsUs else 0L
             } else {
                 onProgress(0.80f)
             }
@@ -190,7 +197,11 @@ class MediaCodecTranscoder(private val context: Context) {
                         inputUri = inputUri,
                         outputPath = tempAudio.absolutePath,
                         bitrate = audioBitrate,
-                        trimStartUs = trimStartUs,
+                        // TRIM-KEY-FIX: trim the audio from where the VIDEO
+                        // actually starts (first kept frame), not the
+                        // requested point — otherwise the soundtrack runs
+                        // ahead of the picture by the key-frame gap.
+                        trimStartUs = videoStartUs,
                         trimEndUs = trimEndUs,
                         control = control,
                         onProgress = { p -> onProgress(0.80f + p * 0.12f) }
@@ -215,6 +226,7 @@ class MediaCodecTranscoder(private val context: Context) {
                     rotation = rotation,
                     trimStartUs = trimStartUs,
                     trimEndUs = trimEndUs,
+                    audioStartUs = videoStartUs,
                     audioAlreadyTrimmed = audioAlreadyTrimmed,
                     control = control,
                     onProgress = { p -> onProgress(0.92f + p * 0.08f) }
@@ -229,11 +241,21 @@ class MediaCodecTranscoder(private val context: Context) {
             if (File(outputPath).length() <= 0) {
                 throw VideoCompressionException(ERR_ENCODE)
             }
-            val codecTag = when (firstPassChoice.mime) {
+            val codecTag = when (firstPass.choice.mime) {
                 MIME_H265 -> "h265"
                 else -> "h264"
             }
-            Stats(File(outputPath).length(), trimmedDurationMs(info.durationMs, trimStartUs, trimEndUs), codecTag)
+            // STATS-FIX: measure from the RECOVERED info (the original `info`
+            // has a zero duration when MediaInspector failed, which made the
+            // stats bar show 0 s for a perfectly good file). And base the
+            // window on the ACTUAL video start, not the requested trim
+            // point — the output stream begins where the encoder began.
+            val measuredVideoStart = if (trimStartUs > 0) videoStartUs else 0L
+            Stats(
+                File(outputPath).length(),
+                trimmedDurationMs(plannedInfo.durationMs, measuredVideoStart, trimEndUs),
+                codecTag
+            )
         } catch (t: Throwable) {
             Storage.deleteQuietly(tempVideo, tempAudio)
             throw t
@@ -247,8 +269,13 @@ class MediaCodecTranscoder(private val context: Context) {
     // ------------------------------------------------------------------
 
     /**
-     * Runs one decode->encode pass and returns the encoder that was actually
-     * used. [choices] are tried in order; each candidate gets two configure
+     * Result of one decode->encode pass: the encoder that was actually used
+     * ([VideoPassResult.choice]) and, when trimming, the original-timeline PTS
+     * of the first frame rendered into the encoder ([VideoPassResult.firstKeptPtsUs]).
+     * The audio pass and the stats are re-based from that point, because the
+     * output stream begins there — not at the requested trim point.
+     *
+     * [choices] are tried in order; each candidate gets two configure
      * attempts (full format, then a minimal format without optional keys).
      *
      * VIDEO-FIX-1: the old code configured exactly one encoder by name. Vendor
@@ -275,9 +302,15 @@ class MediaCodecTranscoder(private val context: Context) {
         val outH = plan.height
         val targetBitrate = plan.bitrate
         val targetFps = plan.fps
-        // Hoisted outside the try so the final `return chosen!!` (after the
+        // Hoisted outside the try so the final return (after the
         // `finally` block) can see it.
         var chosen: EncoderChoice? = null
+        // TRIM-KEY-FIX: original-timeline PTS of the first frame rendered
+        // into the encoder (= the point the output stream starts), and the
+        // encoder-output PTS of the first emitted sample (the muxed track
+        // is re-based to 0 from it).
+        var firstRenderedPtsUs = Long.MIN_VALUE
+        var firstOutputPtsUs = Long.MIN_VALUE
         val extractor = MediaExtractor()
         try {
             extractor.setDataSource(context, inputUri, null)
@@ -412,7 +445,21 @@ class MediaCodecTranscoder(private val context: Context) {
                 var decoderOut = decoder.dequeueOutputBuffer(decoderInfo, 0)
                 while (decoderOut >= 0) {
                     didWork = true
-                    val render = keepAllFrames || frameGate.shouldKeep(decoderInfo.presentationTimeUs)
+                    val pts = decoderInfo.presentationTimeUs
+                    // TRIM-KEY-FIX: decode EVERY frame — the P-frame reference
+                    // chain must stay intact — but render only frames at/after
+                    // the trim start. The encoder's first input frame is then
+                    // the first in-window frame, emitted as an IDR, so the
+                    // output bitstream really begins where the user asked.
+                    // (Old code rendered pre-trim frames too and dropped the
+                    // encoded samples afterwards: the output then started
+                    // mid-GOP, on frames the decoder never saw as a keyframe
+                    // — a corrupt opening for up to a full GOP.)
+                    val inWindow = trimStartUs <= 0 || pts >= trimStartUs
+                    val render = inWindow && (keepAllFrames || frameGate.shouldKeep(pts))
+                    if (render && firstRenderedPtsUs == Long.MIN_VALUE) {
+                        firstRenderedPtsUs = pts
+                    }
                     decoder.releaseOutputBuffer(decoderOut, render)
                     if (decoderInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0 && !decoderEosSignalled) {
                         enc.signalEndOfInputStream()
@@ -435,21 +482,23 @@ class MediaCodecTranscoder(private val context: Context) {
                             muxer.start()
                             muxerStarted = true
                         }
-                        if (encoderInfo.presentationTimeUs >= trimStartUs) {
-                            // Frames decoded from the sync sample before the trim
-                            // point are dropped; the rest are written with a
-                            // zero-based PTS.
-                            encoded.position(encoderInfo.offset)
-                            encoded.limit(encoderInfo.offset + encoderInfo.size)
-                            val adjusted = MediaCodec.BufferInfo()
-                            adjusted.set(
-                                0,
-                                encoderInfo.size,
-                                (encoderInfo.presentationTimeUs - trimStartUs).coerceAtLeast(0),
-                                encoderInfo.flags
-                            )
-                            muxer.writeSampleData(videoMuxerTrack, encoded, adjusted)
+                        // TRIM-KEY-FIX: write EVERYTHING the encoder emits —
+                        // pre-trim frames never reach the encoder (render
+                        // gate above) — rebasing PTS to the first output
+                        // sample so the muxed track is zero-based.
+                        if (firstOutputPtsUs == Long.MIN_VALUE) {
+                            firstOutputPtsUs = encoderInfo.presentationTimeUs
                         }
+                        encoded.position(encoderInfo.offset)
+                        encoded.limit(encoderInfo.offset + encoderInfo.size)
+                        val adjusted = MediaCodec.BufferInfo()
+                        adjusted.set(
+                            0,
+                            encoderInfo.size,
+                            (encoderInfo.presentationTimeUs - firstOutputPtsUs).coerceAtLeast(0),
+                            encoderInfo.flags
+                        )
+                        muxer.writeSampleData(videoMuxerTrack, encoded, adjusted)
                     }
                     if (encoderInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
                         encEos = true
@@ -485,7 +534,10 @@ class MediaCodecTranscoder(private val context: Context) {
         } finally {
             extractor.release()
         }
-        return chosen!!
+        // If nothing was ever rendered the pass fails earlier (muxerStarted
+        // guard), so firstRenderedPtsUs is set on every successful return.
+        val startUs = if (firstRenderedPtsUs != Long.MIN_VALUE) firstRenderedPtsUs else 0L
+        return VideoPassResult(chosen!!, startUs)
     }
 
     /**
@@ -609,6 +661,10 @@ private suspend fun mergePass(
         rotation: Int,
         trimStartUs: Long,
         trimEndUs: Long,
+        /** Original-timeline point the (passthrough) audio is re-based from.
+     *  After TRIM-KEY-FIX this is where the VIDEO starts, which can be later
+     *  than the requested trimStartUs by the key-frame gap. */
+        audioStartUs: Long,
         audioAlreadyTrimmed: Boolean,
         control: JobControl,
         onProgress: (Float) -> Unit
@@ -648,7 +704,15 @@ private suspend fun mergePass(
         // MUX-3 FIX: 1 MB was vastly over-sized for most content. A single
         // compressed video sample is typically ≤ 512 KB even at 4K 60 Mbps.
         // Use 512 KB to halve the direct-buffer allocation cost (OS page pinning).
-        val videoBuf = ByteBuffer.allocateDirect(512 * 1024)
+        // MUX-3 FIX: 1 MB was a wasteful default for MOST content, but it was
+        // never the real invariant — SIZED-BUF-FIX below grows the buffer to
+        // the actual sample size. A compressed video sample is NOT bounded by
+        // any fixed size: 4K60 @ 60 Mbps averages 1 MB per frame and key
+        // frames are several times larger. readSampleData() copies only what
+        // fits, so a fixed 512 KB buffer silently truncated big samples
+        // (the rest was skipped by advance()) — corrupt frames in the output.
+        // Start small for common phone clips; grow on demand.
+        var videoBuf = ByteBuffer.allocateDirect(512 * 1024)
         val audioBuf = ByteBuffer.allocateDirect(256 * 1024)
         val videoInfo = MediaCodec.BufferInfo()
         val audioInfo = MediaCodec.BufferInfo()
@@ -662,7 +726,10 @@ private suspend fun mergePass(
         var wroteAnySample = false
         // Passthrough audio comes from the ORIGINAL file (needs trimming to the
         // trim window); transcoded audio is already trimmed (PTS start at 0).
-        val audioOffset = if (audioAlreadyTrimmed) 0L else trimStartUs
+        // TRIM-KEY-FIX: the video track now starts at audioStartUs (first key
+        // frame at/after the requested trim point), so the passthrough audio
+        // must be re-based from the same point, not the requested one.
+        val audioOffset = if (audioAlreadyTrimmed) 0L else audioStartUs
         val audioEnd = if (audioAlreadyTrimmed) 0L else trimEndUs
 
         // MUX-4 FIX: seek passthrough audio extractor to the trim start point
@@ -675,6 +742,13 @@ private suspend fun mergePass(
 
         fun readVideo(): Boolean {
             if (videoDone) return false
+            // SIZED-BUF-FIX: size the buffer to the real sample BEFORE reading.
+            // (getSampleSize() is a long on API 35; clamp for ByteBuffer.)
+            val sampleSize = videoExtractor.sampleSize
+                .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+            if (sampleSize > videoBuf.capacity()) {
+                videoBuf = ByteBuffer.allocateDirect(sampleSize)
+            }
             val sz = videoExtractor.readSampleData(videoBuf, 0)
             if (sz < 0) { videoDone = true; return false }
             videoInfo.set(0, sz, videoExtractor.sampleTime, sampleFlagsToCodecFlags(videoExtractor.sampleFlags))
@@ -805,6 +879,11 @@ private suspend fun mergePass(
     }
 
     data class EncoderChoice(val name: String, val mime: String)
+
+    /** One decode->encode pass: the encoder actually used, and (when
+     *  trimming) where the output stream really starts on the original
+     *  timeline — see the TRIM-KEY-FIX notes in [videoPass]. */
+    private data class VideoPassResult(val choice: EncoderChoice, val firstKeptPtsUs: Long)
 
     /**
      * All usable encoders for [requestedMime], best first: hardware, then

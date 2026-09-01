@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<full-backup-content>
-    <!-- History database and settings are backed up; cache and temp files are not. -->
-    <include domain="database" path="compressly.db" />
-    <include domain="sharedpref" path="compressly_settings.preferences_pb" />
-</full-backup-content>

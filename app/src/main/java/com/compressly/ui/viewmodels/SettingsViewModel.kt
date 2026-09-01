@@ -357,8 +357,12 @@ class SettingsViewModel(private val container: AppContainer, private val context
         val s = _state.value
         if (!s.ready || s.items.isEmpty()) return null
 
-        val estimate = s.estimatedSize
-        if (estimate > 0 && !Storage.hasEnoughSpace(estimate)) {
+        // SPACE-FIX: estimatedSize is the estimate for the FIRST file only.
+        // A 50-file batch needs roughly 50x that — checking one file's worth
+        // let a big batch start and then die mid-way with an IOException.
+        // (Worst case: every file in the batch is as big as the first.)
+        val batchEstimate = s.estimatedSize.coerceAtLeast(0L) * s.items.size
+        if (batchEstimate > 0 && !Storage.hasEnoughSpace(batchEstimate)) {
             _state.update { it.copy(lowSpaceWarning = true) }
             return null
         }

@@ -33,6 +33,18 @@ object Mime {
         else -> "mp4"
     }
 
+    /** File extension for an audio container, so output keeps the real
+     *  container instead of being stamped .mp3 no matter what it is. */
+    fun audioExtension(mime: String?): String = when (mime?.lowercase()) {
+        "audio/mp4", "audio/m4a", "audio/x-m4a" -> "m4a"
+        "audio/flac" -> "flac"
+        "audio/wav", "audio/x-wav", "audio/vnd.wave" -> "wav"
+        "audio/ogg", "audio/opus" -> "ogg"
+        "audio/aac", "audio/adts" -> "aac"
+        "audio/amr", "audio/amr-wb" -> "amr"
+        else -> "mp3"
+    }
+
     fun isVideo(mime: String?): Boolean = mime?.startsWith("video/") == true
 
     fun isAudio(mime: String?): Boolean = mime?.startsWith("audio/") == true

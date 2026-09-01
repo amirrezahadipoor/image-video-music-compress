@@ -187,8 +187,12 @@ class Compressor(private val context: Context) {
         // decode+encode pass (and a generation of quality) for nothing.
         val estimate = com.compressly.core.engine.estimate.SizeEstimator
             .estimateVideo(info, settings, preset)
+        // SIZE-GUARD-FIX: item.sizeBytes can be -1 (MediaStore query failed at
+        // scan time) — measure the real size so the no-gain guard actually
+        // works instead of silently skipping itself.
+        val inputSize = item.sizeBytes.takeIf { it > 0 } ?: sizeOf(item.uri)
         if (com.compressly.core.engine.video.VideoPlanner.isNoOpTranscode(info, settings, preset) &&
-            com.compressly.core.engine.video.VideoPlanner.shouldKeepOriginal(estimate, item.sizeBytes)
+            com.compressly.core.engine.video.VideoPlanner.shouldKeepOriginal(estimate, inputSize)
         ) {
             return keepOriginal(item, MediaType.VIDEO, onProgress)
         }
@@ -236,7 +240,7 @@ class Compressor(private val context: Context) {
         val ext = when (mediaType) {
             MediaType.VIDEO -> com.compressly.core.util.Mime.videoExtension(mime)
             MediaType.PHOTO -> com.compressly.core.util.Mime.photoExtension(mime)
-            MediaType.AUDIO -> if (mime.contains("mp4") || mime.contains("m4a")) "m4a" else "mp3"
+            MediaType.AUDIO -> com.compressly.core.util.Mime.audioExtension(mime)
         }
         val temp = File.createTempFile("keep_", ".$ext", context.cacheDir)
         try {

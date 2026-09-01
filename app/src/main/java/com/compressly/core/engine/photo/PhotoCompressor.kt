@@ -160,11 +160,22 @@ class PhotoCompressor(private val context: Context) {
                 val effectiveSmart = settings.smart && !isPng
 
                 var encoded = false
+                // PROGRESS-MONOTONIC-FIX: each ladder rung restarts its own
+                // 0..1 encode progress, so without a clamp the bar would jump
+                // backwards (0.90 -> 0.15) on every re-encode. Carry the
+                // highest value reported so far (within the 0.15..0.90 encode
+                // band) into the next rung; the metadata step (0.93) and the
+                // final 1.0 both sit above the band and keep the curve
+                // monotonically increasing.
+                var lastReportedProgress = 0f
                 for (q in qualities) {
                     control.checkActive()
                     FileOutputStream(tempOut).use { out ->
                         val counting = ProgressStream(out, estimate, control) { p ->
-                            onProgress(0.15f + p * 0.75f)
+                            val mapped = (0.15f + p * 0.75f).coerceAtMost(0.90f)
+                            val monotonic = if (mapped > lastReportedProgress) mapped else lastReportedProgress
+                            lastReportedProgress = monotonic
+                            onProgress(monotonic)
                         }
                         if (!bitmap.compress(fmt, q, counting)) {
                             throw PhotoCompressionException(KEY_ENCODE)
@@ -359,6 +370,19 @@ class PhotoCompressor(private val context: Context) {
             bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() -> "image/jpeg"
             bytes[0] == 0x89.toByte() && bytes[1] == 0x50.toByte() -> "image/png"
             bytes[0] == 'R'.code.toByte() && bytes[1] == 'I'.code.toByte() -> "image/webp"
+            // HEIC/HEIF: ISO-BMFF "ftyp" box — size at 0..3, brand at 8..11.
+            // Without this, a HEIC whose resolver mime came back null fell to
+            // a generic decode error instead of the clear "old device" one.
+            bytes.size >= 12 &&
+                bytes[4].toInt() == 0 && bytes[5].toInt() == 0 &&
+                bytes[6].toInt() == 0 &&
+                (bytes[7].toInt() == 0x18 || bytes[7].toInt() == 0x20) -> {
+                val brand = String(bytes, 8, 4, Charsets.US_ASCII)
+                when (brand) {
+                    "heic", "heix", "hevc", "hevx", "heif", "mif1", "msf1" -> "image/heic"
+                    else -> null
+                }
+            }
             else -> null
         }
     }.getOrNull()

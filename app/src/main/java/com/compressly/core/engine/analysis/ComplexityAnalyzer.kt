@@ -38,10 +38,14 @@ object ComplexityAnalyzer {
      * phone, plus a visible delay before the estimate updates. The result is a
      * pure function of the file, so keep a small TTL cache keyed by URI.
      * 64 entries / 15 min is far more than a user needs; anything stale is
-     * simply recomputed. Never grows unbounded (cleared when full), and the
-     * check happens before any MediaMetadataRetriever work.
+     * simply recomputed. Never grows unbounded (LRU-evicts when full), and
+     * the check happens before any MediaMetadataRetriever work.
      */
-    private val cache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Result>>()
+    // LRU-FIX: an access-ordered LinkedHashMap (least-recently-used first)
+    // behind a dedicated lock — it evicts ONE oldest entry at a time instead
+    // of clearing the whole map at 64 entries.
+    private val cache = LinkedHashMap<String, Pair<Long, Result>>(CACHE_MAX, 0.75f, true)
+    private val cacheLock = Any()
     private const val CACHE_TTL_MS = 15 * 60_000L
     private const val CACHE_MAX = 64
 
@@ -68,8 +72,12 @@ object ComplexityAnalyzer {
         if (durationMs < MIN_DURATION_MS) return null
         // Cache hit: skip the decoder entirely (see CACHE-FIX above).
         if (cancelCheck == null) {
-            cache[uri.toString()]?.let { (ts, result) ->
-                if (System.currentTimeMillis() - ts < CACHE_TTL_MS) return result
+            // Access-ordered map: the read itself marks the entry as most
+            // recently used (get inside the lock updates recency).
+            synchronized(cacheLock) {
+                cache[uri.toString()]?.let { (ts, result) ->
+                    if (System.currentTimeMillis() - ts < CACHE_TTL_MS) return result
+                }
             }
         }
         val retriever = MediaMetadataRetriever()
@@ -129,8 +137,15 @@ object ComplexityAnalyzer {
                 sceneCuts = sceneCuts
             ).also { result ->
                 if (cancelCheck == null) {
-                    if (cache.size >= CACHE_MAX) cache.clear()
-                    cache[uri.toString()] = System.currentTimeMillis() to result
+                    // LRU-FIX: evict the single least-recently-used entry
+                    // (access-ordered map: the first key is the LRU one)
+                    // instead of throwing the whole cache away.
+                    synchronized(cacheLock) {
+                        while (cache.size >= CACHE_MAX) {
+                            cache.keys.firstOrNull()?.let { cache.remove(it) } ?: break
+                        }
+                        cache[uri.toString()] = System.currentTimeMillis() to result
+                    }
                 }
             }
         } catch (t: Throwable) {

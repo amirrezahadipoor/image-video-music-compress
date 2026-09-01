@@ -21,7 +21,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "compressly.db"
                 )
-                    .fallbackToDestructiveMigration()
+                    // MIGRATION-FIX: no fallbackToDestructiveMigration(). The
+                    // first future schema change must ship a real Migration,
+                    // or the app should fail loudly on upgrade — silently
+                    // wiping the user's whole history is not acceptable.
                     .build()
                     .also { instance = it }
             }

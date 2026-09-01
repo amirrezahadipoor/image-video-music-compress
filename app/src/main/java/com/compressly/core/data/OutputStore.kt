@@ -176,8 +176,13 @@ object OutputStore {
             "image/png" -> ".png"
             "image/webp" -> ".webp"
             "video/mp4" -> ".mp4"
-            "audio/mp4", "audio/m4a" -> ".m4a"
+            "audio/mp4", "audio/m4a", "audio/x-m4a" -> ".m4a"
             "audio/mpeg" -> ".mp3"
+            "audio/flac" -> ".flac"
+            "audio/wav", "audio/x-wav", "audio/vnd.wave" -> ".wav"
+            "audio/ogg", "audio/opus" -> ".ogg"
+            "audio/aac", "audio/adts" -> ".aac"
+            "audio/amr", "audio/amr-wb" -> ".amr"
             else -> if (dot > 0) displayName.substring(dot) else ""
         }
         

@@ -53,11 +53,18 @@ android {
                 .replace("\"", "\\\"")
         val supportCardNumber = cfg("SUPPORT_CARD_NUMBER")
         val supportCardHolder = cfg("SUPPORT_CARD_HOLDER")
+        // Adivery ad-unit IDs — not secrets, but they belong in one
+        // configurable place (env / gradle.properties) like every other
+        // external identifier in this file, not hardcoded in Kotlin.
+        val adiveryAppId = cfg("ADIVERY_APP_ID").ifBlank { "4d3dfc77-e8aa-409b-aa24-8f0b1bad9fe3" }
+        val adiveryBannerId = cfg("ADIVERY_BANNER_ID").ifBlank { "28f7964a-6cbf-4f7b-897c-96465a4a72bb" }
         create("play") {
             dimension = "store"
             buildConfigField("String", "STORE", "\"play\"")
             buildConfigField("boolean", "ADS_ENABLED", "false")
             buildConfigField("String", "BAZAAR_RSA_KEY", "\"\"")
+            buildConfigField("String", "ADIVERY_APP_ID", "\"\"")
+            buildConfigField("String", "ADIVERY_BANNER_ID", "\"\"")
             buildConfigField("String", "SUPPORT_CARD_NUMBER", "\"$supportCardNumber\"")
             buildConfigField("String", "SUPPORT_CARD_HOLDER", "\"$supportCardHolder\"")
         }
@@ -66,6 +73,8 @@ android {
             buildConfigField("String", "STORE", "\"bazaar\"")
             buildConfigField("boolean", "ADS_ENABLED", "true")
             buildConfigField("String", "BAZAAR_RSA_KEY", "\"$bazaarRsa\"")
+            buildConfigField("String", "ADIVERY_APP_ID", "\"$adiveryAppId\"")
+            buildConfigField("String", "ADIVERY_BANNER_ID", "\"$adiveryBannerId\"")
             buildConfigField("String", "SUPPORT_CARD_NUMBER", "\"$supportCardNumber\"")
             buildConfigField("String", "SUPPORT_CARD_HOLDER", "\"$supportCardHolder\"")
         }
@@ -98,7 +107,16 @@ android {
             )
         }
         debug {
-            isMinifyEnabled = true
+            // CI-FIX (smoke job): the debug build used to run R8 too, and R8's
+            // missing-class check (active for this variant in AGP 8.7) failed
+            // the instrumented-test build on Adivery's optional mbridge
+            // references and jaudiotagger's desktop-only AWT calls — classes
+            // that are never loaded on-device (they sit behind -dontwarn and
+            // are never referenced from live code paths). The release build in
+            // the main CI job still runs R8 on every push, so proguard issues
+            // are caught there; a minified debug APK only slowed the smoke
+            // test down.
+            isMinifyEnabled = false
             applicationIdSuffix = ".debug"
         }
     }

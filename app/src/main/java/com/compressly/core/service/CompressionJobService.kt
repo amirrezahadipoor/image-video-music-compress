@@ -78,15 +78,7 @@ class CompressionJobService : Service() {
         }
 
         // Acquire WakeLock on first START command (idempotent for subsequent calls).
-        if (wakeLock == null) {
-            val pm = getSystemService(POWER_SERVICE) as PowerManager
-            wakeLock = pm.newWakeLock(
-                PowerManager.PARTIAL_WAKE_LOCK,
-                "compressly:compression"
-            ).also { wl ->
-                wl.acquire(2 * 60 * 60 * 1000L) // 2-hour safety cap
-            }
-        }
+        ensureWakeLock()
 
         if (collector == null) {
             collector = scope.launch {
@@ -95,6 +87,14 @@ class CompressionJobService : Service() {
         }
         return START_NOT_STICKY
     }
+
+    // NOTIF-DEBOUNCE: one notification per progress tick (every ~0.5 %) is a
+    // binder call for nothing — the user cannot read a 0.5 % change. Refresh
+    // at most every 400 ms, and immediately when the job or its paused state
+    // changes (the pause/resume button swap must not lag a full interval).
+    private var lastNotifAtMs = 0L
+    private var lastNotifJobId = -1L
+    private var lastNotifPaused = false
 
     private fun handleJobs(jobs: Map<Long, com.compressly.core.engine.model.JobState>) {
         val active = jobs.values.filter {
@@ -119,10 +119,23 @@ class CompressionJobService : Service() {
             stopSelf()
             return
         }
-        safeNotify(
-            NotificationHelper.NOTIF_ID,
-            NotificationHelper.buildJobNotification(this, active.first())
-        )
+        val job = active.first()
+        // WAKE-PAUSE-FIX: a fully-paused job does no work. Holding the CPU
+        // awake while the user walks away just burns battery — release the
+        // lock while every active job is paused, re-acquire on resume.
+        if (active.all { it.isPaused }) releaseWakeLock() else ensureWakeLock()
+
+        val now = android.os.SystemClock.elapsedRealtime()
+        val force = job.jobId != lastNotifJobId || job.isPaused != lastNotifPaused
+        if (force || now - lastNotifAtMs >= 400L) {
+            safeNotify(
+                NotificationHelper.NOTIF_ID,
+                NotificationHelper.buildJobNotification(this, job)
+            )
+            lastNotifAtMs = now
+            lastNotifJobId = job.jobId
+            lastNotifPaused = job.isPaused
+        }
     }
 
 
@@ -148,6 +161,18 @@ class CompressionJobService : Service() {
     private val terminalStatuses = setOf(
         JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED
     )
+
+    private fun ensureWakeLock() {
+        if (wakeLock == null) {
+            val pm = getSystemService(POWER_SERVICE) as PowerManager
+            wakeLock = pm.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                "compressly:compression"
+            ).also { wl ->
+                wl.acquire(2 * 60 * 60 * 1000L) // 2-hour safety cap
+            }
+        }
+    }
 
     private fun releaseWakeLock() {
         runCatching {

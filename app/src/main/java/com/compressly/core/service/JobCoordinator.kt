@@ -63,6 +63,13 @@ class JobCoordinator(
         val jobId = nextJobId.getAndIncrement()
         val itemStates = items.map { ItemState(it.itemId, it.displayName, ItemPhase.QUEUED) }
         _jobs.update { it + (jobId to JobState(jobId, mediaType, JobStatus.RUNNING, items = itemStates, preset = settings.preset)) }
+        // CANCEL-RACE-FIX: register the job control BEFORE the coroutine is
+        // launched. appScope.launch() is asynchronous — between the launch
+        // and the first line of runJob there is a window in which the user
+        // can hit cancel; with no control registered yet, cancel() found
+        // controls[jobId] == null and was silently dropped, so the job
+        // started anyway and the UI showed a dead cancel button.
+        controls[jobId] = JobControl()
         startService()
         appScope.launch { runJob(jobId, items, settings) }
         return jobId
@@ -105,8 +112,11 @@ class JobCoordinator(
     // ------------------------------------------------------------------
 
     private suspend fun runJob(jobId: Long, items: List<InputItem>, settings: CompressionSettings) {
-        val control = JobControl(startPaused = jobPaused[jobId] == true)
-        controls[jobId] = control
+        // Re-use the control registered in enqueue() (CANCEL-RACE-FIX) so a
+        // cancel that landed in the launch window is already observed here;
+        // fall back to creating one if it was cleared in the meantime.
+        val control = controls[jobId]
+            ?: JobControl(startPaused = jobPaused[jobId] == true).also { controls[jobId] = it }
         val anySuccess = AtomicBoolean(false)
         val anyFailure = AtomicBoolean(false)
         val anyCancelled = AtomicBoolean(false)
@@ -141,7 +151,10 @@ class JobCoordinator(
                 val runningRow = historyRepository.insert(runningEntry(jobId, item))
 
                 // Items individually cancelled while queued are skipped.
-                if (isItemCancelled(item.itemId)) {
+                // CANCEL-RACE-FIX: a whole-job cancel that landed in the
+                // enqueue()->processOne window is honoured here too — the
+                // job control registered in enqueue() is already marked.
+                if (isItemCancelled(item.itemId) || control.isCancelled) {
                     anyCancelled.set(true)
                     updateItem(jobId, item.itemId) { it.copy(phase = ItemPhase.CANCELLED) }
                     historyRepository.update(
@@ -217,12 +230,11 @@ class JobCoordinator(
                     ordered.map { item ->
                         launch(Dispatchers.Default) {
                             gate.withPermit {
-                                if (!jobCancelled.get()) processOne(item)
-                                else {
-                                    // Already-cancelled job: mark remaining items CANCELLED.
-                                    anyCancelled.set(true)
-                                    updateItem(jobId, item.itemId) { it.copy(phase = ItemPhase.CANCELLED) }
-                                }
+                                // CANCEL-RACE-FIX: unconditional — processOne's
+                                // pre-check handles a cancelled job (and,
+                                // unlike the old else-branch, it also finalizes
+                                // the RUNNING history row created above).
+                                processOne(item)
                             }
                         }
                     }.joinAll()

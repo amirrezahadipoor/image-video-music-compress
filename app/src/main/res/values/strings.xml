@@ -49,7 +49,7 @@
     <string name="settings_quality">کیفیت</string>
     <string name="settings_quality_value">%1$d٪</string>
     <string name="settings_metadata">متادیتا (EXIF / ID3)</string>
-    <string name="settings_metadata_preserve_desc">اطلاعات دوربین، برچسب‌ها و جهت عکس حفظ می‌شود.</string>
+    <string name="settings_metadata_preserve_desc">اطلاعات دوربین، برچسب‌ها، جهت و مختصات GPS عکس حفظ می‌شود — برای فایلی که قصد ارسالش را دارید، حذف را انتخاب کنید.</string>
     <string name="settings_metadata_strip_desc">جزئیات مکان و دوربین حذف می‌شود. فایل سبک‌تر.</string>
 
     <!-- Smart mode -->

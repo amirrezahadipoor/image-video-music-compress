@@ -92,6 +92,17 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
     }
 
+    override fun onDestroy() {
+        // BILLING-LEAK-FIX: the Poolakey Payment object is constructed with
+        // this Activity and stored in the app-lifetime billing manager. The
+        // interface contract says to release it from onDestroy — without this
+        // the first MainActivity instance leaks for the whole process
+        // (bazaar flavor). connect() in onCreate re-establishes it on
+        // recreation, and restoreLocalPremium keeps premium state in memory.
+        runCatching { (application as CompresslyApp).container.billingManager.disconnect() }
+        super.onDestroy()
+    }
+
     /** Notification taps route into the app via the navigation bus. */
     private fun handleIntent(intent: Intent?) {
         if (intent?.action == CompressionJobService.ACTION_OPEN_JOB) {

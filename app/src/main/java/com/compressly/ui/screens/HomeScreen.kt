@@ -114,14 +114,12 @@ fun HomeScreen(
     fun acceptPicked(type: MediaType, uris: List<Uri>) {
         if (uris.isEmpty()) return
 
-        uris.forEach { uri ->
-            runCatching {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            }
-        }
+        // No takePersistableUriPermission here: PhotoPicker / document-picker
+        // URIs don't carry a persistable grant, so the call could only fail
+        // (silently, in the runCatching) — misleading dead code. The read
+        // grant they DO carry lasts until app data is cleared, which fully
+        // covers the job's lifetime. (The SAF TREE picker below is the one
+        // place a persistable permission is both possible and needed.)
         
         val maxSizeBytes = 2L * 1024 * 1024 * 1024 // 2 GB limit
         val validItems = mutableListOf<InputItem>()
