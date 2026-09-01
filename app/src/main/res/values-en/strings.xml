@@ -13,6 +13,7 @@
     <string name="action_retry">Try again</string>
     <string name="action_done">Done</string>
     <string name="action_back">Back</string>
+    <string name="action_remove">Remove this file</string>
     <string name="action_allow">Allow</string>
     <string name="action_not_now">Not now</string>
     <!-- Media types --><string name="media_photos">Photos</string>
@@ -21,7 +22,7 @@
 
     <!-- Home --><string name="home_hero_title">Smaller, on your device</string>
     <string name="home_hero_subtitle" formatted="false">Fully offline. No upload.</string>
-    <string name="hero_offline_badge" formatted="false">100% Offline</string>
+    <string name="hero_offline_badge" formatted="false">🔒 100% Offline</string>
     <string name="home_compress_photo">Compress Photo</string>
     <string name="home_compress_video">Compress Video</string>
     <string name="home_compress_audio">Compress Audio</string>
@@ -34,6 +35,7 @@
     <string name="home_no_activity_desc">Your compression history will appear here.</string>
     <string name="home_total_saved">Total space saved</string>
     <string name="home_jobs_active">%1$d job(s) in progress</string>
+    <string name="home_jobs_percent">%1$d%%</string>
     <string name="home_tap_to_choose">Choose a type to start</string>
 
     <!-- File picking --><string name="pick_error_too_large">One or more files are over the 2 GB limit.</string>
@@ -306,6 +308,9 @@
         <item quantity="one">%1$d file compressed. Tap to view.</item>
         <item quantity="other">%1$d files compressed. Tap to view.</item>
     </plurals>
+
+    <string name="selected_files_title">Selected files</string>
+    <string name="selected_files_more">and %1$d more</string>
 
     <plurals name="result_batch_files">
         <item quantity="one">%1$d of %2$d file succeeded</item>

@@ -17,11 +17,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.onFocusChanged
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -44,20 +46,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
 import com.compressly.CompresslyApp
 import ir.siliksama.hajmino.R
 import com.compressly.core.engine.model.AudioFormat
+import com.compressly.core.engine.model.InputItem
 import com.compressly.core.engine.model.CompressionPreset
 import com.compressly.core.engine.model.MediaType
 import com.compressly.core.engine.model.PhotoFormat
@@ -65,6 +69,7 @@ import com.compressly.core.engine.model.PhotoResize
 import com.compressly.core.engine.model.VideoAudioMode
 import com.compressly.core.engine.model.VideoCodec
 import com.compressly.core.engine.model.VideoResolution
+import com.compressly.core.util.Bidi
 import com.compressly.core.util.Formats
 import com.compressly.ui.components.BeforeAfterSlider
 import com.compressly.core.util.SoundEffects
@@ -94,6 +99,21 @@ fun CompressionSettingsScreen(
 ) {
     val context = LocalContext.current
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    // BATCH-TOTALS-FIX: originalSize/estimatedSize describe the FIRST file
+    // only — that is what the analysis and the per-grade estimates are
+    // computed from. For a multi-file batch the headline numbers must cover
+    // the whole selection, or a 50-file batch would show a single file's
+    // size and the bar would promise 50 files at one file's size.
+    val totalOriginal = remember(state.items, state.originalSize) {
+        if (state.items.size > 1) {
+            state.items.sumOf { it.sizeBytes.takeIf { s -> s > 0 } ?: 0L }
+        } else state.originalSize
+    }
+    val totalEstimated = remember(state.items.size, state.estimatedSize) {
+        if (state.items.size > 1) state.estimatedSize.coerceAtLeast(0L) * state.items.size
+        else state.estimatedSize
+    }
 
     LaunchedEffect(state.ready) {
         if (!state.ready) onBack()
@@ -140,8 +160,8 @@ fun CompressionSettingsScreen(
             ) {
                 GradientSummaryBar(
                     count = state.items.size,
-                    estimatedSize = if (state.estimatedSize > 0)
-                        Formats.humanSize(state.estimatedSize)
+                    estimatedSize = if (totalEstimated > 0)
+                        Formats.humanSize(totalEstimated)
                     else stringResource(R.string.unknown),
                     onClick = ::requestCompression
                 )
@@ -200,14 +220,20 @@ fun CompressionSettingsScreen(
                     .padding(horizontal = 20.dp)
             ) {
                 // ---- Photo live preview ----
+                // BATCH-VISIBILITY-FIX: a multi-file batch is shown as a real
+                // list the user can inspect and trim — previously a 50-file
+                // batch was a black box with just a count and one thumbnail.
                 if (mediaType == MediaType.PHOTO && state.items.size == 1) {
                     PhotoPreviewCard(
                         state = state.preview,
                         mediaType = mediaType
                     )
                     Spacer(Modifier.height(20.dp))
-                } else if (mediaType == MediaType.PHOTO) {
-                    MultiPhotoThumb(state.items.firstOrNull()?.uri)
+                } else if (state.items.size > 1) {
+                    SelectedFilesCard(
+                        items = state.items,
+                        onRemove = viewModel::removeItem
+                    )
                     Spacer(Modifier.height(20.dp))
                 }
 
@@ -268,12 +294,13 @@ fun CompressionSettingsScreen(
                     Column(modifier = Modifier.padding(16.dp)) {
                         InfoRow(
                             label = stringResource(R.string.settings_original_size),
-                            value = Formats.humanSize(state.originalSize)
+                            value = if (totalOriginal > 0) Formats.humanSize(totalOriginal)
+                            else stringResource(R.string.unknown)
                         )
                         Spacer(Modifier.height(8.dp))
                         InfoRow(
                             label = stringResource(R.string.settings_estimated_size),
-                            value = if (state.estimatedSize > 0) Formats.humanSize(state.estimatedSize)
+                            value = if (totalEstimated > 0) Formats.humanSize(totalEstimated)
                             else stringResource(R.string.unknown),
                             accent = MaterialTheme.colorScheme.primary
                         )
@@ -431,18 +458,74 @@ private fun PhotoPreviewCard(
     }
 }
 
+/**
+ * The batch manifest: exactly which files will be compressed, with their
+ * sizes, and a per-file remove. The list is capped at three rows so a huge
+ * batch does not push the settings out of reach.
+ */
 @Composable
-private fun MultiPhotoThumb(uri: android.net.Uri?) {
-    if (uri == null) return
-    AsyncImage(
-        model = uri,
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(150.dp)
-            .clip(RoundedCornerShape(22.dp))
-    )
+private fun SelectedFilesCard(
+    items: List<InputItem>,
+    onRemove: (Long) -> Unit
+) {
+    val visible = items.take(3)
+    val more = items.size - visible.size
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = stringResource(R.string.selected_files_title),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(6.dp))
+            visible.forEach { item ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = Bidi.isolate(item.displayName),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = Formats.humanSize(item.sizeBytes.takeIf { s -> s > 0 } ?: 0L),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(2.dp))
+                    IconButton(
+                        onClick = { onRemove(item.itemId) },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            Icons.Outlined.Close,
+                            contentDescription = stringResource(R.string.action_remove),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                }
+            }
+            if (more > 0) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.selected_files_more, more),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
 }
 
 // ---- Advanced panels ----------------------------------------------------
@@ -501,13 +584,37 @@ private fun PhotoAdvanced(
     )
     if (state.photo.resize == PhotoResize.CUSTOM) {
         Spacer(Modifier.height(10.dp))
+        // CUSTOM-WIDTH-FIX: the field keeps a local draft and commits it on
+        // Done or focus loss. It was previously bound straight to the setting,
+        // which is clamped to 320..8000 — typing "1" snapped the field to
+        // "320" and clearing it snapped to "1600", so no value could be typed.
+        var widthDraft by remember(state.photo.customMaxWidth) {
+            mutableStateOf(state.photo.customMaxWidth.toString())
+        }
+        val keyboard = LocalSoftwareKeyboardController.current
+        val commitWidth: () -> Unit = {
+            val parsed = widthDraft.trim().toIntOrNull()
+            when {
+                parsed == null -> widthDraft = state.photo.customMaxWidth.toString()
+                parsed != state.photo.customMaxWidth ->
+                    viewModel.setPhotoCustomWidth(parsed) // VM clamps 320..8000
+            }
+        }
         OutlinedTextField(
-            value = state.photo.customMaxWidth.toString(),
-            onValueChange = { viewModel.setPhotoCustomWidth(it.toIntOrNull() ?: 1600) },
+            value = widthDraft,
+            onValueChange = { widthDraft = it.filter(Char::isDigit).take(5) },
             label = { Text(stringResource(R.string.photo_custom_width_hint)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth()
+            keyboardActions = KeyboardActions(onDone = {
+                keyboard?.hide()
+                commitWidth()
+            }),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { fs ->
+                    if (!fs.isFocused) commitWidth()
+                }
         )
     }
     Spacer(Modifier.height(16.dp))

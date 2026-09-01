@@ -9,6 +9,10 @@ object ErrorMessages {
     @StringRes
     fun forKey(key: String?): Int = when (key) {
         "heic_unsupported" -> R.string.error_heic_unsupported
+        // PhotoCompressor emits this exact key on API 26-27 (minSdk) when a
+        // HEIC file is picked — without the mapping it fell through to the
+        // generic error and the helpful "needs Android 9+" message was lost.
+        "heic_old_device" -> R.string.error_heic_unsupported
         "corrupt" -> R.string.error_corrupt
         "decode_failed" -> R.string.error_decode_failed
         "no_video" -> R.string.error_unsupported_format

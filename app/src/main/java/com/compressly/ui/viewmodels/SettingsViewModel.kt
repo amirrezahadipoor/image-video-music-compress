@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -84,7 +85,6 @@ class SettingsViewModel(private val container: AppContainer, private val context
 
     private var previewJob: Job? = null
     private var lastPreviewFile: File? = null
-    private var firstInfo: MediaInfo? = null
     /** Once the user taps a grade, analysis must not override it. */
     private var userPickedGrade = false
 
@@ -120,9 +120,16 @@ class SettingsViewModel(private val container: AppContainer, private val context
         val s = _state.value
         val first = s.items.firstOrNull() ?: return
         viewModelScope.launch {
-            val info = runCatching { MediaInspector.inspect(context, first.uri) }.getOrNull()
-            firstInfo = info
-            val originalSize = first.sizeBytes.takeIf { it > 0 } ?: Uris.sizeOf(context, first.uri)
+            // MAIN-THREAD-FIX: inspect() runs MediaMetadataRetriever + a
+            // MediaExtractor track probe against the URI — a binder call plus
+            // file I/O that can take well over 100 ms on slow devices. It used
+            // to run on the main thread (this scope), stuttering or ANRing
+            // every time the settings screen opened.
+            val info = withContext(Dispatchers.IO) {
+                runCatching { MediaInspector.inspect(context, first.uri) }.getOrNull()
+            }
+            val originalSize = first.sizeBytes.takeIf { it > 0 }
+                ?: withContext(Dispatchers.IO) { Uris.sizeOf(context, first.uri) }
             _state.update {
                 it.copy(
                     info = info,
@@ -172,7 +179,6 @@ class SettingsViewModel(private val container: AppContainer, private val context
                 color = analysed.color,
                 sceneCuts = analysed.sceneCuts
             ) else base
-            firstInfo = enriched
             _state.update { it.copy(info = enriched) }
             applyAnalysis(enriched, originalSize, uri)
             refreshEstimate()
@@ -262,6 +268,20 @@ class SettingsViewModel(private val container: AppContainer, private val context
 
     fun setPhotoMetadata(preserve: Boolean) {
         _state.update { it.copy(photo = it.photo.copy(preserveMetadata = preserve)) }
+    }
+
+    /**
+     * BATCH-REMOVE: drops one file from the configured batch. If the removed
+     * file was the one the analysis ran on, the whole analysis re-runs on the
+     * new first file so sizes, estimates and grade advice stay truthful.
+     * Removing the last file returns the user to Home (ready = false).
+     */
+    fun removeItem(itemId: Long) {
+        val wasFirst = state.value.items.firstOrNull()?.itemId == itemId
+        val remaining = state.value.items.filterNot { it.itemId == itemId }
+        _state.update { s -> s.copy(items = remaining, ready = remaining.isNotEmpty()) }
+        if (remaining.isEmpty()) return
+        if (wasFirst) loadMetadata()
     }
 
     // ---- Video setters ----------------------------------------------------

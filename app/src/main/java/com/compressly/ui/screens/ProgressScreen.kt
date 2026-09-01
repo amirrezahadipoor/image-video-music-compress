@@ -278,8 +278,15 @@ fun ProgressScreen(
  */
 @Composable
 private fun ElapsedEta(job: com.compressly.core.engine.model.JobState) {
+    val terminal = job.status == JobStatus.COMPLETED ||
+        job.status == JobStatus.FAILED ||
+        job.status == JobStatus.CANCELLED
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
+    // TICK-FIX: once the job reaches a terminal state the elapsed number is
+    // final — ticking every 500 ms until navigation just burned battery and
+    // recomposed a finished screen.
+    LaunchedEffect(terminal) {
+        if (terminal) return@LaunchedEffect
         while (true) {
             delay(500)
             now = System.currentTimeMillis()

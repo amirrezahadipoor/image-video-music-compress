@@ -13,6 +13,7 @@
     <string name="action_retry">تلاش مجدد</string>
     <string name="action_done">پایان</string>
     <string name="action_back">بازگشت</string>
+    <string name="action_remove">حذف این فایل</string>
     <string name="action_allow">تأیید دسترسی</string>
     <string name="action_not_now">فعلاً نه</string>
     <!-- Media types --><string name="media_photos">تصاویر</string>
@@ -21,7 +22,7 @@
 
     <!-- Home --><string name="home_hero_title">کوچک‌تر، روی دستگاه شما</string>
     <string name="home_hero_subtitle">کاملاً آفلاین. بدون آپلود.</string>
-    <string name="hero_offline_badge">کاملاً آفلاین</string>
+    <string name="hero_offline_badge">🔒 کاملاً آفلاین</string>
     <string name="home_compress_photo">فشرده‌سازی عکس</string>
     <string name="home_compress_video">فشرده‌سازی ویدیو</string>
     <string name="home_compress_audio">فشرده‌سازی فایل صوتی</string>
@@ -34,6 +35,7 @@
     <string name="home_no_activity_desc">لیست عملیات‌های فشرده‌سازی شما در این قسمت نمایش داده خواهد شد.</string>
     <string name="home_total_saved">مجموع فضای آزاد شده</string>
     <string name="home_jobs_active">%1$d عملیات در حال اجرا است</string>
+    <string name="home_jobs_percent">%1$d%%</string>
     <string name="home_tap_to_choose">یک نوع را انتخاب کنید</string>
 
     <!-- File picking --><string name="pick_error_too_large">یک یا چند فایل بیشتر از حد مجاز (۲ گیگابایت) هستند.</string>
@@ -308,6 +310,9 @@
         <item quantity="one">%1$d فایل انتخاب شده</item>
         <item quantity="other">%1$d فایل انتخاب شده</item>
     </plurals>
+
+    <string name="selected_files_title">فایل‌های انتخاب‌شده</string>
+    <string name="selected_files_more">و %1$d فایل دیگر</string>
 
     <plurals name="notif_done_text">
         <item quantity="one">%1$d فایل فشرده شد. برای مشاهده لمس کنید.</item>

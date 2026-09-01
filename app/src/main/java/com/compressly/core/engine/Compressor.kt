@@ -224,35 +224,23 @@ class Compressor(private val context: Context) {
     /**
      * Publishes the input file unchanged. Used when the planned transcode would
      * not shrink it: re-encoding at the rate the source already carries only
-     * costs quality, so the file is copied through and reported honestly.
+     * costs quality, so the file is reported honestly as-is.
+     *
+     * KEEP-ORIGINAL-FIX: no copy is made and no new MediaStore row is created.
+     * The old implementation copied the WHOLE file into a temp and published a
+     * second, byte-identical file into the gallery — for a multi-hundred-MB
+     * video that was minutes of needless I/O, doubled storage, and a duplicate
+     * entry in the user's photo app. The input URI is already a stable,
+     * readable, shareable content URI, so it is returned directly.
      */
     private suspend fun keepOriginal(
         item: InputItem,
         mediaType: MediaType,
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput = withContext(Dispatchers.IO) {
-        val fallbackMime = when (mediaType) {
-            MediaType.PHOTO -> "image/jpeg"
-            MediaType.VIDEO -> "video/mp4"
-            MediaType.AUDIO -> "audio/mpeg"
-        }
-        val mime = context.contentResolver.getType(item.uri) ?: fallbackMime
-        val ext = when (mediaType) {
-            MediaType.VIDEO -> com.compressly.core.util.Mime.videoExtension(mime)
-            MediaType.PHOTO -> com.compressly.core.util.Mime.photoExtension(mime)
-            MediaType.AUDIO -> com.compressly.core.util.Mime.audioExtension(mime)
-        }
-        val temp = File.createTempFile("keep_", ".$ext", context.cacheDir)
-        try {
-            context.contentResolver.openInputStream(item.uri)?.use { input ->
-                temp.outputStream().use { out -> input.copyTo(out, 256 * 1024) }
-            } ?: throw FileNotFoundException("Cannot read source")
-            onProgress(ItemPhase.COMPRESSING, 1f)
-            val uri = OutputStore.publishTempFile(context, mediaType, temp, item.displayName, mime)
-            EngineOutput(uri, sizeOf(uri), context.getString(ir.siliksama.hajmino.R.string.already_optimized))
-        } finally {
-            Storage.deleteQuietly(temp)
-        }
+        val size = item.sizeBytes.takeIf { it > 0 } ?: sizeOf(item.uri)
+        onProgress(ItemPhase.COMPRESSING, 1f)
+        EngineOutput(item.uri, size, context.getString(ir.siliksama.hajmino.R.string.already_optimized))
     }
 
     private suspend fun compressAudio(

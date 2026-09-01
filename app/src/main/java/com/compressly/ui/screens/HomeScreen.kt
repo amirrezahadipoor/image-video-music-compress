@@ -111,6 +111,8 @@ fun HomeScreen(
     val context = LocalContext.current
     val container = (context.applicationContext as CompresslyApp).container
 
+    val scope = rememberCoroutineScope()
+
     fun acceptPicked(type: MediaType, uris: List<Uri>) {
         if (uris.isEmpty()) return
 
@@ -122,34 +124,42 @@ fun HomeScreen(
         // place a persistable permission is both possible and needed.)
         
         val maxSizeBytes = 2L * 1024 * 1024 * 1024 // 2 GB limit
-        val validItems = mutableListOf<InputItem>()
-        var skippedTooLarge = false
-
-        uris.forEachIndexed { index, uri ->
-            val size = Uris.sizeOf(context, uri).takeIf { it > 0 } ?: -1L
-            if (size > maxSizeBytes) {
-                skippedTooLarge = true
-            } else {
-                validItems.add(
-                    InputItem(
-                        itemId = System.nanoTime() + index,
-                        uri = uri,
-                        displayName = Uris.displayNameOf(context, uri),
-                        sizeBytes = size,
-                        mediaType = type
-                    )
-                )
+        scope.launch {
+            // PICK-IO-FIX: size + name is one MediaStore query per URI, up to
+            // 50 of them — that used to run on the main thread and janked the
+            // UI for well over 100 ms on a big batch. The validation now
+            // happens on IO; only the navigation stays on the main thread.
+            val (validItems, skippedTooLarge) = withContext(Dispatchers.IO) {
+                val valid = mutableListOf<InputItem>()
+                var skipped = false
+                uris.forEachIndexed { index, uri ->
+                    val size = Uris.sizeOf(context, uri).takeIf { it > 0 } ?: -1L
+                    if (size > maxSizeBytes) {
+                        skipped = true
+                    } else {
+                        valid.add(
+                            InputItem(
+                                itemId = System.nanoTime() + index,
+                                uri = uri,
+                                displayName = Uris.displayNameOf(context, uri),
+                                sizeBytes = size,
+                                mediaType = type
+                            )
+                        )
+                    }
+                }
+                valid to skipped
             }
+
+            if (skippedTooLarge) {
+                Toast.makeText(context, context.getString(R.string.pick_error_too_large), Toast.LENGTH_LONG).show()
+            }
+
+            if (validItems.isEmpty()) return@launch
+
+            container.selection.set(Selection(type, validItems))
+            onOpenSettings(type)
         }
-
-        if (skippedTooLarge) {
-            Toast.makeText(context, context.getString(R.string.pick_error_too_large), Toast.LENGTH_LONG).show()
-        }
-
-        if (validItems.isEmpty()) return
-
-        container.selection.set(Selection(type, validItems))
-        onOpenSettings(type)
     }
 
     var pendingDocsType by remember { mutableStateOf<MediaType?>(null) }
@@ -169,7 +179,6 @@ fun HomeScreen(
     }
 
     // ── Folder / album picker (SAF tree) ─────────────────────────────────
-    val scope = rememberCoroutineScope()
     var folderSnapshot by remember { mutableStateOf<FolderMediaScanner.Snapshot?>(null) }
     val folderPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
@@ -235,10 +244,10 @@ fun HomeScreen(
             item { HeroCard(totalSaved) }
             // UI-2 BEAUTY: Active jobs banner takes priority over everything else when visible.
             if (activeJobs.isNotEmpty()) {
-                // The banner now shows the in-flight files of the first job
-                // with their own progress, so a parallel photo batch is not
-                // just an opaque count.
-                item { ActiveJobsBanner(activeJobs.first()) { onOpenJob(activeJobs.first().jobId) } }
+                // MULTI-JOB-BANNER-FIX: pass ALL active jobs — the banner used
+                // to show only the first one, so with several jobs running the
+                // user saw one job's count and progress as if it were the queue.
+                item { ActiveJobsBanner(activeJobs) { onOpenJob(it) } }
             }
             item {
                 SectionTitle(stringResource(R.string.home_tap_to_choose))
@@ -509,7 +518,7 @@ private fun HeroCard(totalSaved: Long) {
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = "🔒 " + stringResource(R.string.hero_offline_badge),
+                    text = stringResource(R.string.hero_offline_badge),
                     style = MaterialTheme.typography.labelSmall,
                     color = onPrimary.copy(alpha = 0.9f)
                 )
@@ -546,21 +555,31 @@ private fun HeroCard(totalSaved: Long) {
 }
 
 @Composable
-private fun ActiveJobsBanner(job: JobState, onOpenJob: () -> Unit) {
+private fun ActiveJobsBanner(jobs: List<JobState>, onOpenJob: (Long) -> Unit) {
     val primary = MaterialTheme.colorScheme.primary
-    // BANNER-FIX: keep the first two items visible until BOTH finish (a
-    // finished photo shows 100% while its sibling still runs), so the two
-    // percentages of a parallel photo pair are always on screen together.
-    val inFlight = job.items.filter {
-        it.phase != ItemPhase.QUEUED && it.phase != ItemPhase.CANCELLED && it.phase != ItemPhase.FAILED
-    }
+    // Whole-queue numbers: total files and the size-weighted overall progress
+    // across every active job.
+    val totalFiles = jobs.sumOf { it.items.size }
+    val overall = if (totalFiles > 0)
+        jobs.sumOf { (it.overallFraction * it.items.size).toFloat() } / totalFiles
+    else 0f
+    // BANNER-FIX: keep items visible until BOTH of a parallel pair finish
+    // (a finished file shows 100% while its sibling still runs), so the
+    // pair's percentages are always on screen together.
+    val inFlight = jobs
+        .flatMap { j -> j.items.filter {
+            it.phase != ItemPhase.QUEUED &&
+                it.phase != ItemPhase.CANCELLED &&
+                it.phase != ItemPhase.FAILED
+        } }
+        .take(2)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 6.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(primary.copy(alpha = 0.12f))
-            .clickable { onOpenJob() }
+            .clickable { onOpenJob(jobs.first().jobId) }
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -569,7 +588,7 @@ private fun ActiveJobsBanner(job: JobState, onOpenJob: () -> Unit) {
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = stringResource(R.string.home_jobs_active, job.items.size),
+                text = stringResource(R.string.home_jobs_active, jobs.size),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -589,11 +608,18 @@ private fun ActiveJobsBanner(job: JobState, onOpenJob: () -> Unit) {
             }
         }
         Spacer(Modifier.width(8.dp))
-        Text(
-            text = stringResource(R.string.action_open),
-            style = MaterialTheme.typography.labelLarge,
-            color = primary
-        )
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = stringResource(R.string.home_jobs_percent, (overall * 100).toInt()),
+                style = MaterialTheme.typography.titleSmall,
+                color = primary
+            )
+            Text(
+                text = stringResource(R.string.action_open),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -718,7 +744,16 @@ private fun RecentRow(entry: HistoryEntry, onClick: () -> Unit) {
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                text = entry.settingsSummary.ifBlank { entry.fileName },
+                // STATUS-SUBTITLE-FIX: non-DONE rows repeated the file name as
+                // the subtitle (their settings summary is blank) — they now
+                // say what actually happened to the file instead.
+                text = when (entry.status) {
+                    HistoryEntry.STATUS_DONE -> entry.settingsSummary.ifBlank { entry.fileName }
+                    HistoryEntry.STATUS_FAILED -> stringResource(R.string.history_status_failed)
+                    HistoryEntry.STATUS_CANCELLED -> stringResource(R.string.history_status_cancelled)
+                    HistoryEntry.STATUS_RUNNING -> stringResource(R.string.history_status_running)
+                    else -> stringResource(R.string.history_status_interrupted)
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
