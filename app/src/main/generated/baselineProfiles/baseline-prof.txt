@@ -1,0 +1,45 @@
+# Hajmino — hand-seeded Baseline Profile for the cold-start path.
+#
+# Regenerate with :app:generateBaselineProfile (CI job "baseline-profile"
+# runs it on a Gradle-managed emulator and this file is overwritten with the
+# measured profile — commit the result). Rules that no longer match anything
+# are dropped by profgen, so stale entries are harmless.
+#
+# Method rules use the H/S/P flags (Hot/Startup/Post-startup); class rules
+# carry no flags and AOT-compile the whole class.
+
+# ── Application bootstrap ──
+Lcom/compressly/CompresslyApp;
+HSPLcom/compressly/CompresslyApp;->onCreate()V
+HSPLcom/compressly/CompresslyApp;->attachBaseContext(Landroid/content/Context;)V
+Lcom/compressly/AppContainer;
+HSPLcom/compressly/AppContainer;-><init>(Landroid/app/Application;)V
+Lcom/compressly/core/util/LocaleHelper;
+Lcom/compressly/core/util/CrashGuard;
+Lcom/compressly/core/util/SoundEffects;
+Lcom/compressly/core/service/NotificationHelper;
+Lcom/compressly/core/ads/Ads;
+Lcom/compressly/core/billing/BillingManager;
+Lcom/compressly/core/billing/NoopBillingManager;
+Lcom/compressly/core/service/JobCoordinator;
+
+# ── Activity + Compose shell ──
+Lcom/compressly/MainActivity;
+HSPLcom/compressly/MainActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLcom/compressly/MainActivity;->attachBaseContext(Landroid/content/Context;)V
+Lcom/compressly/MainActivityKt;
+Lcom/compressly/ui/theme/ThemeKt;
+Lcom/compressly/ui/theme/TypeKt;
+Lcom/compressly/ui/navigation/AppNavHostKt;
+Lcom/compressly/ui/navigation/Routes;
+Lcom/compressly/ui/screens/HomeScreenKt;
+Lcom/compressly/ui/viewmodels/HomeViewModel;
+Lcom/compressly/ui/viewmodels/AppSettingsViewModel;
+
+# ── First-touch data layer (DataStore / Room / settings) ──
+Lcom/compressly/core/data/SettingsRepository;
+Lcom/compressly/core/data/HistoryRepository;
+Lcom/compressly/core/data/OutputStore;
+Lcom/compressly/core/data/db/AppDatabase;
+Lcom/compressly/core/data/db/HistoryDao;
+Lcom/compressly/core/data/db/HistoryEntry;

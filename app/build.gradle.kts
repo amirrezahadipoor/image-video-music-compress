@@ -4,6 +4,10 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.room)
+    // Bundles the Baseline Profile (generated in :baselineprofile) into the
+    // APK as assets/dexopt/baseline.prof and feeds the Startup Profile to the
+    // DEX layout optimizer (R8 is already enabled).
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 android {
@@ -142,6 +146,18 @@ room {
     schemaDirectory("$projectDir/schemas")
 }
 
+baselineProfile {
+    // One shared profile for every flavor/variant (bazaar + play, debug +
+    // release): the app is identical in both and the profile is generated for
+    // the main source set.
+    mergeIntoMain = true
+    // Keep the generated profile in src so it can be committed and shipped.
+    saveInSrc = true
+    // Never regenerate inside a release build: generation needs an emulator
+    // and must not silently double CI build time. CI has a dedicated job.
+    automaticGenerationDuringBuild = false
+}
+
 dependencies {
     // Core
     implementation(libs.androidx.core.ktx)
@@ -180,6 +196,12 @@ dependencies {
 
     // SAF folder support (custom output folder, folder picker)
     implementation("androidx.documentfile:documentfile:1.0.1")
+
+    // Baseline Profile: applies the bundled profile at runtime (Android 11 and
+    // below and app-update cases; Android 12+ applies it at install time).
+    implementation(libs.androidx.profileinstaller)
+    // The :baselineprofile test module generates the profile (CI job).
+    add("baselineProfile", project(":baselineprofile"))
 
     // Image loading (local files only - fully offline)
     implementation(libs.coil.compose)

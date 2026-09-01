@@ -18,3 +18,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Compressly"
 include(":app")
+include(":baselineprofile")
