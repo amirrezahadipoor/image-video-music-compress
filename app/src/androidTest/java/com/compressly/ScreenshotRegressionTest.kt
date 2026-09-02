@@ -78,12 +78,19 @@ class ScreenshotRegressionTest {
     fun capture_main_screens_for_visual_regression() {
         launchApp()
         val next = context.getString(R.string.onboard_next)
+        val homeText = context.getString(R.string.home_compress_photo)
 
-        // First run → onboarding page 1.
-        // Generous windows: the very first app start on a fresh CI
-        // emulator can spend a long time in dexopt before onboarding
-        // is composed.
-        if (appHasText(next, 90)) {
+        // The very first app start on a fresh CI emulator can spend two
+        // minutes in dexopt before anything is composed — so poll for
+        // WHICHEVER screen shows up (onboarding or straight-to-home)
+        // within a 180s total budget, instead of betting on a fixed order.
+        val deadline = System.currentTimeMillis() + 180_000
+        var seenOnboarding = false
+        while (System.currentTimeMillis() < deadline) {
+            if (appHasText(next, 3)) { seenOnboarding = true; break }
+            if (appHasText(homeText, 3)) break
+        }
+        if (seenOnboarding) {
             device.waitForIdle()
             snap("01_onboarding.png")
             repeat(4) { clickAppText(next) }
@@ -93,8 +100,8 @@ class ScreenshotRegressionTest {
 
         // Home
         org.junit.Assert.assertTrue(
-            "home screen did not appear",
-            appHasText(context.getString(R.string.home_compress_photo), 60)
+            "neither onboarding nor home appeared (cold start timeout?)",
+            appHasText(homeText, 60)
         )
         device.waitForIdle()
         snap("02_home.png")

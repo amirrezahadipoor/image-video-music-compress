@@ -184,10 +184,15 @@ jobs:
             # reason the test still runs with generous 90s windows.
             ./gradlew :app:installBazaarDebug --no-daemon
             sleep 10
-            adb -s emulator-5554 shell pm list packages | grep siliksama || true
-            adb -s emulator-5554 shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p ir.siliksama.hajmino || true
-            sleep 60
-            adb -s emulator-5554 shell am force-stop ir.siliksama.hajmino || true
+            # Debug builds carry an applicationId suffix — query the real
+            # package instead of hardcoding it.
+            APP_PKG=$(adb -s emulator-5554 shell pm list packages | grep siliksama | cut -d: -f2)
+            echo "installed package: $APP_PKG"
+            adb -s emulator-5554 shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$APP_PKG" || true
+            # dexopt on the very first launch can take two minutes on a
+            # shared CI emulator — give it a real window.
+            sleep 120
+            adb -s emulator-5554 shell am force-stop "$APP_PKG" || true
             ./gradlew :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.ScreenshotRegressionTest --no-daemon
 
       - name: Pull screenshots
