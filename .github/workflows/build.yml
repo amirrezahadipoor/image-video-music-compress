@@ -180,10 +180,14 @@ jobs:
             # APK triggers dexopt and can sit on the splash for a minute.
             # Install the app explicitly, launch it once, let it settle,
             # stop it — then the test itself starts an already-warm app.
+            # The warmup is BEST-EFFORT (|| true): if it fails for any
+            # reason the test still runs with generous 90s windows.
             ./gradlew :app:installBazaarDebug --no-daemon
-            adb -s emulator-5554 shell am start -n ir.siliksama.hajmino/com.compressly.MainActivity
-            sleep 45
-            adb -s emulator-5554 shell am force-stop ir.siliksama.hajmino
+            sleep 10
+            adb -s emulator-5554 shell pm list packages | grep siliksama || true
+            adb -s emulator-5554 shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p ir.siliksama.hajmino || true
+            sleep 60
+            adb -s emulator-5554 shell am force-stop ir.siliksama.hajmino || true
             ./gradlew :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.ScreenshotRegressionTest --no-daemon
 
       - name: Pull screenshots
