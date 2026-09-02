@@ -106,7 +106,7 @@ fun CompressionSettingsScreen(
     // size and the bar would promise 50 files at one file's size.
     val totalOriginal = remember(state.items, state.originalSize) {
         if (state.items.size > 1) {
-            state.items.sumOf<Long> { it.sizeBytes.takeIf { s -> s > 0 } ?: 0L }
+            state.items.sumOf { it.sizeBytes.takeIf { s -> s > 0 } ?: 0L }
         } else state.originalSize
     }
     val totalEstimated = remember(state.items.size, state.estimatedSize) {
