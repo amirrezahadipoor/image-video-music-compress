@@ -5,10 +5,13 @@ import android.os.Environment
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import ir.siliksama.hajmino.R
 import org.junit.Test
+import org.junit.runner.RunWith
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -22,7 +25,7 @@ import java.util.concurrent.TimeUnit
  * UiAutomator on a FRESH install — the CI runs this pass first, before any
  * other test completes onboarding.
  */
-@AndroidJUnit4
+@RunWith(AndroidJUnit4::class)
 class ScreenshotRegressionTest {
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -39,6 +42,9 @@ class ScreenshotRegressionTest {
         device.wait(Until.hasObject(By.pkg(appPackage).depth(0)), 30_000)
     }
 
+    private fun waitForNode(sel: BySelector, seconds: Long): UiObject2? =
+        device.wait(Until.findObject(sel), TimeUnit.SECONDS.toMillis(seconds))
+
     private fun snap(name: String) {
         outDir.mkdirs()
         device.takeScreenshot().use { bmp: Bitmap ->
@@ -46,11 +52,11 @@ class ScreenshotRegressionTest {
         }
     }
 
-    private fun appWindowHasText(text: String, seconds: Long): Boolean {
+    private fun appHasText(text: String, seconds: Long): Boolean {
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(seconds)
         while (System.currentTimeMillis() < deadline) {
-            if (device.findObject(By.pkg(appPackage).text(text)).waitForExists(1_000)) return true
-            if (device.findObject(By.pkg(appPackage).desc(text)).waitForExists(500)) return true
+            if (waitForNode(By.pkg(appPackage).text(text), 1) != null) return true
+            if (waitForNode(By.pkg(appPackage).desc(text), 1) != null) return true
         }
         return false
     }
@@ -58,12 +64,12 @@ class ScreenshotRegressionTest {
     private fun clickAppText(text: String, seconds: Long = 15) {
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(seconds)
         while (System.currentTimeMillis() < deadline) {
-            val byText = device.findObject(By.pkg(appPackage).text(text))
-            if (byText.waitForExists(1_500)) {
+            val byText = waitForNode(By.pkg(appPackage).text(text), 1)
+            if (byText != null) {
                 byText.click(); device.waitForIdle(); return
             }
-            val byDesc = device.findObject(By.pkg(appPackage).desc(text))
-            if (byDesc.waitForExists(500)) {
+            val byDesc = waitForNode(By.pkg(appPackage).desc(text), 1)
+            if (byDesc != null) {
                 byDesc.click(); device.waitForIdle(); return
             }
         }
@@ -76,7 +82,7 @@ class ScreenshotRegressionTest {
         val next = context.getString(R.string.onboard_next)
 
         // First run → onboarding page 1.
-        if (appWindowHasText(next, 30)) {
+        if (appHasText(next, 30)) {
             device.waitForIdle()
             snap("01_onboarding.png")
             repeat(4) { clickAppText(next) }
@@ -87,7 +93,7 @@ class ScreenshotRegressionTest {
         // Home
         org.junit.Assert.assertTrue(
             "home screen did not appear",
-            appWindowHasText(context.getString(R.string.home_compress_photo), 20)
+            appHasText(context.getString(R.string.home_compress_photo), 20)
         )
         device.waitForIdle()
         snap("02_home.png")

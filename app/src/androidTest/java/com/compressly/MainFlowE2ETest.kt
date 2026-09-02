@@ -11,9 +11,11 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import ir.siliksama.hajmino.R
 import org.junit.Test
+import org.junit.runner.RunWith
 import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
@@ -30,7 +32,7 @@ import kotlin.random.Random
  * history write. Pixel-exact rendering of the OS picker is not asserted
  * here (that is the screenshot regression test's job).
  */
-@AndroidJUnit4
+@RunWith(AndroidJUnit4::class)
 class MainFlowE2ETest {
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -45,6 +47,18 @@ class MainFlowE2ETest {
         device.wait(Until.hasObject(By.pkg(appPackage).depth(0)), 30_000)
     }
 
+    /** Wait for the first node matching [sel]; null on timeout. */
+    private fun waitForNode(sel: BySelector, seconds: Long): UiObject2? =
+        device.wait(Until.findObject(sel), TimeUnit.SECONDS.toMillis(seconds))
+
+    private fun waitClickable(sel: BySelector, what: String, seconds: Long): Boolean {
+        val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(seconds)
+        while (System.currentTimeMillis() < deadline) {
+            if (waitForNode(sel, 3) != null) return true
+        }
+        return false
+    }
+
     /**
      * Click a node by its visible text (Compose exposes semantics text as
      * the accessibility text). Falls back to contentDescription for the
@@ -53,12 +67,12 @@ class MainFlowE2ETest {
     private fun clickText(text: String, seconds: Long) {
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(seconds)
         while (System.currentTimeMillis() < deadline) {
-            val byText = device.findObject(By.text(text))
-            if (byText.waitForExists(1_500)) {
+            val byText = waitForNode(By.text(text), 1)
+            if (byText != null) {
                 byText.click(); device.waitForIdle(); return
             }
-            val byDesc = device.findObject(By.desc(text))
-            if (byDesc.waitForExists(500)) {
+            val byDesc = waitForNode(By.desc(text), 1)
+            if (byDesc != null) {
                 byDesc.click(); device.waitForIdle(); return
             }
         }
@@ -93,14 +107,6 @@ class MainFlowE2ETest {
         return uri
     }
 
-    private fun waitClickable(sel: BySelector, what: String, seconds: Long): Boolean {
-        val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(seconds)
-        while (System.currentTimeMillis() < deadline) {
-            if (device.findObject(sel).waitForExists(3_000)) return true
-        }
-        return false
-    }
-
     @Test
     fun fullJourney_onboarding_picker_compress_result_history() {
         // ── 0. A real photo in MediaStore for the picker to offer ───────
@@ -120,19 +126,19 @@ class MainFlowE2ETest {
 
         // ── 3. Open the REAL system photo picker ────────────────────────
         // Photos UI needs a moment to index the freshly-inserted photo.
-        check(
-            waitClickable(By.desc(photoName), "the inserted photo", seconds = 45)
-        ) { "Picker: the inserted photo never appeared" }
-        device.findObject(By.desc(photoName)).click()
+        check(waitClickable(By.desc(photoName), "the inserted photo", seconds = 45)) {
+            "Picker: the inserted photo never appeared"
+        }
+        waitForNode(By.desc(photoName), 10)!!.click()
 
         // The multi-select action button (EN device locale):
-        if (!waitClickable(By.desc("Select"), "Select (desc)", seconds = 8)) {
+        if (waitForNode(By.desc("Select"), 8) != null) {
+            waitForNode(By.desc("Select"), 10)!!.click()
+        } else {
             check(waitClickable(By.text("Select"), "Select (text)", seconds = 15)) {
                 "Picker: the Select button never appeared"
             }
-            device.findObject(By.text("Select")).click()
-        } else {
-            device.findObject(By.desc("Select")).click()
+            waitForNode(By.text("Select"), 10)!!.click()
         }
 
         // ── 4. Back in the app: settings screen with the picked file ────
@@ -140,7 +146,7 @@ class MainFlowE2ETest {
         check(waitClickable(By.text(compress), "compress CTA", seconds = 30)) {
             "Back in the app: the compress CTA never appeared (picker result lost?)"
         }
-        device.findObject(By.text(compress)).click()
+        waitForNode(By.text(compress), 10)!!.click()
         device.waitForIdle()
 
         // ── 5. Progress → (auto) result ─────────────────────────────────
@@ -156,7 +162,7 @@ class MainFlowE2ETest {
         }
 
         // ── 6. History: the entry with the real file name ───────────────
-        device.findObject(By.text(viewHistory)).click()
+        waitForNode(By.text(viewHistory), 10)!!.click()
         device.waitForIdle()
         check(waitClickable(By.text(context.getString(R.string.history_title)),
             "history title", seconds = 15)) { "history screen never appeared" }
