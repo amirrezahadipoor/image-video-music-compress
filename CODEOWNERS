@@ -1,0 +1,5 @@
+# Single-maintainer repo: the owner is accountable for everything.
+# The auto-committers (baseline profile, screenshot baseline, benchmark
+# trend) run as github-actions[bot] — their commits are machine-generated
+# and their scope is deliberately limited to the generated files.
+* @amirrezahadipoor

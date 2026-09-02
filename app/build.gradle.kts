@@ -252,4 +252,12 @@ dependencies {
     // Instrumented smoke test: runs the real MediaCodec pipeline on a device.
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
+    // E2E + accessibility + screenshot regression tests (round 3/4):
+    // real UI flows driven on the CI emulator through the production
+    // Compose hierarchy.
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.espresso.core)
+    androidTestImplementation(libs.androidx.test.core.ktx)
+    debugImplementation("androidx.compose.ui:ui-test-manifest:1.7.6")
 }

@@ -60,6 +60,31 @@ jobs:
           path: app/build/reports/tests/
           retention-days: 7
 
+      # i18n key parity: every FA key has an EN counterpart and vice versa,
+      # no blanks, no duplicate keys (static check on the real source files;
+      # the I18nSanityTest covers the runtime side).
+      - name: i18n key parity (fa <-> en)
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          def keys(path):
+              root = ET.parse(path).getroot()
+              ks = {}
+              for s in root.findall("string"):
+                  name = s.get("name")
+                  assert name not in ks, f"duplicate key: {name}"
+                  value = "".join(s.itertext()).strip()
+                  assert value, f"blank value: {name}"
+                  ks[name] = value
+              return ks
+          fa = keys("app/src/main/res/values/strings.xml")
+          en = keys("app/src/main/res/values-en/strings.xml")
+          only_fa = sorted(set(fa) - set(en))
+          only_en = sorted(set(en) - set(fa))
+          assert not only_fa and not only_en, f"fa-only={only_fa} en-only={only_en}"
+          print(f"i18n parity OK: {len(fa)} keys in both languages")
+          PY
+
       # ── 2. Build the Bazaar release APK ────────────────────────────────
       - name: Build Bazaar release APK
         run: |
@@ -108,8 +133,16 @@ jobs:
   # blocks delivery, but it runs on every push and reports red when the
   # engine breaks on an actual Android runtime.
   instrumented:
-    name: Emulator smoke test (real encode)
+    name: Emulator tests (engine + E2E + visual regression)
     runs-on: ubuntu-latest
+    # contents:write — the first screenshot capture commits the visual
+    # regression baseline (same pattern as the profile auto-commit).
+    permissions:
+      contents: write
+    timeout-minutes: 75
+    concurrency:
+      group: instrumented
+      cancel-in-progress: true
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -132,25 +165,124 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Run instrumented smoke test
+      # PASS 1 — FRESH install: screenshot capture (onboarding/home/history
+      # need a first-run app, so they run before anything completes
+      # onboarding).
+      - name: Pass 1 - screenshot capture (fresh install)
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: ./gradlew :app:connectedBazaarDebugAndroidTest --no-daemon
-  # ── Macrobenchmark — cold-start TTID/TTFD on a real (emulated) runtime ───
-  # NON-GATING (continue-on-failure): the numbers are for trend tracking in
-  # docs/BENCHMARK.md, not a delivery blocker. An emulator flake must never
-  # hold the signed APK hostage. Results are uploaded as an artifact.
-  macrobenchmark:
-    name: Macrobenchmark (cold-start TTID/TTFD)
+          script: |
+            ./gradlew :app:connectedBazaarDebugAndroidTest \
+              -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.ScreenshotRegressionTest \
+              --no-daemon
+
+      - name: Pull screenshots
+        if: success()
+        run: |
+          mkdir -p shots
+          adb -s emulator-5554 pull /sdcard/CompresslyScreenshots shots/
+          ls -la shots/CompresslyScreenshots
+
+      - name: Visual regression (first capture commits the baseline, later runs pixel-diff)
+        if: success()
+        run: |
+          pip install pillow --quiet
+          BASE=docs/screenshots-baseline
+          if [ ! -f "$BASE/02_home.png" ]; then
+            mkdir -p "$BASE"
+            cp shots/CompresslyScreenshots/*.png "$BASE"/
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/screenshots-baseline
+            git commit -m "test(ui): visual regression baseline (first CI capture)"
+            git push
+            echo "Baseline committed - the next run starts pixel-diffing."
+          else
+            python3 - <<'PY'
+            import os, sys
+            from PIL import Image, ImageChops
+            base, shots = "docs/screenshots-baseline", "shots/CompresslyScreenshots"
+            worst = 0.0
+            for name in sorted(os.listdir(base)):
+                if not name.endswith(".png"):
+                    continue
+                a = Image.open(os.path.join(base, name)).convert("RGB")
+                b = Image.open(os.path.join(shots, name)).convert("RGB")
+                if a.size != b.size:
+                    print(f"{name}: SIZE MISMATCH {a.size} vs {b.size}")
+                    sys.exit(1)
+                hist = ImageChops.difference(a, b).convert("L").histogram()
+                pct = 100.0 * sum(hist[16:]) / (a.size[0] * a.size[1])
+                worst = max(worst, pct)
+                print(f"{name}: {pct:.2f}% changed")
+            print(f"worst: {worst:.2f}% (threshold 3.0%)")
+            sys.exit(0 if worst <= 3.0 else 2)
+            PY
+          fi
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: screenshots
+          path: shots/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # PASS 2 — FRESH app data: the full E2E journey starts from
+      # onboarding, which requires first-run state.
+      - name: Pass 2 - full E2E journey (fresh app data)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb -s emulator-5554 shell pm clear ir.siliksama.hajmino
+            ./gradlew :app:connectedBazaarDebugAndroidTest \
+              -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.MainFlowE2ETest \
+              --no-daemon
+
+      # PASS 3 — engine smoke + batch e2e + a11y scan + i18n runtime.
+      - name: Pass 3 - engine, batch, a11y, i18n
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb -s emulator-5554 shell pm clear ir.siliksama.hajmino
+            ./gradlew :app:connectedBazaarDebugAndroidTest \
+              -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.PhotoBatchE2ETest,com.compressly.PhotoAudioSmokeTest,com.compressly.VideoTranscodeSmokeTest,com.compressly.ComposeAccessibilityScanTest,com.compressly.I18nSanityTest \
+              --no-daemon
+
+      - name: Upload instrumented results on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: instrumented-results
+          path: app/build/outputs/androidTest-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ── Lint — static quality gate (non-gating for now) ───────────────────
+  # Wired in as a REPORT first (measure, then gate — same pattern as the
+  # macrobenchmark trend). Once the report is clean this flips to a hard
+  # gate: lint catches HardcodedText, missing contentDescription and
+  # resource issues statically, on every push.
+  lint:
+    name: Lint report (non-gating)
     runs-on: ubuntu-latest
     continue-on-error: true
-    timeout-minutes: 60
+    timeout-minutes: 30
     concurrency:
-      group: macrobenchmark
+      group: lint
       cancel-in-progress: true
     steps:
       - name: Checkout
@@ -168,24 +300,17 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Run startup benchmarks
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          disable-animations: true
-          script: ./gradlew :benchmark:connectedBazaarDebugAndroidTest --no-daemon
+      - name: Run lint (bazaar debug)
+        run: ./gradlew :app:lintBazaarDebug --no-daemon
 
-      - name: Upload benchmark results
+      - name: Upload lint report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
-          name: macrobenchmark-results
-          path: benchmark/build/outputs
+          name: lint-report
+          path: app/build/reports
           if-no-files-found: ignore
-          retention-days: 30
-
+          retention-days: 7
   # ── Baseline Profile — generated and COMMITTED on a real Android runtime ──
   # AUTO-COMMIT: when the measured profile differs from the committed one it
   # is committed straight to main by the workflow bot, so the NEXT build ships
