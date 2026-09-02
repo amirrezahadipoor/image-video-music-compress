@@ -466,6 +466,7 @@ private fun HomeHeader(
         // has no contentDescription parameter (unlike material2), so the
         // label goes on the node's semantics. Without it TalkBack announces
         // an anonymous "button" and the accessibility scan fails.
+        val gearLabel = stringResource(R.string.app_settings_title)
         IconButton(
             onClick = {
                 spin++
@@ -473,7 +474,7 @@ private fun HomeHeader(
                 onOpenAppSettings()
             },
             modifier = Modifier.semantics {
-                this.contentDescription = stringResource(R.string.app_settings_title)
+                this.contentDescription = gearLabel
             }
         ) {
             RotatingGear(
