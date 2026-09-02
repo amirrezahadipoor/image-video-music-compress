@@ -47,9 +47,12 @@ class PhotoAudioSmokeTest {
         val source = makeNoisyJpeg(context)
         val out = File(context.cacheDir, "smoke_photo_${System.nanoTime()}.jpg")
         try {
-            val info = MediaInspector.inspect(context, Uri.fromFile(source))
-            assertTrue("probe must see image dimensions", info.effectiveWidth > 0 && info.effectiveHeight > 0)
-
+            // NOTE: MediaInspector.inspect is intentionally NOT called for
+            // images — MediaMetadataRetriever is a media (audio/video)
+            // retriever and fails with ERROR_UNKNOWN on plain JPEG file://
+            // URIs (the production photo path never needs it: PhotoCompressor
+            // reads bounds + EXIF itself). The audio tests do use it: MMR
+            // reads WAV fine.
             val file = runBlocking {
                 PhotoCompressor(context).compress(
                     uri = Uri.fromFile(source),
