@@ -175,10 +175,7 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: |
-            ./gradlew :app:connectedBazaarDebugAndroidTest \
-              -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.ScreenshotRegressionTest \
-              --no-daemon
+          script: ./gradlew :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.ScreenshotRegressionTest --no-daemon
 
       - name: Pull screenshots
         if: success()
@@ -244,9 +241,7 @@ jobs:
           disable-animations: true
           script: |
             adb -s emulator-5554 shell pm clear ir.siliksama.hajmino
-            ./gradlew :app:connectedBazaarDebugAndroidTest \
-              -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.MainFlowE2ETest \
-              --no-daemon
+            ./gradlew :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.MainFlowE2ETest --no-daemon
 
       # PASS 3 — engine smoke + batch e2e + a11y scan + i18n runtime.
       - name: Pass 3 - engine, batch, a11y, i18n
@@ -258,9 +253,7 @@ jobs:
           disable-animations: true
           script: |
             adb -s emulator-5554 shell pm clear ir.siliksama.hajmino
-            ./gradlew :app:connectedBazaarDebugAndroidTest \
-              -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.PhotoBatchE2ETest,com.compressly.PhotoAudioSmokeTest,com.compressly.VideoTranscodeSmokeTest,com.compressly.ComposeAccessibilityScanTest,com.compressly.I18nSanityTest \
-              --no-daemon
+            ./gradlew :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.PhotoBatchE2ETest,com.compressly.PhotoAudioSmokeTest,com.compressly.VideoTranscodeSmokeTest,com.compressly.ComposeAccessibilityScanTest,com.compressly.I18nSanityTest --no-daemon
 
       - name: Upload instrumented results on failure
         if: failure()
