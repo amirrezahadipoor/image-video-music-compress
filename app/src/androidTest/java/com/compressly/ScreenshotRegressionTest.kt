@@ -65,9 +65,23 @@ class ScreenshotRegressionTest {
 
     private fun snap(name: String) {
         outDir.mkdirs()
-        val ok = device.takeScreenshot(File(outDir, name))
+        val f = File(outDir, name)
+        val ok = device.takeScreenshot(f)
         org.junit.Assert.assertTrue("screenshot $name failed", ok)
+        // CI diagnostics: say exactly where the file landed so a failed
+        // host-side pull is debuggable from the run log alone.
+        android.util.Log.i("Snapshots", "snap $name -> ${f.absolutePath} exists=${f.exists()} size=${f.length()} dir=${f.parentFile!!.absolutePath} files=${f.parentFile!!.listContentSummary()}")
     }
+
+    private fun java.io.File.listContentSummary(): String =
+        listFiles()?.map { "${it.name}:${it.length()}" }?.joinToString(",") ?: "null"
+
+    private fun dirListing(): String =
+        runCatching {
+            val root = File("/data/data")
+            val entries = root.listFiles()?.map { it.name }?.filter { it.contains("hajmino") }
+            entries?.joinToString(" | ")
+        }.getOrDefault("unreadable")
 
     private fun appHasText(text: String, seconds: Long): Boolean {
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(seconds)
@@ -131,5 +145,6 @@ class ScreenshotRegressionTest {
         snap("03_history.png")
 
         File(outDir, "MANIFEST.txt").writeText("01_onboarding.png\n02_home.png\n03_history.png\n")
+        android.util.Log.i("Snapshots", "final: app data dir = ${dirListing()}; outDir=${outDir.absolutePath}")
     }
 }
