@@ -12,6 +12,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import ir.siliksama.hajmino.R
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
@@ -50,13 +51,13 @@ class MainFlowE2ETest {
         }
     }
 
-    /** Wait until a UiAutomator selector is clickable, else fail clearly. */
-    private fun waitClickable(sel: By, what: String, seconds: Long) {
+    /** Wait until a UiAutomator selector is clickable. Returns whether found. */
+    private fun waitClickable(sel: By, what: String, seconds: Long): Boolean {
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(seconds)
         while (System.currentTimeMillis() < deadline) {
-            if (device.findObject(sel).waitForExists(3_000)) return
+            if (device.findObject(sel).waitForExists(3_000)) return true
         }
-        check(false) { "Picker: \"$what\" never appeared within ${seconds}s" }
+        return false
     }
 
     /** Insert a noisy 640x480 JPEG into MediaStore for the picker to offer. */
@@ -111,11 +112,16 @@ class MainFlowE2ETest {
         compose.onNodeWithText(context.getString(R.string.home_compress_photo)).performClick()
 
         // Photos UI needs a moment to index the freshly-inserted photo.
-        val select = By.text("Select").or(By.desc("Select"))
-        waitClickable(By.desc(photoName), "the inserted photo", seconds = 45)
+        check(waitClickable(By.desc(photoName), "the inserted photo", seconds = 45)) { "Picker: inserted photo never appeared" }
         device.findObject(By.desc(photoName)).click()
-        waitClickable(select, "the Select button", seconds = 20)
-        device.findObject(select).click()
+        // The multi-select action button: contentDescription in most builds,
+        // plain text in others — try both in order.
+        if (!waitClickable(By.desc("Select"), "Select (desc)", seconds = 8)) {
+            waitClickable(By.text("Select"), "Select (text)", seconds = 15)
+            device.findObject(By.text("Select")).click()
+        } else {
+            device.findObject(By.desc("Select")).click()
+        }
 
         // ── 4. Back in the app: settings screen with the picked file ────
         waitComposeText(context.getString(R.string.action_compress), 20)

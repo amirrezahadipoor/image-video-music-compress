@@ -2,6 +2,7 @@ package com.compressly
 
 import android.content.res.Configuration
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import ir.siliksama.hajmino.R
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals

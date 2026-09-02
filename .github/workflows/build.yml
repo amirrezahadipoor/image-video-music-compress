@@ -175,7 +175,12 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: ./gradlew :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.ScreenshotRegressionTest --no-daemon
+          script: |
+            # Fresh compose test artifacts (the shared gradle cache has served
+            # a broken ui-test classpath) + no configuration cache, so the
+            # compile classpath is computed from scratch this run.
+            rm -rf ~/.gradle/caches/modules-2/files-2.1/androidx.compose.ui 2>/dev/null || true
+            ./gradlew --no-configuration-cache :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.ScreenshotRegressionTest --no-daemon
 
       - name: Pull screenshots
         if: success()
@@ -241,7 +246,7 @@ jobs:
           disable-animations: true
           script: |
             adb -s emulator-5554 shell pm clear ir.siliksama.hajmino
-            ./gradlew :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.MainFlowE2ETest --no-daemon
+            ./gradlew --no-configuration-cache :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.MainFlowE2ETest --no-daemon
 
       # PASS 3 — engine smoke + batch e2e + a11y scan + i18n runtime.
       - name: Pass 3 - engine, batch, a11y, i18n
@@ -253,7 +258,7 @@ jobs:
           disable-animations: true
           script: |
             adb -s emulator-5554 shell pm clear ir.siliksama.hajmino
-            ./gradlew :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.PhotoBatchE2ETest,com.compressly.PhotoAudioSmokeTest,com.compressly.VideoTranscodeSmokeTest,com.compressly.ComposeAccessibilityScanTest,com.compressly.I18nSanityTest --no-daemon
+            ./gradlew --no-configuration-cache :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.PhotoBatchE2ETest,com.compressly.PhotoAudioSmokeTest,com.compressly.VideoTranscodeSmokeTest,com.compressly.ComposeAccessibilityScanTest,com.compressly.I18nSanityTest --no-daemon
 
       - name: Upload instrumented results on failure
         if: failure()
