@@ -42,9 +42,12 @@ class MainFlowE2ETest {
 
     private fun launchApp() {
         device.pressHome()
-        context.packageManager.getLaunchIntentForPackage(appPackage)
-            ?.let { context.startActivity(it) }
-        device.wait(Until.hasObject(By.pkg(appPackage).depth(0)), 30_000)
+        // Launch through the shell: an instrumented test process is a
+        // background context, and Android 12+ blocks background activity
+        // starts (the classic startActivity from app-context pattern dies
+        // silently on API 35). `am start -W` from the shell always works.
+        device.executeShellCommand("am start -W -n $appPackage/com.compressly.MainActivity")
+        device.wait(Until.hasObject(By.pkg(appPackage).depth(0)), 60_000)
     }
 
     /** Wait for the first node matching [sel]; null on timeout. */
