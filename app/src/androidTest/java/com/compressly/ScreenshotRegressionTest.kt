@@ -80,7 +80,10 @@ class ScreenshotRegressionTest {
         val next = context.getString(R.string.onboard_next)
 
         // First run → onboarding page 1.
-        if (appHasText(next, 30)) {
+        // Generous windows: the very first app start on a fresh CI
+        // emulator can spend a long time in dexopt before onboarding
+        // is composed.
+        if (appHasText(next, 90)) {
             device.waitForIdle()
             snap("01_onboarding.png")
             repeat(4) { clickAppText(next) }
@@ -91,7 +94,7 @@ class ScreenshotRegressionTest {
         // Home
         org.junit.Assert.assertTrue(
             "home screen did not appear",
-            appHasText(context.getString(R.string.home_compress_photo), 20)
+            appHasText(context.getString(R.string.home_compress_photo), 60)
         )
         device.waitForIdle()
         snap("02_home.png")

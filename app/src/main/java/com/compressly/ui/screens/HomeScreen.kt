@@ -460,11 +460,17 @@ private fun HomeHeader(
         IconButton(onClick = onOpenHistory) {
             Icon(Icons.Outlined.History, contentDescription = stringResource(R.string.history_title), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        IconButton(onClick = {
-            spin++
-            SoundEffects.play(SoundEffects.Type.CLICK)
-            onOpenAppSettings()
-        }) {
+        // A11Y-FIX: the gear is a clickable control — without a
+        // contentDescription TalkBack announces an anonymous "button" and
+        // the accessibility scan fails.
+        IconButton(
+            onClick = {
+                spin++
+                SoundEffects.play(SoundEffects.Type.CLICK)
+                onOpenAppSettings()
+            },
+            contentDescription = stringResource(R.string.app_settings_title)
+        ) {
             RotatingGear(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 spinKey = spin

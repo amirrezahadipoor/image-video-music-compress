@@ -176,11 +176,15 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: |
-            # Fresh compose test artifacts (the shared gradle cache has served
-            # a broken ui-test classpath) + no configuration cache, so the
-            # compile classpath is computed from scratch this run.
-            rm -rf ~/.gradle/caches/modules-2/files-2.1/androidx.compose.ui 2>/dev/null || true
-            ./gradlew --no-configuration-cache :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.ScreenshotRegressionTest --no-daemon
+            # Warm the cold start first: the very first launch of a fresh
+            # APK triggers dexopt and can sit on the splash for a minute.
+            # Launch once, let it settle, stop it — then the test itself
+            # starts an already-warm app.
+            adb -s emulator-5554 shell am start -n ir.siliksama.hajmino/com.compressly.MainActivity
+            adb -s emulator-5554 wait-for-device
+            sleep 45
+            adb -s emulator-5554 shell am force-stop ir.siliksama.hajmino
+            ./gradlew :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.ScreenshotRegressionTest --no-daemon
 
       - name: Pull screenshots
         if: success()
