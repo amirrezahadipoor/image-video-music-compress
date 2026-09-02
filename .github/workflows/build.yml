@@ -176,14 +176,14 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: |
-            ./gradlew :app:installBazaarDebug --no-daemon; APP_PKG=""; for i in $(seq 1 24); do APP_PKG=$(adb -s emulator-5554 shell pm list packages | grep siliksama | cut -d: -f2); [ -n "$APP_PKG" ] && break; sleep 5; done; echo "installed package: ${APP_PKG:-NONE}"; if [ -n "$APP_PKG" ]; then adb -s emulator-5554 shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$APP_PKG" || true; sleep 120; if adb -s emulator-5554 shell ps -A 2>/dev/null | grep -q "$APP_PKG"; then echo "warmup: app survived its first launch"; else echo "warmup: app process died after first launch — crash log:"; adb -s emulator-5554 logcat -d -b crash -t 200 || true; fi; adb -s emulator-5554 shell am force-stop "$APP_PKG" || true; else echo "warmup: package never appeared"; adb -s emulator-5554 shell pm list packages || true; fi; ./gradlew :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.ScreenshotRegressionTest --no-daemon; GRADLE_RC=$?; adb -s emulator-5554 logcat -d -b crash -t 300 2>/dev/null | tee pass1-crash.log || true; exit $GRADLE_RC
+            ./gradlew :app:installBazaarDebug --no-daemon; APP_PKG=""; for i in $(seq 1 24); do APP_PKG=$(adb -s emulator-5554 shell pm list packages | grep siliksama | cut -d: -f2); [ -n "$APP_PKG" ] && break; sleep 5; done; echo "installed package: ${APP_PKG:-NONE}"; if [ -n "$APP_PKG" ]; then adb -s emulator-5554 shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$APP_PKG" || true; sleep 120; if adb -s emulator-5554 shell ps -A 2>/dev/null | grep -q "$APP_PKG"; then echo "warmup: app survived its first launch"; else echo "warmup: app process died after first launch — crash log:"; adb -s emulator-5554 logcat -d -b crash -t 200 || true; fi; adb -s emulator-5554 shell am force-stop "$APP_PKG" || true; else echo "warmup: package never appeared"; adb -s emulator-5554 shell pm list packages || true; fi; ./gradlew :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.ScreenshotRegressionTest --no-daemon; GRADLE_RC=$?; adb -s emulator-5554 logcat -d -b crash -t 300 2>/dev/null | tee pass1-crash.log || true; mkdir -p shots-run; adb -s emulator-5554 pull /sdcard/Android/data/ir.siliksama.hajmino.debug/files/CompresslyScreenshots shots-run/ || true; exit $GRADLE_RC
 
-      - name: Pull screenshots
+      - name: Show pulled screenshots
         if: success()
         run: |
-          mkdir -p shots
-          adb -s emulator-5554 pull /sdcard/CompresslyScreenshots shots/
-          ls -la shots/CompresslyScreenshots
+          # Pulled inside the emulator-runner script (the emulator is gone
+          # by the time this step runs).
+          ls -la shots-run/CompresslyScreenshots || true
 
       - name: Visual regression (first capture commits the baseline, later runs pixel-diff)
         if: success()
@@ -192,7 +192,7 @@ jobs:
           BASE=docs/screenshots-baseline
           if [ ! -f "$BASE/02_home.png" ]; then
             mkdir -p "$BASE"
-            cp shots/CompresslyScreenshots/*.png "$BASE"/
+            cp shots-run/CompresslyScreenshots/*.png "$BASE"/
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add docs/screenshots-baseline
@@ -203,7 +203,7 @@ jobs:
             python3 - <<'PY'
             import os, sys
             from PIL import Image, ImageChops
-            base, shots = "docs/screenshots-baseline", "shots/CompresslyScreenshots"
+            base, shots = "docs/screenshots-baseline", "shots-run/CompresslyScreenshots"
             worst = 0.0
             for name in sorted(os.listdir(base)):
                 if not name.endswith(".png"):

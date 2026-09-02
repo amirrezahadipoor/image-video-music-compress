@@ -1,6 +1,5 @@
 package com.compressly
 
-import android.os.Environment
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -45,7 +44,11 @@ class ScreenshotRegressionTest {
         return context.createConfigurationContext(cfg).getString(id)
     }
 
-    private val outDir = File(Environment.getExternalStorageDirectory(), "CompresslyScreenshots")
+    // App-specific external dir: on API 31+ the test cannot create a
+    // directory at the /sdcard root (scoped storage), so /sdcard root writes
+    // silently failed and every takeScreenshot returned false. The
+    // app-specific dir is always writable and still adb-pullable.
+    private val outDir = File(context.getExternalFilesDir(null), "CompresslyScreenshots")
 
     private fun launchApp() {
         device.pressHome()
