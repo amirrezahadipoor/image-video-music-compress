@@ -175,7 +175,7 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: ./gradlew :benchmark:connectedBazaarBenchmarkAndroidTest --no-daemon
+          script: ./gradlew :benchmark:connectedBazaarDebugAndroidTest --no-daemon
 
       - name: Upload benchmark results
         if: always()

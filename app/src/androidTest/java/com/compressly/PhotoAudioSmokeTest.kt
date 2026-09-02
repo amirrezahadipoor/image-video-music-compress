@@ -71,8 +71,10 @@ class PhotoAudioSmokeTest {
                 // Output must still be a decodable JPEG of the same size.
                 val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 file.inputStream().use { BitmapFactory.decodeStream(it, null, opts) }
-                assertEquals("width must be preserved", source.width, opts.outWidth)
-                assertEquals("height must be preserved", source.height, opts.outHeight)
+                val srcOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                source.inputStream().use { BitmapFactory.decodeStream(it, null, srcOpts) }
+                assertEquals("width must be preserved", srcOpts.outWidth, opts.outWidth)
+                assertEquals("height must be preserved", srcOpts.outHeight, opts.outHeight)
             } finally {
                 file.delete()
             }
