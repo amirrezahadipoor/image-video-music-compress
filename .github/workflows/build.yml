@@ -296,12 +296,21 @@ jobs:
       - name: Run lint (bazaar debug)
         run: ./gradlew :app:lintBazaarDebug --no-daemon
 
-      - name: Upload lint report
+      # Diagnostic (round 4): dump the androidTest compile classpath so we
+      # can see exactly which artifacts the instrumented test scope sees.
+      - name: Dump androidTest compile classpath (diagnostic)
+        run: |
+          ./gradlew :app:dependencies --configuration bazaarDebugAndroidTestCompileClasspath --no-daemon > androidtest-deps.txt || true
+          grep -E "ui-test|compose.ui:ui|androidx.compose|project :app" androidtest-deps.txt | head -40
+
+      - name: Upload lint report + classpath dump
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: lint-report
-          path: app/build/reports
+          path: |
+            app/build/reports
+            androidtest-deps.txt
           if-no-files-found: ignore
           retention-days: 7
   # ── Baseline Profile — generated and COMMITTED on a real Android runtime ──
