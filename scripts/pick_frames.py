@@ -1,60 +1,57 @@
-"""Pick the visual-regression frames from the shared capture log.
+"""Pick the visual-regression frames from the test report + capture dir.
 
-The CI capture loop screenshots the device every second while the
-ScreenshotRegressionTest runs, appending
-    COMPRESSLY-FRAME <path>
-to pass1-console.log (O_APPEND, same file gradle writes to), and the test
-prints
-    COMPRESSLY-MARK <screen> START
-    COMPRESSLY-MARK <screen> END
-around a fixed hold on each screen. Because both writers append to the
-same file, line order == wall-clock order, so for every screen we take
-the frame captured mid-window - no polling, no clocks to sync, no
-handshake that can die silently.
+Single-clock design (no cross-process line order, no polling handshake):
 
-Usage: python3 scripts/pick_frames.py <log> <caps_dir> <out_dir>
+* The CI capture loop screenshots the device every second and names each
+  file frame-<host-epoch-ms>.png, then writes `frame <host-epoch-ms>` to
+  the device logcat (tag CompresslyCap) so the test process can read the
+  host clock.
+* ScreenshotRegressionTest.bracket() holds each screen for 20s between two
+  `latest frame timestamp` reads and prints
+      COMPRESSLY-WINDOW <screen> <t0> <t1>
+  which lands in the connected-test XML report (instrumentation stdout is
+  NOT streamed to the gradle console, so the report is the channel).
+* After the run, this script reads the windows from the XML and picks the
+  frame whose file-name timestamp lies closest to the middle of the
+  window. All comparisons happen in host milliseconds - one clock only.
+
+Usage: python3 scripts/pick_frames.py <test_xml> <caps_dir> <out_dir>
 """
+import glob
 import os
 import re
 import shutil
 import sys
+import xml.etree.ElementTree as ET
 
-log_path, caps_dir, out_dir = sys.argv[1], sys.argv[2], sys.argv[3]
+xml_path, caps_dir, out_dir = sys.argv[1], sys.argv[2], sys.argv[3]
 screens = ["01_onboarding", "02_home", "03_history"]
-FRAME = re.compile(r"COMPRESSLY-FRAME (.+)$")
-MARK = re.compile(r"COMPRESSLY-MARK (\S+) (START|END)")
 
-frames = []
-marks = []
-with open(log_path, encoding="utf-8", errors="replace") as f:
-    for i, line in enumerate(f):
-        m = FRAME.search(line)
-        if m:
-            frames.append((i, m.group(1).strip()))
-            continue
-        m = MARK.search(line)
-        if m:
-            marks.append((i, m.group(1), m.group(2)))
+text = open(xml_path, encoding="utf-8", errors="replace").read()
+windows = re.findall(r"COMPRESSLY-WINDOW (\S+) (\d+) (\d+)", text)
+
+frames = {}
+for p in glob.glob(os.path.join(caps_dir, "frame-*.png")):
+    m = re.search(r"frame-(\d+)\.png$", p)
+    if m:
+        frames[int(m.group(1))] = p
 
 os.makedirs(out_dir, exist_ok=True)
 ok = True
 for s in screens:
-    starts = [i for i, sc, w in marks if sc == s and w == "START"]
-    ends = [i for i, sc, w in marks if sc == s and w == "END"]
-    if not starts or not ends:
-        print(f"FAIL {s}: no complete START/END window in log")
+    wins = [(int(a), int(b)) for sc, a, b in windows if sc == s and int(b) > int(a)]
+    if not wins:
+        print(f"FAIL {s}: no valid COMPRESSLY-WINDOW in report (windows seen: {windows})")
         ok = False
         continue
-    lo = max(i for i in starts if any(e > i for e in ends))
-    hi = min(e for e in ends if e > lo)
-    in_win = [p for i, p in frames if lo < i < hi]
+    lo, hi = max(wins)
+    in_win = sorted(t for t in frames if lo < t < hi)
     if not in_win:
-        print(f"FAIL {s}: window found but no frames inside it")
+        print(f"FAIL {s}: window {lo}..{hi} but no frames inside (have {len(frames)})")
         ok = False
         continue
     mid = in_win[len(in_win) // 2]
-    src = os.path.join(caps_dir, os.path.basename(mid))
-    shutil.copyfile(src, os.path.join(out_dir, s + ".png"))
-    print(f"OK {s}: {len(in_win)} frames in window, picked {os.path.basename(mid)}")
+    shutil.copyfile(frames[mid], os.path.join(out_dir, s + ".png"))
+    print(f"OK {s}: {len(in_win)} frames in window {lo}..{hi}, picked {mid}")
 
 sys.exit(0 if ok else 1)

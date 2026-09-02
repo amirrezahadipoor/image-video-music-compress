@@ -64,18 +64,28 @@ class ScreenshotRegressionTest {
     private fun waitForNode(sel: BySelector, seconds: Long): UiObject2? =
         device.wait(Until.findObject(sel), TimeUnit.SECONDS.toMillis(seconds))
 
+    // The CI capture loop names every frame frame-<host-epoch-ms>.png and
+    // echoes `frame <host-epoch-ms>` to the device logcat (tag CompresslyCap),
+    // so the test can read the HOST clock from inside the device. Bracketing
+    // a 20s hold with two such reads yields a window of host milliseconds;
+    // the host picks the mid-window frame afterwards. One clock, no
+    // handshake, no cross-process line ordering to get wrong.
+    private fun latestFrameTs(): Long? = runCatching {
+        val out = device.executeShellCommand("logcat -d -s CompresslyCap:I | tail -1")
+        Regex("frame (\\d+)").find(out)?.groupValues?.get(1)?.toLong()
+    }.getOrNull()
+
     private fun snap(name: String) {
-        // Visual-regression capture: the CI runs a continuous screencap
-        // loop (one frame/second) into the same console log this println
-        // goes to. We bracket a fixed 20s hold on this screen with
-        // COMPRESSLY-MARK lines; after the run the host picks the
-        // mid-window frame. O_APPEND to one file means line order ==
-        // wall-clock order - no polling, no property handshake, no clocks.
-        println("COMPRESSLY-MARK $name START")
         device.waitForIdle()
+        val t0 = latestFrameTs()
+        if (t0 == null) {
+            println("COMPRESSLY-WINDOW $name MISSING-CAPTURE-LOOP")
+            return
+        }
         Thread.sleep(20_000)
         device.waitForIdle()
-        println("COMPRESSLY-MARK $name END")
+        val t1 = latestFrameTs() ?: return
+        println("COMPRESSLY-WINDOW $name $t0 $t1")
     }
 
     private fun appHasText(text: String, seconds: Long): Boolean {
