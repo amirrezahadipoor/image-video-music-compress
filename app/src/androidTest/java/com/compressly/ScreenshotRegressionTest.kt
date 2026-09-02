@@ -10,18 +10,18 @@ import androidx.test.uiautomator.Until
 import ir.siliksama.hajmino.R
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
- * Visual regression: capture the main screens to /sdcard/CompresslyScreenshots.
- * The CI workflow pulls them and pixel-diffs against the committed baseline
- * in docs/screenshots-baseline (first CI capture commits the baseline, later
+ * Visual regression: drive the app screen by screen (onboarding, home,
+ * history) and hold on each screen while the CI workflow captures it with
+ * `adb exec-out screencap` (handshake via the compressly.snap_target system
+ * property). The host pixel-diffs captures against the committed baseline in
+ * docs/screenshots-baseline (first CI capture commits the baseline, later
  * runs compare with a 3% drift threshold).
  *
- * Captures: onboarding page 1 (first run), home, history. Driven via
- * UiAutomator on a FRESH install — the CI runs this pass first, before any
- * other test completes onboarding.
+ * Driven via UiAutomator on a FRESH install — the CI runs this pass first,
+ * before any other test completes onboarding.
  */
 @RunWith(AndroidJUnit4::class)
 class ScreenshotRegressionTest {
@@ -44,11 +44,12 @@ class ScreenshotRegressionTest {
         return context.createConfigurationContext(cfg).getString(id)
     }
 
-    // Internal storage: /sdcard root is not writable (scoped storage) and
-    // the app-specific EXTERNAL dir is SELinux-invisible to adb on API 30+
-    // (the pull would say "No such file or directory"). Internal files of a
-    // debuggable build are pullable via `adb exec-out run-as <pkg> tar ...`.
-    private val outDir = File(context.filesDir, "CompresslyScreenshots")
+    // Visual-regression capture goes through a shell property handshake
+    // (see snap()): the CI capture loop reads `compressly.snap_target` and
+    // takes a full-screen `adb exec-out screencap` while the test HOLDS on
+    // the current screen. No file has to travel between the app uid and
+    // the host at all, which sidesteps every API 30+ storage wall (scoped
+    // storage, SELinux hiding app data from adb, /sdcard root unwritable).
 
     private fun launchApp() {
         device.pressHome()
@@ -64,24 +65,18 @@ class ScreenshotRegressionTest {
         device.wait(Until.findObject(sel), TimeUnit.SECONDS.toMillis(seconds))
 
     private fun snap(name: String) {
-        outDir.mkdirs()
-        val f = File(outDir, name)
-        val ok = device.takeScreenshot(f)
-        org.junit.Assert.assertTrue("screenshot $name failed", ok)
-        // CI diagnostics: say exactly where the file landed so a failed
-        // host-side pull is debuggable from the run log alone.
-        android.util.Log.i("Snapshots", "snap $name -> ${f.absolutePath} exists=${f.exists()} size=${f.length()} dir=${f.parentFile!!.absolutePath} files=${f.parentFile!!.listContentSummary()}")
+        // Signal the host, then HOLD on this screen until the host's
+        // capture loop screencaps it and flips the property to "done".
+        // The 90s timeout means a dead host loop cannot hang the suite;
+        // the missing shot then fails the host-side visual step instead.
+        device.executeShellCommand("setprop compressly.snap_target $name")
+        val deadline = System.currentTimeMillis() + 90_000
+        while (System.currentTimeMillis() < deadline) {
+            if (device.executeShellCommand("getprop compressly.snap_target").trim() == "done") return
+            Thread.sleep(500)
+        }
+        android.util.Log.w("Snapshots", "host never captured $name (capture loop dead?) - continuing")
     }
-
-    private fun java.io.File.listContentSummary(): String =
-        listFiles()?.map { "${it.name}:${it.length()}" }?.joinToString(",") ?: "null"
-
-    private fun dirListing(): String =
-        runCatching {
-            val root = File("/data/data")
-            val entries = root.listFiles()?.map { it.name }?.filter { it.contains("hajmino") }
-            entries?.joinToString(" | ")
-        }.getOrDefault("unreadable")
 
     private fun appHasText(text: String, seconds: Long): Boolean {
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(seconds)
@@ -144,7 +139,5 @@ class ScreenshotRegressionTest {
         device.waitForIdle()
         snap("03_history.png")
 
-        File(outDir, "MANIFEST.txt").writeText("01_onboarding.png\n02_home.png\n03_history.png\n")
-        android.util.Log.i("Snapshots", "final: app data dir = ${dirListing()}; outDir=${outDir.absolutePath}")
     }
 }
