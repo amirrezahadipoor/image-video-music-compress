@@ -1,6 +1,5 @@
 package com.compressly
 
-import android.graphics.Bitmap
 import android.os.Environment
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -47,12 +46,8 @@ class ScreenshotRegressionTest {
 
     private fun snap(name: String) {
         outDir.mkdirs()
-        val bmp = device.takeScreenshot()
-        try {
-            File(outDir, name).outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        } finally {
-            bmp.recycle()
-        }
+        val ok = device.takeScreenshot(File(outDir, name))
+        org.junit.Assert.assertTrue("screenshot $name failed", ok)
     }
 
     private fun appHasText(text: String, seconds: Long): Boolean {
