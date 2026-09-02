@@ -31,6 +31,19 @@ class ComposeAccessibilityScanTest {
     private val context get() = instrumentation.targetContext
     private val appPackage get() = context.packageName
 
+
+    // The app FORCES Persian (fa) via attachBaseContext regardless of the
+    // device locale, but this test process resolves resources with the DEVICE
+    // locale (en-US on CI) — so every UI assertion must read the string in
+    // the FA configuration or it searches for "Next" while the screen
+    // shows "بعدی".
+    private fun faString(id: Int): String {
+        val cfg = android.content.res.Configuration(context.resources.configuration).apply {
+            setLocale(java.util.Locale("fa"))
+        }
+        return context.createConfigurationContext(cfg).getString(id)
+    }
+
     private fun launchApp() {
         device.pressHome()
         // Launch through the shell: an instrumented test process is a
@@ -115,27 +128,27 @@ class ComposeAccessibilityScanTest {
 
         // First launch (fresh CI install) shows onboarding — scan it, then
         // walk through to home.
-        val next = context.getString(R.string.onboard_next)
+        val next = faString(R.string.onboard_next)
         if (appHasText(next, 30)) {
             assertLabeled("onboarding")
             repeat(4) { clickAppNode(next, byDescription = false) }
-            clickAppNode(context.getString(R.string.onboard_start), byDescription = false)
+            clickAppNode(faString(R.string.onboard_start), byDescription = false)
         } else {
             org.junit.Assert.assertTrue(
                 "neither onboarding nor home appeared",
-                appHasText(context.getString(R.string.home_compress_photo), 20)
+                appHasText(faString(R.string.home_compress_photo), 20)
             )
         }
 
         // Home (just scan — clicking the photo card would open the picker)
         org.junit.Assert.assertTrue(
             "home screen did not appear",
-            appHasText(context.getString(R.string.home_compress_photo), 20)
+            appHasText(faString(R.string.home_compress_photo), 20)
         )
         assertLabeled("home")
 
         // History (the entry point is an icon with a contentDescription)
-        clickAppNode(context.getString(R.string.history_title), byDescription = true)
+        clickAppNode(faString(R.string.history_title), byDescription = true)
         assertLabeled("history")
     }
 }

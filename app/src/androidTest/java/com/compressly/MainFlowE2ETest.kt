@@ -40,6 +40,19 @@ class MainFlowE2ETest {
     private val context get() = instrumentation.targetContext
     private val appPackage get() = context.packageName
 
+
+    // The app FORCES Persian (fa) via attachBaseContext regardless of the
+    // device locale, but this test process resolves resources with the DEVICE
+    // locale (en-US on CI) — so every UI assertion must read the string in
+    // the FA configuration or it searches for "Next" while the screen
+    // shows "بعدی".
+    private fun faString(id: Int): String {
+        val cfg = android.content.res.Configuration(context.resources.configuration).apply {
+            setLocale(java.util.Locale("fa"))
+        }
+        return context.createConfigurationContext(cfg).getString(id)
+    }
+
     private fun launchApp() {
         device.pressHome()
         // Launch through the shell: an instrumented test process is a
@@ -118,13 +131,13 @@ class MainFlowE2ETest {
 
         // ── 1. Fresh launch → onboarding carousel ───────────────────────
         launchApp()
-        val next = context.getString(R.string.onboard_next)
+        val next = faString(R.string.onboard_next)
         clickText(next, 60)
         repeat(4) { clickText(next, 10) }
-        clickText(context.getString(R.string.onboard_start), 10)
+        clickText(faString(R.string.onboard_start), 10)
 
         // ── 2. Home ─────────────────────────────────────────────────────
-        val photoCard = context.getString(R.string.home_compress_photo)
+        val photoCard = faString(R.string.home_compress_photo)
         clickText(photoCard, 30)
 
         // ── 3. Open the REAL system photo picker ────────────────────────
@@ -145,7 +158,7 @@ class MainFlowE2ETest {
         }
 
         // ── 4. Back in the app: settings screen with the picked file ────
-        val compress = context.getString(R.string.action_compress)
+        val compress = faString(R.string.action_compress)
         check(waitClickable(By.text(compress), "compress CTA", seconds = 30)) {
             "Back in the app: the compress CTA never appeared (picker result lost?)"
         }
@@ -153,13 +166,13 @@ class MainFlowE2ETest {
         device.waitForIdle()
 
         // ── 5. Progress → (auto) result ─────────────────────────────────
-        check(waitClickable(By.text(context.getString(R.string.progress_title)),
+        check(waitClickable(By.text(faString(R.string.progress_title)),
             "progress title", seconds = 20)) { "progress screen never appeared" }
 
         // The progress screen navigates to the result screen when the
         // single-item job completes. A 640x480 JPEG is fast, but the
         // emulator + first-run dexopt make this generous on purpose.
-        val viewHistory = context.getString(R.string.result_view_history)
+        val viewHistory = faString(R.string.result_view_history)
         check(waitClickable(By.text(viewHistory), "result screen", seconds = 120)) {
             "result screen never appeared within 120s"
         }
@@ -167,7 +180,7 @@ class MainFlowE2ETest {
         // ── 6. History: the entry with the real file name ───────────────
         waitForNode(By.text(viewHistory), 10)!!.click()
         device.waitForIdle()
-        check(waitClickable(By.text(context.getString(R.string.history_title)),
+        check(waitClickable(By.text(faString(R.string.history_title)),
             "history title", seconds = 15)) { "history screen never appeared" }
         check(waitClickable(By.text(photoName), "history row for the e2e photo", seconds = 15)) {
             "history never showed the compressed file"

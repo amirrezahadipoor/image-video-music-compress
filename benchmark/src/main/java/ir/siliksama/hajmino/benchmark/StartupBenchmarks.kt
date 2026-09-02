@@ -1,10 +1,12 @@
 package ir.siliksama.hajmino.benchmark
 
+import android.content.Context
 import androidx.benchmark.macro.CompilationMode
 import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.StartupTimingMetric
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Until
 import org.junit.Rule
@@ -35,6 +37,13 @@ class StartupBenchmarks {
     @get:Rule
     val benchmarkRule = MacrobenchmarkRule()
 
+    // Self-instrumenting module: the test runs IN the app under test, so its
+    // own package name is the measured app's — suffix included
+    // (debug builds install as ir.siliksama.hajmino.debug, and a hardcoded
+    // base id made every CI run fail with "is it installed?").
+    private val context: Context =
+        InstrumentationRegistry.getInstrumentation().targetContext
+
     @Test
     fun startupWithoutProfile() = measure(
         label = "startupWithoutProfile",
@@ -48,8 +57,9 @@ class StartupBenchmarks {
     )
 
     private fun measure(label: String, compilationMode: CompilationMode) {
+        val packageName = context.packageName
         benchmarkRule.measureRepeated(
-            packageName = PACKAGE_NAME,
+            packageName = packageName,
             metrics = listOf(StartupTimingMetric()),
             compilationMode = compilationMode,
             startupMode = StartupMode.COLD,
@@ -58,14 +68,13 @@ class StartupBenchmarks {
         ) {
             startActivityAndWait()
             device.wait(
-                Until.hasObject(By.pkg(PACKAGE_NAME).depth(0)),
+                Until.hasObject(By.pkg(packageName).depth(0)),
                 TIMEOUT_MS
             )
         }
     }
 
     private companion object {
-        const val PACKAGE_NAME = "ir.siliksama.hajmino"
         const val TIMEOUT_MS = 5_000L
     }
 }

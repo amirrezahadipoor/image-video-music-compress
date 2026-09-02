@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import ir.siliksama.hajmino.R
 import androidx.test.platform.app.InstrumentationRegistry
+import com.compressly.core.util.LocaleHelper
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -60,11 +61,18 @@ class I18nSanityTest {
     }
 
     @Test
-    fun default_configuration_is_persian() {
-        val default = context.getString(R.string.history_title)
-        assertTrue(
-            "app default language must be FA (got \"$default\")",
-            default.contains("تاریخچه")
+    fun default_language_is_persian() {
+        // The product's default language is Persian: with no persisted
+        // choice the app applies "fa" (MainActivity's attachBaseContext
+        // does the rest). This must be asserted on the app's own default —
+        // NOT on the device locale's resource resolution: the CI emulator
+        // runs en-US, so context.getString() there would resolve English
+        // and a "is the default fa" assertion on it would be wrong.
+        org.junit.Assert.assertEquals(LocaleHelper.DEFAULT_LANGUAGE, "fa")
+        org.junit.Assert.assertEquals(
+            "no persisted choice must yield FA",
+            "fa",
+            LocaleHelper.persistedLanguage(context)
         )
     }
 }

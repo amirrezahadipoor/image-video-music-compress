@@ -32,6 +32,19 @@ class ScreenshotRegressionTest {
     private val context get() = instrumentation.targetContext
     private val appPackage get() = context.packageName
 
+
+    // The app FORCES Persian (fa) via attachBaseContext regardless of the
+    // device locale, but this test process resolves resources with the DEVICE
+    // locale (en-US on CI) — so every UI assertion must read the string in
+    // the FA configuration or it searches for "Next" while the screen
+    // shows "بعدی".
+    private fun faString(id: Int): String {
+        val cfg = android.content.res.Configuration(context.resources.configuration).apply {
+            setLocale(java.util.Locale("fa"))
+        }
+        return context.createConfigurationContext(cfg).getString(id)
+    }
+
     private val outDir = File(Environment.getExternalStorageDirectory(), "CompresslyScreenshots")
 
     private fun launchApp() {
@@ -80,8 +93,8 @@ class ScreenshotRegressionTest {
     @Test
     fun capture_main_screens_for_visual_regression() {
         launchApp()
-        val next = context.getString(R.string.onboard_next)
-        val homeText = context.getString(R.string.home_compress_photo)
+        val next = faString(R.string.onboard_next)
+        val homeText = faString(R.string.home_compress_photo)
 
         // The very first app start on a fresh CI emulator can spend two
         // minutes in dexopt before anything is composed — so poll for
@@ -97,7 +110,7 @@ class ScreenshotRegressionTest {
             device.waitForIdle()
             snap("01_onboarding.png")
             repeat(4) { clickAppText(next) }
-            clickAppText(context.getString(R.string.onboard_start))
+            clickAppText(faString(R.string.onboard_start))
             device.waitForIdle()
         }
 
@@ -110,7 +123,7 @@ class ScreenshotRegressionTest {
         snap("02_home.png")
 
         // History (icon entry point with a contentDescription)
-        clickAppText(context.getString(R.string.history_title))
+        clickAppText(faString(R.string.history_title))
         device.waitForIdle()
         snap("03_history.png")
 
