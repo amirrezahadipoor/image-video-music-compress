@@ -47,8 +47,11 @@ class ScreenshotRegressionTest {
 
     private fun snap(name: String) {
         outDir.mkdirs()
-        device.takeScreenshot().use { bmp: Bitmap ->
+        val bmp = device.takeScreenshot()
+        try {
             File(outDir, name).outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        } finally {
+            bmp.recycle()
         }
     }
 
