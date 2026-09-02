@@ -140,6 +140,52 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: ./gradlew :app:connectedBazaarDebugAndroidTest --no-daemon
+  # ── Macrobenchmark — cold-start TTID/TTFD on a real (emulated) runtime ───
+  # NON-GATING (continue-on-failure): the numbers are for trend tracking in
+  # docs/BENCHMARK.md, not a delivery blocker. An emulator flake must never
+  # hold the signed APK hostage. Results are uploaded as an artifact.
+  macrobenchmark:
+    name: Macrobenchmark (cold-start TTID/TTFD)
+    runs-on: ubuntu-latest
+    continue-on-failure: true
+    timeout-minutes: 60
+    concurrency:
+      group: macrobenchmark
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Run startup benchmarks
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: ./gradlew :benchmark:connectedBazaarBenchmarkAndroidTest --no-daemon
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macrobenchmark-results
+          path: benchmark/build/outputs
+          if-no-files-found: ignore
+          retention-days: 30
+
   # ── Baseline Profile — generated and COMMITTED on a real Android runtime ──
   # AUTO-COMMIT: when the measured profile differs from the committed one it
   # is committed straight to main by the workflow bot, so the NEXT build ships
@@ -181,6 +227,17 @@ jobs:
         run: |
           ./gradlew :app:generateBaselineProfile --no-daemon --stacktrace \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+
+      - name: Strip Sentry lines (R8 landmine)
+        if: success()
+        run: |
+          # The Adivery ad SDK pulls in io.sentry transitively; a measured
+          # profile records sentry's hot methods, and R8's profile-guided
+          # unused-argument optimization then fails the bazaar RELEASE build
+          # (first hit in run 33596042703, fixed in 4ea03ac by hand). Sentry
+          # hotness is irrelevant to app startup, so keep the auto-commit
+          # from re-introducing the landmine on every profile refresh.
+          sed -i '/sentry/d' app/src/main/generated/baselineProfiles/*.txt
 
       - name: Auto-commit the refreshed profile
         if: success()
