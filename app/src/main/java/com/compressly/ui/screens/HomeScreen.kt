@@ -64,6 +64,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -460,16 +462,19 @@ private fun HomeHeader(
         IconButton(onClick = onOpenHistory) {
             Icon(Icons.Outlined.History, contentDescription = stringResource(R.string.history_title), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        // A11Y-FIX: the gear is a clickable control — without a
-        // contentDescription TalkBack announces an anonymous "button" and
-        // the accessibility scan fails.
+        // A11Y-FIX: the gear is a clickable control — material3's IconButton
+        // has no contentDescription parameter (unlike material2), so the
+        // label goes on the node's semantics. Without it TalkBack announces
+        // an anonymous "button" and the accessibility scan fails.
         IconButton(
             onClick = {
                 spin++
                 SoundEffects.play(SoundEffects.Type.CLICK)
                 onOpenAppSettings()
             },
-            contentDescription = stringResource(R.string.app_settings_title)
+            modifier = Modifier.semantics {
+                this.contentDescription = stringResource(R.string.app_settings_title)
+            }
         ) {
             RotatingGear(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
