@@ -252,12 +252,14 @@ dependencies {
     // Instrumented smoke test: runs the real MediaCodec pipeline on a device.
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
-    // E2E + accessibility + screenshot regression tests (round 3/4):
+    // E2E + accessibility + screenshot regression tests (round 4):
     // real UI flows driven on the CI emulator through the production
-    // Compose hierarchy.
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-    androidTestImplementation(libs.androidx.test.espresso.core)
-    androidTestImplementation(libs.androidx.test.core.ktx)
+    // Compose hierarchy. Explicit coordinates (matching the working
+    // androidx.test lines above) — no BOM indirection for the test scope.
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    androidTestImplementation("androidx.test:core-ktx:1.6.1")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.7.6")
+    // ui-test-manifest: test runner manifest for the debug build only.
     debugImplementation("androidx.compose.ui:ui-test-manifest:1.7.6")
 }

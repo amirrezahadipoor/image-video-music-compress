@@ -4,6 +4,8 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -12,6 +14,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import org.junit.Rule
+import org.junit.runner.RunWith
 import org.junit.Test
 
 /**
@@ -28,7 +31,7 @@ import org.junit.Test
  * Scans: onboarding (when first-run), home, history. Violations fail the
  * build with the exact node paths, so a11y cannot regress silently.
  */
-@AndroidJUnit4
+@RunWith(AndroidJUnit4::class)
 class ComposeAccessibilityScanTest {
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -38,32 +41,24 @@ class ComposeAccessibilityScanTest {
     @get:Rule
     val compose = createAndroidComposeRule(MainActivity::class.java)
 
-    /** Walk the merged semantics tree; collect clickable nodes without a label. */
-    private fun unlabeledInteractives(): List<String> {
-        val violations = mutableListOf<String>()
-        fun walk(node: androidx.compose.ui.test.SemanticsNode, path: String) {
-            val config = node.config
-            if (config.contains(SemanticsActions.PerformClick)) {
-                val text = config.getOrNull(SemanticsProperties.Text)
-                val description = config.getOrNull(SemanticsProperties.ContentDescription)
-                if (text.isNullOrEmpty() && description.isNullOrEmpty()) {
-                    violations += path
-                }
-            }
-            node.children.forEachIndexed { i, child -> walk(child, "$path/$i") }
-        }
-        walk(compose.onRoot().fetchSemanticsNode(), "(root)")
-        return violations
+    /** Matcher: clickable node with neither text nor contentDescription. */
+    private val unlabeledClickable = SemanticsMatcher("clickable node without a label") { node ->
+        node.config.contains(SemanticsActions.PerformClick) &&
+            node.config.getOrNull(SemanticsProperties.Text).isNullOrEmpty() &&
+            node.config.getOrNull(SemanticsProperties.ContentDescription).isNullOrEmpty()
     }
 
-    private fun textVisible(text: String, timeoutMs: Long): Boolean {
-        val deadline = System.currentTimeMillis() + timeoutMs
-        while (System.currentTimeMillis() < deadline) {
-            compose.waitForIdle()
-            if (compose.onNodeWithText(text).fetchSemanticsNodes().isNotEmpty()) return true
-            Thread.sleep(250)
+    private fun assertNoUnlabeled(screen: String) {
+        compose.onAllNodes(unlabeledClickable).assertDoesNotExist()
+    }
+
+    private fun textVisible(text: String, seconds: Long): Boolean {
+        return try {
+            compose.waitForNode(hasText(text), java.time.Duration.ofSeconds(seconds))
+            true
+        } catch (e: AssertionError) {
+            false
         }
-        return false
     }
 
     @Test
@@ -73,8 +68,8 @@ class ComposeAccessibilityScanTest {
         // to settle (cold launch on CI is slow) before deciding.
         val next = context.getString(R.string.onboard_next)
         val home = context.getString(R.string.home_compress_photo)
-        if (textVisible(next, 25_000) || !textVisible(home, 5_000)) {
-            assertScanClean("onboarding")
+        if (textVisible(next, 25) || !textVisible(home, 5)) {
+            assertNoUnlabeled("onboarding")
             repeat(4) {
                 compose.onNodeWithText(next).performClick()
                 device.waitForIdle()
@@ -85,21 +80,14 @@ class ComposeAccessibilityScanTest {
 
         // Home
         compose.onNodeWithText(home).assertIsDisplayed()
-        assertScanClean("home")
+        assertNoUnlabeled("home")
 
         // History (the entry point is an icon with a contentDescription)
         compose.onNodeWithContentDescription(context.getString(R.string.history_title))
             .performClick()
         device.waitForIdle()
         compose.onNodeWithText(context.getString(R.string.history_title)).assertIsDisplayed()
-        assertScanClean("history")
+        assertNoUnlabeled("history")
     }
 
-    private fun assertScanClean(screen: String) {
-        val violations = unlabeledInteractives()
-        org.junit.Assert.assertTrue(
-            "accessibility violations on \"$screen\":\n" + violations.joinToString("\n") { "  - $it" },
-            violations.isEmpty()
-        )
-    }
 }

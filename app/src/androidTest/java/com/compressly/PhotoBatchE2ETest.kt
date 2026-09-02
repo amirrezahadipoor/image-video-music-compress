@@ -12,6 +12,7 @@ import com.compressly.core.engine.model.InputItem
 import com.compressly.core.engine.model.JobStatus
 import com.compressly.core.engine.model.MediaType
 import com.compressly.core.engine.model.PhotoSettings
+import org.junit.runner.RunWith
 import org.junit.Test
 import java.io.File
 import kotlin.random.Random
@@ -35,7 +36,7 @@ import kotlinx.coroutines.withTimeout
  * and the engine reads them exactly as it would a picker-granted URI
  * (contentResolver.openInputStream).
  */
-@AndroidJUnit4
+@RunWith(AndroidJUnit4::class)
 class PhotoBatchE2ETest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext

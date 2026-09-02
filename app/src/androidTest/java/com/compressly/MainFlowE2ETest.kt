@@ -9,7 +9,6 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.createAndroidComposeRule
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -17,6 +16,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import org.junit.Rule
+import org.junit.runner.RunWith
 import org.junit.Test
 import java.util.concurrent.TimeUnit
 import kotlin.random.Random
@@ -33,7 +33,7 @@ import kotlin.random.Random
  * write. Pixel-exact rendering of the OS picker itself is not asserted
  * here (that is the screenshot regression test's job).
  */
-@AndroidJUnit4
+@RunWith(AndroidJUnit4::class)
 class MainFlowE2ETest {
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -43,16 +43,11 @@ class MainFlowE2ETest {
     @get:Rule
     val compose = createAndroidComposeRule(MainActivity::class.java)
 
-    /** Poll a Compose node by text until it appears or the deadline hits. */
-    private fun waitComposeText(text: String, timeoutMs: Long) {
-        val deadline = System.currentTimeMillis() + timeoutMs
-        var seen = false
-        while (!seen && System.currentTimeMillis() < deadline) {
-            compose.waitForIdle()
-            seen = compose.onAllNodes(hasText(text), true).fetchSemanticsNodes().isNotEmpty()
-            if (!seen) Thread.sleep(250)
+    /** Wait for a node by text (stable 1.7.x API). */
+    private fun waitComposeText(text: String, seconds: Long) {
+        compose.waitForNode(hasText(text), java.time.Duration.ofSeconds(seconds)) {
+            "expected text \"$text\" to appear within ${seconds}s"
         }
-        check(seen) { "expected text \"$text\" to appear within ${timeoutMs}ms" }
     }
 
     /** Wait until a UiAutomator selector is clickable, else fail clearly. */
@@ -101,7 +96,7 @@ class MainFlowE2ETest {
         // ── 1. First launch → onboarding carousel ───────────────────────
         // Cold first launch on CI (splash + dexopt + DataStore first read)
         // can take a while — wait, don't assume a 1s assertion window.
-        waitComposeText(context.getString(R.string.onboard_next), 45_000)
+        waitComposeText(context.getString(R.string.onboard_next), 45)
 
         repeat(4) {
             compose.onNodeWithText(context.getString(R.string.onboard_next)).performClick()
@@ -110,7 +105,7 @@ class MainFlowE2ETest {
         compose.onNodeWithText(context.getString(R.string.onboard_start)).performClick()
 
         // ── 2. Home ─────────────────────────────────────────────────────
-        waitComposeText(context.getString(R.string.home_compress_photo), 30_000)
+        waitComposeText(context.getString(R.string.home_compress_photo), 30)
 
         // ── 3. Open the REAL system photo picker ────────────────────────
         compose.onNodeWithText(context.getString(R.string.home_compress_photo)).performClick()
@@ -123,22 +118,22 @@ class MainFlowE2ETest {
         device.findObject(select).click()
 
         // ── 4. Back in the app: settings screen with the picked file ────
-        waitComposeText(context.getString(R.string.action_compress), 20_000)
+        waitComposeText(context.getString(R.string.action_compress), 20)
         compose.onNodeWithText(context.getString(R.string.action_compress))
             .assertIsDisplayed()
 
         // ── 5. Start → progress → (auto) result ─────────────────────────
         compose.onNodeWithText(context.getString(R.string.action_compress)).performClick()
-        waitComposeText(context.getString(R.string.progress_title), 15_000)
+        waitComposeText(context.getString(R.string.progress_title), 15)
 
         // The progress screen navigates to the result screen when the
         // single-item job completes. A 640x480 JPEG compresses fast, but
         // the emulator + first-run dexopt make this generous on purpose.
-        waitComposeText(context.getString(R.string.result_view_history), 120_000)
+        waitComposeText(context.getString(R.string.result_view_history), 120)
 
         // ── 6. History: the entry with the real file name ───────────────
         compose.onNodeWithText(context.getString(R.string.result_view_history)).performClick()
         compose.onNodeWithText(context.getString(R.string.history_title)).assertIsDisplayed()
-        waitComposeText(photoName, 15_000)
+        waitComposeText(photoName, 15)
     }
 }

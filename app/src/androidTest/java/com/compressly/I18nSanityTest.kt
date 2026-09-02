@@ -5,6 +5,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
+import org.junit.runner.RunWith
 import org.junit.Test
 import java.util.Locale
 
@@ -21,7 +23,7 @@ import java.util.Locale
  *   - the default configuration really is FA (the product's default
  *     language — a regression to "English default" would be a brand bug).
  */
-@AndroidJUnit4
+@RunWith(AndroidJUnit4::class)
 class I18nSanityTest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext

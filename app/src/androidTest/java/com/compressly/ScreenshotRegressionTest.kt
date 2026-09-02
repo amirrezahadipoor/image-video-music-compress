@@ -12,6 +12,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import org.junit.Rule
+import org.junit.runner.RunWith
 import org.junit.Test
 import java.io.File
 
@@ -24,7 +25,7 @@ import java.io.File
  * picked file is covered by the E2E journey; the baseline set here is the
  * stable one (no picker state involved, no timing-sensitive job output).
  */
-@AndroidJUnit4
+@RunWith(AndroidJUnit4::class)
 class ScreenshotRegressionTest {
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -43,8 +44,14 @@ class ScreenshotRegressionTest {
         }
     }
 
-    private fun composeTextVisible(text: String): Boolean =
-        compose.onAllNodes(hasText(text), true).fetchSemanticsNodes().isNotEmpty()
+    private fun composeTextVisible(text: String): Boolean {
+        return try {
+            compose.waitForNode(hasText(text), java.time.Duration.ofSeconds(25))
+            true
+        } catch (e: AssertionError) {
+            false
+        }
+    }
 
     @Test
     fun capture_main_screens_for_visual_regression() {
