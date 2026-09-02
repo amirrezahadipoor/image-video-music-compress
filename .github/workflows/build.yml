@@ -183,17 +183,37 @@ jobs:
             # The warmup is BEST-EFFORT (|| true): if it fails for any
             # reason the test still runs with generous 90s windows.
             ./gradlew :app:installBazaarDebug --no-daemon
-            sleep 10
-            # Debug builds carry an applicationId suffix — query the real
-            # package instead of hardcoding it.
-            APP_PKG=$(adb -s emulator-5554 shell pm list packages | grep siliksama | cut -d: -f2)
-            echo "installed package: $APP_PKG"
-            adb -s emulator-5554 shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$APP_PKG" || true
-            # dexopt on the very first launch can take two minutes on a
-            # shared CI emulator — give it a real window.
-            sleep 120
-            adb -s emulator-5554 shell am force-stop "$APP_PKG" || true
+            # The package must be visible before anything else — installation
+            # can lag on a loaded CI emulator; poll up to 2 minutes.
+            APP_PKG=""
+            for i in $(seq 1 24); do
+              APP_PKG=$(adb -s emulator-5554 shell pm list packages | grep siliksama | cut -d: -f2)
+              [ -n "$APP_PKG" ] && break
+              sleep 5
+            done
+            echo "installed package: ${APP_PKG:-NONE}"
+            if [ -n "$APP_PKG" ]; then
+              adb -s emulator-5554 shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$APP_PKG" || true
+              # dexopt on the very first launch can take two minutes on a
+              # shared CI emulator — give it a real window.
+              sleep 120
+              if adb -s emulator-5554 shell pidof "$APP_PKG" | grep -q .; then
+                echo "warmup: app survived its first launch"
+              else
+                echo "warmup: app process died after first launch — crash log:"
+                adb -s emulator-5554 logcat -d -b crash -t 200 || true
+              fi
+              adb -s emulator-5554 shell am force-stop "$APP_PKG" || true
+            else
+              echo "warmup: package never appeared — all packages:"
+              adb -s emulator-5554 shell pm list packages || true
+            fi
             ./gradlew :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.ScreenshotRegressionTest --no-daemon
+            GRADLE_RC=$?
+            # Diagnostics for the next iteration if the test failed:
+            adb -s emulator-5554 logcat -d -b crash -t 300 2>/dev/null | tee pass1-crash.log || true
+            adb -s emulator-5554 logcat -d -t 400 2>/dev/null | grep -iE "compressly|hajmino|AndroidRuntime|FATAL|ActivityManager.*Start|dexopt" | tee pass1-main.log || true
+            exit $GRADLE_RC
 
       - name: Pull screenshots
         if: success()
