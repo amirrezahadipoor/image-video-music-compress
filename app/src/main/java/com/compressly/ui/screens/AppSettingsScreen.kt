@@ -96,10 +96,14 @@ fun AppSettingsScreen(
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
+                // GEAR-FIX: no more 24/7 rotation on a static settings screen
+                // — the infinite transition recomposed this node every frame
+                // for the whole time the screen was open. The gear still spins
+                // once per tap in the Home header, which is where the motion
+                // belongs.
                 RotatingGear(
                     tint = MaterialTheme.colorScheme.primary,
-                    size = 26.dp,
-                    infinite = true
+                    size = 26.dp
                 )
                 Spacer(Modifier.width(20.dp))
             }

@@ -185,7 +185,7 @@ fun BeatingHeart(
     val scale by t.animateFloat(
         1f, 1.16f,
         infiniteRepeatable(
-            tween(360, easing = FastOutSlowInEasing),
+            tween(2400, easing = FastOutSlowInEasing),
             RepeatMode.Reverse
         ),
         label = "heart_scale"
@@ -193,7 +193,7 @@ fun BeatingHeart(
     val alpha by t.animateFloat(
         0.9f, 1f,
         infiniteRepeatable(
-            tween(360, easing = FastOutSlowInEasing),
+            tween(2400, easing = FastOutSlowInEasing),
             RepeatMode.Reverse
         ),
         label = "heart_alpha"

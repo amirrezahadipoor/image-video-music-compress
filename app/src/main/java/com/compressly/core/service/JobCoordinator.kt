@@ -210,10 +210,8 @@ class JobCoordinator(
             // PARALLEL-PHOTO-FIX: photos are CPU-bound and independent, so a
             // batch of >=2 runs two at a time (roughly half the wall time on
             // multi-core devices, which is practically every phone since 2017).
-            // Video/audio keep one-at-a-time: encoders and memory are the
-            // bottleneck there, and two hardware encodes on one SoC only fight
-            // each other. The order of completion still yields identical
-            // results/history — only throughput changes.
+            // The order of completion still yields identical results/history
+            // — only throughput changes.
             // AUDIO-PARALLEL-FIX: MP3 output is encoded by the embedded pure-
             // Java LAME port — CPU-bound and fully independent per file, so a
             // multi-file MP3 batch gets the same 2-way treatment as photos.
