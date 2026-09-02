@@ -176,44 +176,7 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: |
-            # Warm the cold start first: the very first launch of a fresh
-            # APK triggers dexopt and can sit on the splash for a minute.
-            # Install the app explicitly, launch it once, let it settle,
-            # stop it — then the test itself starts an already-warm app.
-            # The warmup is BEST-EFFORT (|| true): if it fails for any
-            # reason the test still runs with generous 90s windows.
-            ./gradlew :app:installBazaarDebug --no-daemon
-            # The package must be visible before anything else — installation
-            # can lag on a loaded CI emulator; poll up to 2 minutes.
-            APP_PKG=""
-            for i in $(seq 1 24); do
-              APP_PKG=$(adb -s emulator-5554 shell pm list packages | grep siliksama | cut -d: -f2)
-              [ -n "$APP_PKG" ] && break
-              sleep 5
-            done
-            echo "installed package: ${APP_PKG:-NONE}"
-            if [ -n "$APP_PKG" ]; then
-              adb -s emulator-5554 shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$APP_PKG" || true
-              # dexopt on the very first launch can take two minutes on a
-              # shared CI emulator — give it a real window.
-              sleep 120
-              if adb -s emulator-5554 shell pidof "$APP_PKG" | grep -q .; then
-                echo "warmup: app survived its first launch"
-              else
-                echo "warmup: app process died after first launch — crash log:"
-                adb -s emulator-5554 logcat -d -b crash -t 200 || true
-              fi
-              adb -s emulator-5554 shell am force-stop "$APP_PKG" || true
-            else
-              echo "warmup: package never appeared — all packages:"
-              adb -s emulator-5554 shell pm list packages || true
-            fi
-            ./gradlew :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.ScreenshotRegressionTest --no-daemon
-            GRADLE_RC=$?
-            # Diagnostics for the next iteration if the test failed:
-            adb -s emulator-5554 logcat -d -b crash -t 300 2>/dev/null | tee pass1-crash.log || true
-            adb -s emulator-5554 logcat -d -t 400 2>/dev/null | grep -iE "compressly|hajmino|AndroidRuntime|FATAL|ActivityManager.*Start|dexopt" | tee pass1-main.log || true
-            exit $GRADLE_RC
+            ./gradlew :app:installBazaarDebug --no-daemon; APP_PKG=""; for i in $(seq 1 24); do APP_PKG=$(adb -s emulator-5554 shell pm list packages | grep siliksama | cut -d: -f2); [ -n "$APP_PKG" ] && break; sleep 5; done; echo "installed package: ${APP_PKG:-NONE}"; if [ -n "$APP_PKG" ]; then adb -s emulator-5554 shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$APP_PKG" || true; sleep 120; if adb -s emulator-5554 shell pidof "$APP_PKG" | grep -q .; then echo "warmup: app survived its first launch"; else echo "warmup: app process died after first launch — crash log:"; adb -s emulator-5554 logcat -d -b crash -t 200 || true; fi; adb -s emulator-5554 shell am force-stop "$APP_PKG" || true; else echo "warmup: package never appeared"; adb -s emulator-5554 shell pm list packages || true; fi; ./gradlew :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.ScreenshotRegressionTest --no-daemon; GRADLE_RC=$?; adb -s emulator-5554 logcat -d -b crash -t 300 2>/dev/null | tee pass1-crash.log || true; exit $GRADLE_RC
 
       - name: Pull screenshots
         if: success()
@@ -278,7 +241,7 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: |
-            adb -s emulator-5554 shell pm clear ir.siliksama.hajmino
+            adb -s emulator-5554 shell pm clear ir.siliksama.hajmino || adb -s emulator-5554 shell pm clear ir.siliksama.hajmino.debug
             ./gradlew --no-configuration-cache :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.MainFlowE2ETest --no-daemon
 
       # PASS 3 — engine smoke + batch e2e + a11y scan + i18n runtime.
@@ -290,7 +253,7 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: |
-            adb -s emulator-5554 shell pm clear ir.siliksama.hajmino
+            adb -s emulator-5554 shell pm clear ir.siliksama.hajmino || adb -s emulator-5554 shell pm clear ir.siliksama.hajmino.debug
             ./gradlew --no-configuration-cache :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.PhotoBatchE2ETest,com.compressly.PhotoAudioSmokeTest,com.compressly.VideoTranscodeSmokeTest,com.compressly.ComposeAccessibilityScanTest,com.compressly.I18nSanityTest --no-daemon
 
       - name: Upload instrumented results on failure
