@@ -200,26 +200,7 @@ jobs:
             git push
             echo "Baseline committed - the next run starts pixel-diffing."
           else
-            python3 - <<'PY'
-            import os, sys
-            from PIL import Image, ImageChops
-            base, shots = "docs/screenshots-baseline", "shots-run/CompresslyScreenshots"
-            worst = 0.0
-            for name in sorted(os.listdir(base)):
-                if not name.endswith(".png"):
-                    continue
-                a = Image.open(os.path.join(base, name)).convert("RGB")
-                b = Image.open(os.path.join(shots, name)).convert("RGB")
-                if a.size != b.size:
-                    print(f"{name}: SIZE MISMATCH {a.size} vs {b.size}")
-                    sys.exit(1)
-                hist = ImageChops.difference(a, b).convert("L").histogram()
-                pct = 100.0 * sum(hist[16:]) / (a.size[0] * a.size[1])
-                worst = max(worst, pct)
-                print(f"{name}: {pct:.2f}% changed")
-            print(f"worst: {worst:.2f}% (threshold 3.0%)")
-            sys.exit(0 if worst <= 3.0 else 2)
-            PY
+            python3 scripts/visual_diff.py
           fi
 
       - name: Upload screenshots
