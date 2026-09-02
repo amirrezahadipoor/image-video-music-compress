@@ -10,6 +10,7 @@ import androidx.test.uiautomator.Until
 import ir.siliksama.hajmino.R
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
@@ -65,14 +66,14 @@ class ScreenshotRegressionTest {
         device.wait(Until.findObject(sel), TimeUnit.SECONDS.toMillis(seconds))
 
     // The CI capture loop names every frame frame-<host-epoch-ms>.png and
-    // echoes `frame <host-epoch-ms>` to the device logcat (tag CompresslyCap),
-    // so the test can read the HOST clock from inside the device. Bracketing
-    // a 20s hold with two such reads yields a window of host milliseconds;
-    // the host picks the mid-window frame afterwards. One clock, no
-    // handshake, no cross-process line ordering to get wrong.
+    // writes the same host milliseconds to /data/local/tmp/compressly_frame_ts
+    // (shell-writable, world-readable - the only store both sides of the
+    // app/shell uid wall can touch; logcat is unreadable from the app uid on
+    // API 26+). Bracketing a 20s hold with two reads yields a window of
+    // HOST milliseconds; the host picks the mid-window frame afterwards.
+    // One clock, no handshake, no line ordering to get wrong.
     private fun latestFrameTs(): Long? = runCatching {
-        val out = device.executeShellCommand("logcat -d -s CompresslyCap:I | tail -1")
-        Regex("frame (\\d+)").find(out)?.groupValues?.get(1)?.toLong()
+        File("/data/local/tmp/compressly_frame_ts").readText().trim().toLongOrNull()
     }.getOrNull()
 
     private fun snap(name: String) {
