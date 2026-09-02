@@ -561,7 +561,7 @@ private fun ActiveJobsBanner(jobs: List<JobState>, onOpenJob: (Long) -> Unit) {
     // across every active job.
     val totalFiles = jobs.sumOf { it.items.size }
     val overall = if (totalFiles > 0)
-        jobs.sumOf { (it.overallFraction * it.items.size).toFloat() } / totalFiles
+        jobs.sumOf<Float> { it.overallFraction * it.items.size } / totalFiles
     else 0f
     // BANNER-FIX: keep items visible until BOTH of a parallel pair finish
     // (a finished file shows 100% while its sibling still runs), so the

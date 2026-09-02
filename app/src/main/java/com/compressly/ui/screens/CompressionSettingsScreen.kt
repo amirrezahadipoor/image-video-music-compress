@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.onFocusChanged
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -47,13 +46,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -107,7 +106,7 @@ fun CompressionSettingsScreen(
     // size and the bar would promise 50 files at one file's size.
     val totalOriginal = remember(state.items, state.originalSize) {
         if (state.items.size > 1) {
-            state.items.sumOf { it.sizeBytes.takeIf { s -> s > 0 } ?: 0L }
+            state.items.sumOf<Long> { it.sizeBytes.takeIf { s -> s > 0 } ?: 0L }
         } else state.originalSize
     }
     val totalEstimated = remember(state.items.size, state.estimatedSize) {
@@ -584,37 +583,38 @@ private fun PhotoAdvanced(
     )
     if (state.photo.resize == PhotoResize.CUSTOM) {
         Spacer(Modifier.height(10.dp))
-        // CUSTOM-WIDTH-FIX: the field keeps a local draft and commits it on
-        // Done or focus loss. It was previously bound straight to the setting,
-        // which is clamped to 320..8000 — typing "1" snapped the field to
-        // "320" and clearing it snapped to "1600", so no value could be typed.
-        var widthDraft by remember(state.photo.customMaxWidth) {
-            mutableStateOf(state.photo.customMaxWidth.toString())
-        }
+        // CUSTOM-WIDTH-FIX: the field keeps a local draft instead of binding
+        // straight to the setting, which is clamped to 320..8000 — a bound
+        // field snapped "1" to "320" and a cleared field to "1600", so no
+        // value could ever be typed. The draft is:
+        //  - committed live once it parses to an IN-RANGE number (so typing
+        //    "1200" updates the estimate as soon as it becomes valid),
+        //  - committed (clamped) when the user presses Done,
+        //  - reverted to the committed value when Done is pressed on empty.
+        var widthDraft by remember { mutableStateOf(state.photo.customMaxWidth.toString()) }
         val keyboard = LocalSoftwareKeyboardController.current
-        val commitWidth: () -> Unit = {
-            val parsed = widthDraft.trim().toIntOrNull()
-            when {
-                parsed == null -> widthDraft = state.photo.customMaxWidth.toString()
-                parsed != state.photo.customMaxWidth ->
-                    viewModel.setPhotoCustomWidth(parsed) // VM clamps 320..8000
-            }
-        }
         OutlinedTextField(
             value = widthDraft,
-            onValueChange = { widthDraft = it.filter(Char::isDigit).take(5) },
+            onValueChange = { raw ->
+                val digits = raw.filter(Char::isDigit).take(5)
+                widthDraft = digits
+                digits.toIntOrNull()?.takeIf { it in 320..8000 }?.let {
+                    if (it != state.photo.customMaxWidth) viewModel.setPhotoCustomWidth(it)
+                }
+            },
             label = { Text(stringResource(R.string.photo_custom_width_hint)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             keyboardActions = KeyboardActions(onDone = {
                 keyboard?.hide()
-                commitWidth()
-            }),
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { fs ->
-                    if (!fs.isFocused) commitWidth()
+                val parsed = widthDraft.trim().toIntOrNull()
+                if (parsed == null) {
+                    widthDraft = state.photo.customMaxWidth.toString()
+                } else if (parsed != state.photo.customMaxWidth) {
+                    viewModel.setPhotoCustomWidth(parsed) // VM clamps 320..8000
                 }
+            }),
+            modifier = Modifier.fillMaxWidth()
         )
     }
     Spacer(Modifier.height(16.dp))
