@@ -62,7 +62,12 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: ./gradlew :benchmark:connectedBazaarDebugAndroidTest --no-daemon
+          script: |
+            # Self-instrumenting connected tests do NOT install the target
+            # app automatically (macrobenchmark issue history) — install the
+            # bazaar debug APK explicitly first.
+            ./gradlew :app:installBazaarDebug --no-daemon
+            ./gradlew :benchmark:connectedBazaarDebugAndroidTest --no-daemon
 
       - name: Upload raw benchmark results
         if: always()
