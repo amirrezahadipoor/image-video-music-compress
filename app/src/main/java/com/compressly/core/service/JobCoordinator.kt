@@ -10,6 +10,7 @@ import com.compressly.core.engine.Compressor
 import com.compressly.core.engine.photo.PhotoBatch
 import com.compressly.core.engine.JobControl
 import com.compressly.core.engine.errorKeyOf
+import com.compressly.core.engine.model.AudioFormat
 import com.compressly.core.engine.model.CompressionResult
 import com.compressly.core.engine.model.CompressionSettings
 import com.compressly.core.engine.model.InputItem
@@ -213,26 +214,37 @@ class JobCoordinator(
             // bottleneck there, and two hardware encodes on one SoC only fight
             // each other. The order of completion still yields identical
             // results/history — only throughput changes.
+            // AUDIO-PARALLEL-FIX: MP3 output is encoded by the embedded pure-
+            // Java LAME port — CPU-bound and fully independent per file, so a
+            // multi-file MP3 batch gets the same 2-way treatment as photos.
+            // AAC output uses the hardware encoder, where two encodes on one
+            // SoC only fight each other, so AAC batches stay sequential.
             val parallelPhotos = settings is CompressionSettings.Photo && items.size >= 2
-            if (parallelPhotos) {
+            val parallelAudioMp3 = settings is CompressionSettings.Audio &&
+                settings.settings.format == AudioFormat.MP3 && items.size >= 2
+            if (parallelPhotos || parallelAudioMp3) {
                 // BATCH-SCHED-FIX: heaviest first — the two long-running
-                // photos land in the parallel slots at the start instead of
-                // queueing behind small ones — and memory-aware concurrency:
-                // a source big enough to hit the 4096 px decode clamp (or one
-                // that cannot be probed) never shares its slot with another
-                // heavy decode. Ordinary photos keep the 2-way parallelism.
+                // items land in the parallel slots at the start instead of
+                // queueing behind small ones. For photos, memory-aware
+                // concurrency: a source big enough to hit the 4096 px decode
+                // clamp (or one that cannot be probed) never shares its slot
+                // with another heavy decode. Ordinary photos keep 2-way.
                 val ordered = PhotoBatch.heaviestFirst(items) { it.sizeBytes }
-                val permits = PhotoBatch.concurrencyFor(
-                    ordered.map { PhotoBatch.pixelCountOf(context, it.uri) },
-                    // MEM-BOUND-FIX: on the 3 GB phone class still common in
-                    // the Bazaar market a big photo batch (>= 100 files) falls
-                    // back to one slot, keeping peak native bitmap memory flat
-                    // for a whole 200-photo folder job.
-                    memoryClassMb = runCatching {
-                        (context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).memoryClass
-                    }.getOrNull(),
-                    batchSize = ordered.size
-                )
+                val permits = if (parallelPhotos) {
+                    PhotoBatch.concurrencyFor(
+                        ordered.map { PhotoBatch.pixelCountOf(context, it.uri) },
+                        // MEM-BOUND-FIX: on the 3 GB phone class still common
+                        // in the Bazaar market a big photo batch (>= 100
+                        // files) falls back to one slot, keeping peak native
+                        // bitmap memory flat for a whole 200-photo folder job.
+                        memoryClassMb = runCatching {
+                            (context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).memoryClass
+                        }.getOrNull(),
+                        batchSize = ordered.size
+                    )
+                } else {
+                    PhotoBatch.MAX_PHOTOS_IN_FLIGHT // MP3: pure-CPU LAME
+                }
                 val gate = Semaphore(permits)
                 coroutineScope {
                     ordered.map { item ->

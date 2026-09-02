@@ -85,6 +85,14 @@ class SettingsViewModel(private val container: AppContainer, private val context
 
     private var previewJob: Job? = null
     private var lastPreviewFile: File? = null
+    /**
+     * BATCH-ESTIMATE-FIX: probed info for the first up-to-three files of the
+     * batch (in item order). The headline batch estimate is the AVERAGE of
+     * these files' estimates, not one file's number multiplied by the count
+     * — for a mixed-size batch (a 40 MB video next to a 2 MB one) the old
+     * rule could be off by several times.
+     */
+    private var batchInfos: List<Pair<InputItem, MediaInfo>> = emptyList()
     /** Once the user taps a grade, analysis must not override it. */
     private var userPickedGrade = false
 
@@ -130,6 +138,18 @@ class SettingsViewModel(private val container: AppContainer, private val context
             }
             val originalSize = first.sizeBytes.takeIf { it > 0 }
                 ?: withContext(Dispatchers.IO) { Uris.sizeOf(context, first.uri) }
+            // Probe the next two files too (still on IO) for the batch
+            // average. The first file stays the one the grade advice and the
+            // per-grade picker prices.
+            batchInfos = buildList {
+                info?.let { add(first to it) }
+                for (item in s.items.drop(1).take(2)) {
+                    val more = withContext(Dispatchers.IO) {
+                        runCatching { MediaInspector.inspect(context, item.uri) }.getOrNull()
+                    }
+                    if (more != null) add(item to more)
+                }
+            }
             _state.update {
                 it.copy(
                     info = info,
@@ -326,15 +346,36 @@ class SettingsViewModel(private val container: AppContainer, private val context
     private fun refreshEstimate() {
         val s = _state.value
         val info = s.info ?: return
-        val estimate = when (s.mediaType) {
-            MediaType.PHOTO -> SizeEstimator.estimatePhoto(
-                context.contentResolver.getType(s.items.first().uri),
-                info.effectiveWidth, info.effectiveHeight, s.originalSize, s.photo
-            )
-            MediaType.VIDEO -> SizeEstimator.estimateVideo(info, s.video, s.preset)
-            MediaType.AUDIO -> SizeEstimator.estimateAudio(info, s.audio)
+        val first = s.items.first()
+        // Per-file estimate at the CURRENT settings; the first file uses the
+        // measured original size, the others their probed sizes (skipped when
+        // unknown, rather than feeding -1 into the math).
+        fun estimateOf(item: InputItem, fileInfo: MediaInfo): Long? {
+            val size = if (item.itemId == first.itemId) s.originalSize
+            else item.sizeBytes.takeIf { it > 0 } ?: return null
+            return when (s.mediaType) {
+                MediaType.PHOTO -> SizeEstimator.estimatePhoto(
+                    context.contentResolver.getType(item.uri),
+                    fileInfo.effectiveWidth, fileInfo.effectiveHeight, size, s.photo
+                )
+                MediaType.VIDEO -> SizeEstimator.estimateVideo(fileInfo, s.video, s.preset)
+                MediaType.AUDIO -> SizeEstimator.estimateAudio(fileInfo, s.audio)
+            }
         }
-        _state.update { it.copy(estimatedSize = estimate) }
+        val firstEstimate = estimateOf(first, info) ?: 0L
+        val batchAverage = if (s.items.size > 1) {
+            val infoByItem = batchInfos.associate { it.first.itemId to it.second }
+            s.items.take(3).mapNotNull { item ->
+                val fileInfo = if (item.itemId == first.itemId) info
+                else infoByItem[item.itemId] ?: return@mapNotNull null
+                estimateOf(item, fileInfo)
+            }.let { estimates ->
+                if (estimates.size > 1) estimates.average().toLong() else 0L
+            }
+        } else 0L
+        _state.update {
+            it.copy(estimatedSize = if (batchAverage > 0) batchAverage else firstEstimate)
+        }
     }
 
     // ---- Photo live preview ------------------------------------------------
