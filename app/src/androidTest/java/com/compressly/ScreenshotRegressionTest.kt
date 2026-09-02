@@ -65,17 +65,17 @@ class ScreenshotRegressionTest {
         device.wait(Until.findObject(sel), TimeUnit.SECONDS.toMillis(seconds))
 
     private fun snap(name: String) {
-        // Signal the host, then HOLD on this screen until the host's
-        // capture loop screencaps it and flips the property to "done".
-        // The 90s timeout means a dead host loop cannot hang the suite;
-        // the missing shot then fails the host-side visual step instead.
-        device.executeShellCommand("setprop compressly.snap_target $name")
-        val deadline = System.currentTimeMillis() + 90_000
-        while (System.currentTimeMillis() < deadline) {
-            if (device.executeShellCommand("getprop compressly.snap_target").trim() == "done") return
-            Thread.sleep(500)
-        }
-        android.util.Log.w("Snapshots", "host never captured $name (capture loop dead?) - continuing")
+        // Visual-regression capture: the CI runs a continuous screencap
+        // loop (one frame/second) into the same console log this println
+        // goes to. We bracket a fixed 20s hold on this screen with
+        // COMPRESSLY-MARK lines; after the run the host picks the
+        // mid-window frame. O_APPEND to one file means line order ==
+        // wall-clock order - no polling, no property handshake, no clocks.
+        println("COMPRESSLY-MARK $name START")
+        device.waitForIdle()
+        Thread.sleep(20_000)
+        device.waitForIdle()
+        println("COMPRESSLY-MARK $name END")
     }
 
     private fun appHasText(text: String, seconds: Long): Boolean {
