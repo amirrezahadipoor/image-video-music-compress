@@ -147,7 +147,7 @@ jobs:
   macrobenchmark:
     name: Macrobenchmark (cold-start TTID/TTFD)
     runs-on: ubuntu-latest
-    continue-on-failure: true
+    continue-on-error: true
     timeout-minutes: 60
     concurrency:
       group: macrobenchmark
