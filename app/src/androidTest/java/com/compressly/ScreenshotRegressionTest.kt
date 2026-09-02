@@ -44,11 +44,11 @@ class ScreenshotRegressionTest {
         return context.createConfigurationContext(cfg).getString(id)
     }
 
-    // App-specific external dir: on API 31+ the test cannot create a
-    // directory at the /sdcard root (scoped storage), so /sdcard root writes
-    // silently failed and every takeScreenshot returned false. The
-    // app-specific dir is always writable and still adb-pullable.
-    private val outDir = File(context.getExternalFilesDir(null), "CompresslyScreenshots")
+    // Internal storage: /sdcard root is not writable (scoped storage) and
+    // the app-specific EXTERNAL dir is SELinux-invisible to adb on API 30+
+    // (the pull would say "No such file or directory"). Internal files of a
+    // debuggable build are pullable via `adb exec-out run-as <pkg> tar ...`.
+    private val outDir = File(context.filesDir, "CompresslyScreenshots")
 
     private fun launchApp() {
         device.pressHome()
