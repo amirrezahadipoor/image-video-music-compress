@@ -25,9 +25,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
@@ -79,14 +79,16 @@ fun ActionButton(
                 }
                 onClick()
             }
-            // Applied AFTER clickable so the semantics land on the same node
-            // the click does. clearAndSetSemantics guarantees the clickable
-            // surface is a labeled Button regardless of how the inner Text
-            // composes — the a11y audit / TalkBack never sees an anonymous
-            // clickable.
-            .clearAndSetSemantics {
+            // Applied AFTER clickable so the label lands on the same node the
+            // click does. We use `semantics` (NOT clearAndSetSemantics) so the
+            // onClick action that .clickable sets on this node is PRESERVED —
+            // clearAndSetSemantics wipes the whole node's semantics, which
+            // would strip the click action and leave TalkBack/switch-access
+            // users unable to activate the button (the a11y audit only checks
+            // for a label, so it wouldn't catch that regression).
+            .semantics {
                 role = Role.Button
-                if (text.isNotBlank()) contentDescription = text else contentDescription = ""
+                if (text.isNotBlank()) contentDescription = text
             },
         contentAlignment = Alignment.Center
     ) {
@@ -135,9 +137,9 @@ fun GhostButton(
             .clip(RoundedCornerShape(26.dp))
             .background(MaterialTheme.colorScheme.surface)
             .clickable(enabled = enabled) { onClick() }
-            .clearAndSetSemantics {
+            .semantics {
                 role = Role.Button
-                if (text.isNotBlank()) contentDescription = text else contentDescription = ""
+                if (text.isNotBlank()) contentDescription = text
             },
         contentAlignment = Alignment.Center
     ) {

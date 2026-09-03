@@ -137,7 +137,6 @@ object OutputStore {
             }
         }
         if (!deleted) runCatching { context.contentResolver.delete(uri, null, null) }
-        if (!deleted) runCatching { context.contentResolver.delete(uri, null, null) }
     }
 
     private fun nameOf(uri: Uri): String {

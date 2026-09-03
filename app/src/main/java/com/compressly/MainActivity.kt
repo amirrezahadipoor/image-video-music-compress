@@ -21,6 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import ir.siliksama.hajmino.BuildConfig
 import ir.siliksama.hajmino.R
 import kotlinx.coroutines.launch
 import com.compressly.core.data.ThemeMode
@@ -52,7 +53,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val container = (application as CompresslyApp).container
 
-        val snapScreen = intent?.getStringExtra(EXTRA_SNAP_SCREEN)
+        // SNAP extra is a DEBUG-only CI/screenshot hook; inert in release.
+        val snapScreen = if (BuildConfig.DEBUG) intent?.getStringExtra(EXTRA_SNAP_SCREEN) else null
 
         setContent {
             val themeMode by container.settingsRepository.themeMode
@@ -113,7 +115,13 @@ class MainActivity : ComponentActivity() {
         // navigation happens AFTER the NavHost exists. Marking onboarding done
         // here is safe either way — a returning/new user without the flag is
         // unaffected and this only runs when the debug extra is present.
-        if (intent?.getBooleanExtra(EXTRA_SNAP_SKIP_ONBOARDING, false) == true) {
+        //
+        // DEBUG-GATE: these extras are a CI/screenshot test hook only. In a
+        // RELEASE build they must be inert: MainActivity is exported (launcher),
+        // so without this gate any other app could fire the intent and silently
+        // mark onboarding as done / deep-navigate the user. The gate only
+        // being in DEBUG keeps the release surface clean.
+        if (BuildConfig.DEBUG && intent?.getBooleanExtra(EXTRA_SNAP_SKIP_ONBOARDING, false) == true) {
             val app = application as CompresslyApp
             lifecycleScope.launch { app.container.settingsRepository.markOnboardingDone() }
         }
