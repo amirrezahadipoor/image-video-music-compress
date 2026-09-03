@@ -131,7 +131,10 @@ private fun PlayablePreview(uri: Uri?, mediaType: MediaType) {
             ExoPlayer.Builder(context).build().apply {
                 setMediaItem(MediaItem.fromUri(u))
                 prepare()
-                playWhenReady = true
+                // Don't auto-play on the result screen — the user just opened
+                // it and may not want the file (especially audio) to start
+                // blasting. The controller loads it ready; the user taps play.
+                playWhenReady = false
                 // Surface errors to the user instead of a silent black box.
                 addListener(object : Player.Listener {
                     override fun onPlayerError(error2: PlaybackException) {
