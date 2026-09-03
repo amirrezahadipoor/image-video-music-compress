@@ -6,6 +6,7 @@ import com.compressly.core.engine.model.MediaInfo
 import com.compressly.core.engine.model.PresetDefaults
 import com.compressly.core.engine.model.VideoAudioMode
 import com.compressly.core.engine.model.VideoCodec
+import com.compressly.core.engine.model.VideoResolution
 import com.compressly.core.engine.model.VideoSettings
 import com.compressly.core.engine.video.VideoPlanner
 import org.junit.Assert.assertEquals
