@@ -82,7 +82,7 @@ class ComposeAccessibilityScanTest {
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(seconds)
         while (System.currentTimeMillis() < deadline) {
             try {
-                found.click()
+                found!!.click()
                 device.waitForIdle()
                 return
             } catch (_: androidx.test.uiautomator.StaleObjectException) {
