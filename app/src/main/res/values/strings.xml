@@ -155,6 +155,11 @@
     <string name="result_reduction">حجم %1$s کاهش یافت</string>
     <string name="result_before_size">قبل</string>
     <string name="result_after_size">بعد</string>
+    <string name="result_compressed_side">فشرده‌شده</string>
+    <string name="result_original_side">اصلی</string>
+    <string name="result_preview_unavailable">پیش‌نمایش در دسترس نیست</string>
+    <string name="result_preview_error">پخش فایل ممکن نشد</string>
+    <string name="result_preview_label">پیش‌نمایش نتیجه</string>
     <string name="result_compress_another">فشرده‌سازی فایل دیگر</string>
     <string name="result_view_history">مشاهده تاریخچه</string>
     <string name="result_share_output">اشتراک‌گذاری</string>
@@ -167,6 +172,9 @@
     <string name="history_empty_title">هنوز فشرده‌سازی‌ای انجام نشده</string>
     <string name="history_empty_desc">هر فایلی که فشرده کنید با میزان فضای ذخیره‌شده اینجا نمایش داده می‌شود.</string>
     <string name="history_clear_all">پاک کردن تاریخچه</string>
+    <string name="history_selected">%1$d انتخاب شده</string>
+    <string name="history_delete_selected">حذف موارد انتخاب‌شده</string>
+    <string name="history_delete_selected_confirm">فایل‌های انتخاب‌شده از تاریخچه حذف شوند؟ فایل‌های ذخیره‌شده روی دستگاه می‌مانند.</string>
     <string name="history_clear_confirm_title">تاریخچه پاک شود؟</string>
     <string name="history_clear_confirm_msg">این کار فقط فهرست تاریخچه را حذف می‌کند. فایل‌های ذخیره‌شده روی دستگاه می‌مانند.</string>
     <string name="history_clear_confirm_yes">پاک شود</string>
@@ -183,6 +191,8 @@
     <string name="theme_system">مطابق سیستم</string>
     <string name="theme_light">روشن</string>
     <string name="theme_dark">تیره</string>
+    <string name="dynamic_color">رنگ پویا (Material You)</string>
+    <string name="dynamic_color_desc">رنگ‌ها از پس‌زمینهٔ دستگاه شما می‌آیند (اندروید ۱۲ به بالا)</string>
     <string name="settings_section_defaults">پیش‌فرض‌ها</string>
     <string name="default_preset">سطح فشرده‌سازی پیش‌فرض</string>
     <string name="default_preset_desc">هنگام شروع یک فشرده‌سازی جدید استفاده می‌شود.</string>
@@ -222,6 +232,7 @@
     <string name="notif_channel_desc">پیشرفت و کنترل فشرده‌سازی‌های در حال اجرا</string>
     <string name="notif_title">در حال فشرده‌سازی %1$s</string>
     <string name="notif_item">%1$d از %2$d</string>
+    <string name="notif_file">فایل: %1$s</string>
     <string name="notif_done_title">فشرده‌سازی تمام شد</string><string name="notif_failed_title">فشرده‌سازی ناموفق بود</string><string name="notif_partial_title">فشرده‌سازی ناتمام</string>
     <string name="notif_partial_text">%1$d از %2$d فایل با موفقیت فشرده شد</string>
     <!-- Units / formats --><string name="time_sec">%1$d ثانیه</string>

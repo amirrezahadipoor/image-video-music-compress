@@ -24,6 +24,12 @@ class HistoryRepository(private val dao: HistoryDao) {
 
     suspend fun clear() = dao.clear()
 
+    /** Removes the given history rows (multi-select bulk delete). */
+    suspend fun delete(ids: List<Long>) {
+        if (ids.isEmpty()) return
+        dao.deleteByIds(ids)
+    }
+
     /**
      * Called on app start: any job that was running when the process died is
      * marked interrupted with a clear message (never a silent half-done file,

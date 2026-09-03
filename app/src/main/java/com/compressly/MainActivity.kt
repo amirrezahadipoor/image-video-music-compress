@@ -59,6 +59,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val themeMode by container.settingsRepository.themeMode
                 .collectAsStateWithLifecycle(initialValue = ThemeMode.SYSTEM)
+            val dynamicColor by container.settingsRepository.dynamicColor
+                .collectAsStateWithLifecycle(initialValue = true)
             val language by container.settingsRepository.language
                 .collectAsStateWithLifecycle(initialValue = LocaleHelper.lastApplied)
 
@@ -70,7 +72,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            CompresslyTheme(themeMode = themeMode) {
+            CompresslyTheme(themeMode = themeMode, dynamicColor = dynamicColor) {
                 var showCrash by remember {
                     mutableStateOf(CrashGuard.consumeCrash(this@MainActivity))
                 }

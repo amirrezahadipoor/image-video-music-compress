@@ -22,6 +22,9 @@ class AppSettingsViewModel(container: AppContainer) : ViewModel() {
     val themeMode: StateFlow<ThemeMode> = repository.themeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ThemeMode.SYSTEM)
 
+    val dynamicColor: StateFlow<Boolean> = repository.dynamicColor
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     val defaultPreset: StateFlow<CompressionPreset> = repository.defaultPreset
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CompressionPreset.DEFAULT)
 
@@ -39,6 +42,10 @@ class AppSettingsViewModel(container: AppContainer) : ViewModel() {
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { repository.setThemeMode(mode) }
+    }
+
+    fun setDynamicColor(enabled: Boolean) {
+        viewModelScope.launch { repository.setDynamicColor(enabled) }
     }
 
     fun setDefaultPreset(preset: CompressionPreset) {

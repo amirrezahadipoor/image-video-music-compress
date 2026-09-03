@@ -19,6 +19,7 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 class SettingsRepository(private val context: Context) {
 
     private val keyTheme = stringPreferencesKey("theme_mode")
+    private val keyDynamicColor = booleanPreferencesKey("dynamic_color")
     private val keyDefaultPreset = stringPreferencesKey("default_preset")
     private val keyPreserveMetadata = booleanPreferencesKey("preserve_metadata_default")
     private val keyLanguage = stringPreferencesKey("language")
@@ -28,6 +29,14 @@ class SettingsRepository(private val context: Context) {
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { prefs ->
         runCatching { ThemeMode.valueOf(prefs[keyTheme] ?: "SYSTEM") }.getOrDefault(ThemeMode.SYSTEM)
+    }
+
+    /**
+     * Material You dynamic color (Android 12+). Off on older versions where it
+     * is unsupported; the custom palette is the fallback there.
+     */
+    val dynamicColor: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[keyDynamicColor] ?: true
     }
 
     val isPremium: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -58,6 +67,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { it[keyTheme] = mode.name }
+    }
+
+    suspend fun setDynamicColor(enabled: Boolean) {
+        context.dataStore.edit { it[keyDynamicColor] = enabled }
     }
 
     suspend fun setDefaultPreset(preset: CompressionPreset) {

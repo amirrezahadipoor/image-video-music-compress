@@ -39,7 +39,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -72,6 +74,7 @@ fun ResultScreen(
     )
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val entry by viewModel.entry.collectAsStateWithLifecycle()
     var reveal by remember { mutableStateOf(false) }
     var siblings by remember { mutableStateOf<List<HistoryEntry>>(emptyList()) }
@@ -82,6 +85,11 @@ fun ResultScreen(
         // avoid double-playing here.
         siblings = entry?.let { runCatching { viewModel.loadSiblings(it) }.getOrDefault(emptyList()) } ?: emptyList()
         reveal = true
+        // TACTILE-COMPLETE: a light confirmation buzz when a done result is
+        // shown; only for a successful completion (not for a failure screen).
+        if (entry?.status == HistoryEntry.STATUS_DONE) {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
     }
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
@@ -188,6 +196,19 @@ private fun SuccessContent(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
+
+        // In-app preview + before/after comparison for the compressed file.
+        // PHOTO -> draggable Before/After slider; VIDEO/AUDIO -> playable
+        // ExoPlayer with an Original/Compressed toggle. Never hits the network.
+        Spacer(Modifier.height(20.dp))
+        Text(
+            text = stringResource(R.string.result_preview_label),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp)
+        )
+        Spacer(Modifier.height(8.dp))
+        com.compressly.ui.components.ResultMediaPreview(entry)
 
         Spacer(Modifier.height(22.dp))
 

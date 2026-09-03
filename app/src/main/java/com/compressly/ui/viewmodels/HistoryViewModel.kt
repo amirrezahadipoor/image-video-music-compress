@@ -31,6 +31,12 @@ class HistoryViewModel(container: AppContainer) : ViewModel() {
         viewModelScope.launch { repository.clear() }
     }
 
+    /** Bulk-deletes the given history rows (multi-select). */
+    fun delete(ids: List<Long>) {
+        if (ids.isEmpty()) return
+        viewModelScope.launch { repository.delete(ids) }
+    }
+
     fun share(context: Context, entry: HistoryEntry) {
         val uri = entry.outputUri?.let { Uri.parse(it) } ?: return
         val mime = when (MediaType.fromName(entry.mediaType)) {

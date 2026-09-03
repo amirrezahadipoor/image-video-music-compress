@@ -268,6 +268,13 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
 
+    // In-app preview + before/after playback for result files (ExoPlayer/Media3).
+    // Local content only (content:// URIs from our own MediaStore output), so the
+    // app stays fully offline — the player never touches the network.
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.ui)
+    implementation(libs.androidx.media3.common)
+
     // Offline MP3 encoder (pure-Java LAME port, no NDK required)
     implementation(libs.jump3r)
     // Offline metadata tagging (ID3v2 / MP4)

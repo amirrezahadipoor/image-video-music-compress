@@ -155,6 +155,11 @@
     <string name="result_reduction">Size reduced by %1$s</string>
     <string name="result_before_size">Before</string>
     <string name="result_after_size">After</string>
+    <string name="result_compressed_side">Compressed</string>
+    <string name="result_original_side">Original</string>
+    <string name="result_preview_unavailable">Preview unavailable</string>
+    <string name="result_preview_error">Could not play this file</string>
+    <string name="result_preview_label">Result preview</string>
     <string name="result_compress_another">Compress another</string>
     <string name="result_view_history">View history</string>
     <string name="result_share_output">Share</string>
@@ -167,6 +172,9 @@
     <string name="history_empty_title">No compressions yet</string>
     <string name="history_empty_desc">Everything you compress will be listed here with the space you saved.</string>
     <string name="history_clear_all">Clear history</string>
+    <string name="history_selected">%1$d selected</string>
+    <string name="history_delete_selected">Delete selected</string>
+    <string name="history_delete_selected_confirm">Delete the selected items from history? Saved files on your device stay untouched.</string>
     <string name="history_clear_confirm_title">Clear history?</string>
     <string name="history_clear_confirm_msg">This removes the history list. Files you already saved stay on your device.</string>
     <string name="history_clear_confirm_yes">Clear</string>
@@ -183,6 +191,8 @@
     <string name="theme_system">Follow system</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
+    <string name="dynamic_color">Dynamic color (Material You)</string>
+    <string name="dynamic_color_desc">Colors follow your device wallpaper (Android 12+)</string>
     <string name="settings_section_defaults">Defaults</string>
     <string name="default_preset">Default compression level</string>
     <string name="default_preset_desc">Used when you open a new compression.</string>
@@ -222,6 +232,7 @@
     <string name="notif_channel_desc">Progress and controls for running compression jobs</string>
     <string name="notif_title">Compressing %1$s</string>
     <string name="notif_item">%1$d of %2$d</string>
+    <string name="notif_file">File: %1$s</string>
     <string name="notif_done_title">Compression finished</string><string name="notif_failed_title">Compression failed</string><string name="notif_partial_title">Compression incomplete</string>
     <string name="notif_partial_text">%1$d of %2$d files compressed successfully</string>
     <!-- Units / formats --><string name="time_sec">%1$ds</string>

@@ -2,6 +2,8 @@ package com.compressly.ui.screens
 
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,14 +34,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,6 +61,7 @@ import com.compressly.core.util.Formats
 import com.compressly.ui.components.AdSlot
 import com.compressly.ui.components.EmptyState
 import com.compressly.ui.viewmodels.HistoryViewModel
+import androidx.compose.material3.Checkbox
 
 @Composable
 fun HistoryScreen(
@@ -66,7 +72,25 @@ fun HistoryScreen(
     val context = LocalContext.current
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     var showClearDialog by remember { mutableStateOf(false) }
+    var showBulkDeleteDialog by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf<MediaType?>(null) }
+    val haptic = LocalHapticFeedback.current
+
+    // Multi-select (bulk delete) mode: long-press a row to enter, tap rows to
+    // toggle selection, then delete all selected at once.
+    var selectionMode by remember { mutableStateOf(false) }
+    val selected = remember { mutableStateListOf<Long>() }
+
+    fun toggleSelection(id: Long) {
+        if (selected.contains(id)) selected.remove(id) else selected.add(id)
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        if (selected.isEmpty()) selectionMode = false
+    }
+
+    fun exitSelection() {
+        selectionMode = false
+        selected.clear()
+    }
 
     val visibleEntries = remember(entries, filter) {
         if (filter == null) entries else entries.filter { MediaType.fromName(it.mediaType) == filter }
@@ -80,22 +104,43 @@ fun HistoryScreen(
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
-                }
-                Text(
-                    text = stringResource(R.string.history_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f)
-                )
-                if (entries.isNotEmpty()) {
-                    IconButton(onClick = { showClearDialog = true }) {
-                        Icon(
-                            Icons.Outlined.DeleteOutline,
-                            contentDescription = stringResource(R.string.history_clear_all),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                if (selectionMode) {
+                    IconButton(onClick = { exitSelection() }) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_cancel))
+                    }
+                    Text(
+                        text = stringResource(R.string.history_selected, selected.size),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (selected.isNotEmpty()) {
+                        IconButton(onClick = { showBulkDeleteDialog = true }) {
+                            Icon(
+                                Icons.Outlined.DeleteOutline,
+                                contentDescription = stringResource(R.string.history_delete_selected),
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                } else {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                    }
+                    Text(
+                        text = stringResource(R.string.history_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (entries.isNotEmpty()) {
+                        IconButton(onClick = { showClearDialog = true }) {
+                            Icon(
+                                Icons.Outlined.DeleteOutline,
+                                contentDescription = stringResource(R.string.history_clear_all),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
@@ -166,9 +211,21 @@ fun HistoryScreen(
                     items(visibleEntries) { entry ->
                         HistoryRow(
                             entry = entry,
-                            onClick = { onOpenEntry(entry.id) },
+                            selectionMode = selectionMode,
+                            selected = selected.contains(entry.id),
+                            onClick = {
+                                if (selectionMode) toggleSelection(entry.id)
+                                else onOpenEntry(entry.id)
+                            },
+                            onLongClick = {
+                                if (!selectionMode) {
+                                    selectionMode = true
+                                    toggleSelection(entry.id)
+                                }
+                            },
                             onShare = {
-                                if (entry.status == HistoryEntry.STATUS_DONE) viewModel.share(context, entry)
+                                if (!selectionMode && entry.status == HistoryEntry.STATUS_DONE)
+                                    viewModel.share(context, entry)
                             }
                         )
                     }
@@ -197,26 +254,60 @@ fun HistoryScreen(
             }
         )
     }
+
+    if (showBulkDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showBulkDeleteDialog = false },
+            title = { Text(stringResource(R.string.history_selected, selected.size)) },
+            text = { Text(stringResource(R.string.history_delete_selected_confirm)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showBulkDeleteDialog = false
+                    viewModel.delete(selected.toList())
+                    exitSelection()
+                }) {
+                    Text(stringResource(R.string.history_clear_confirm_yes))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBulkDeleteDialog = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
+    }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HistoryRow(
     entry: HistoryEntry,
+    selectionMode: Boolean,
+    selected: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     onShare: () -> Unit
 ) {
     val context = LocalContext.current
     Surface(
         shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surface,
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer
+        else MaterialTheme.colorScheme.surface,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (selectionMode) {
+                Checkbox(
+                    checked = selected,
+                    onCheckedChange = { onClick() }
+                )
+                Spacer(Modifier.width(4.dp))
+            }
             HistoryThumb(entry)
             Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -273,7 +364,7 @@ private fun HistoryRow(
                     )
                 }
             }
-            if (entry.status == HistoryEntry.STATUS_DONE) {
+            if (entry.status == HistoryEntry.STATUS_DONE && !selectionMode) {
                 IconButton(onClick = onShare) {
                     Icon(
                         Icons.Outlined.Share,

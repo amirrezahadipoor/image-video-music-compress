@@ -69,10 +69,20 @@ object NotificationHelper {
         val text = context.getString(R.string.notif_item, activeIndex + 1, total) +
             " - " + context.getString(R.string.progress_percent, percent)
 
+        // LIVE-DETAIL: surface the currently-processing file name so the user
+        // can see what is being worked on without opening the app (heavily
+        // useful for a long batch that pauses on a single large file).
+        val activeName = job.items.getOrNull(activeIndex)?.fileName
+            ?.takeIf { it.isNotBlank() }
+        val detail = if (activeName != null) {
+            context.getString(R.string.notif_file, activeName) + "\n" + text
+        } else text
+
         val builder = NotificationCompat.Builder(context, CHANNEL_JOBS)
             .setSmallIcon(R.drawable.ic_stat_compress)
             .setContentTitle(context.getString(R.string.notif_title, mediaLabel))
-            .setContentText(text)
+            .setContentText(detail)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(detail))
             .setProgress(100, percent, job.overallFraction <= 0f)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -83,6 +93,8 @@ object NotificationHelper {
         } else {
             builder.addAction(0, context.getString(R.string.action_pause), serviceIntent(context, job.jobId, CompressionJobService.ACTION_PAUSE))
         }
+        // Open-jobs action so users can jump straight in from the shutter.
+        builder.addAction(0, context.getString(R.string.action_open), openJobIntent(context, job.jobId))
         builder.addAction(0, context.getString(R.string.action_cancel), serviceIntent(context, job.jobId, CompressionJobService.ACTION_CANCEL))
         return builder.build()
     }

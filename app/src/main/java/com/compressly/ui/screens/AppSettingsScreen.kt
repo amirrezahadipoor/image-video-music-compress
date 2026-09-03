@@ -53,6 +53,7 @@ fun AppSettingsScreen(
     viewModel: AppSettingsViewModel = viewModel(factory = AppSettingsViewModel.Factory)
 ) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val dynamicColor by viewModel.dynamicColor.collectAsStateWithLifecycle()
     val defaultPreset by viewModel.defaultPreset.collectAsStateWithLifecycle()
     val preserveMetadata by viewModel.preserveMetadataDefault.collectAsStateWithLifecycle()
     val language by viewModel.language.collectAsStateWithLifecycle()
@@ -127,6 +128,13 @@ fun AppSettingsScreen(
                             },
                             descriptionOf = { null },
                             onSelect = viewModel::setThemeMode
+                        )
+                        Spacer(Modifier.height(18.dp))
+                        ToggleRow(
+                            title = stringResource(R.string.dynamic_color),
+                            description = stringResource(R.string.dynamic_color_desc),
+                            checked = dynamicColor,
+                            onCheckedChange = viewModel::setDynamicColor
                         )
                         Spacer(Modifier.height(18.dp))
                         Text(
