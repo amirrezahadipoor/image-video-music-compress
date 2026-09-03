@@ -189,9 +189,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # PASS 1 — FRESH install: screenshot capture (onboarding/home/history
-      # need a first-run app, so they run before anything completes
-      # onboarding).
+      # PASS 1 — FRESH install: screenshot capture. Independent from passes 2/3.
       - name: Pass 1 - screenshot capture (fresh install)
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -201,30 +199,66 @@ jobs:
           disable-animations: true
           script: |
             ./gradlew :app:installBazaarDebug --no-daemon
-            # CI emulators often boot with slow/SwiftShader graphics; wait for a
-            # fully-booted device and the launcher to be awake BEFORE trying to
-            # start the activity. Without this, `am start` returns
-            # "Activity not started" and the screenshot tests run empty (0/1).
+            # CI emulators boot slowly (SwiftShader). Wait for a fully-booted
+            # device before launching, or `am start` returns "Activity not started"
+            # and the screenshot tests run empty.
             adb -s emulator-5554 wait-for-device || true
             until [ "$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; do sleep 3; done
             adb -s emulator-5554 shell input keyevent 82 || true
-            APP_PKG=""; for i in $(seq 1 24); do APP_PKG=$(adb -s emulator-5554 shell pm list packages | grep siliksama | cut -d: -f2); [ -n "$APP_PKG" ] && break; sleep 5; done; echo "installed package: ${APP_PKG:-NONE}"; if [ -n "$APP_PKG" ]; then
-              # FLATTER: use the same component launch the test uses, so the
-              # warmup honours the .debug applicationId that connected tests
-              # target (a package-only `am start -p` fails with
-              # "Activity not started" on the .debug app, which then makes the
-              # screenshot tests see an empty UI). This is warmup only.
+            APP_PKG=""
+            for i in $(seq 1 24); do
+              APP_PKG=$(adb -s emulator-5554 shell pm list packages | grep siliksama | cut -d: -f2)
+              [ -n "$APP_PKG" ] && break
+              sleep 5
+            done
+            echo "installed package: ${APP_PKG:-NONE}"
+            if [ -n "$APP_PKG" ]; then
+              # Component launch (matches the .debug appId the connected tests use).
               adb -s emulator-5554 shell am start -W -n "$APP_PKG/com.compressly.MainActivity" || true
               sleep 120
-              if adb -s emulator-5554 shell ps -A 2>/dev/null | grep -q "$APP_PKG"; then echo "warmup: app survived its first launch"; else echo "warmup: app process died after first launch — crash log:"; adb -s emulator-5554 logcat -d -b crash -t 200 || true; fi
+              if adb -s emulator-5554 shell ps -A 2>/dev/null | grep -q "$APP_PKG"; then
+                echo "warmup: app survived its first launch"
+              else
+                echo "warmup: app process died after first launch - crash log:"
+                adb -s emulator-5554 logcat -d -b crash -t 200 || true
+              fi
               adb -s emulator-5554 shell am force-stop "$APP_PKG" || true
-            else echo "warmup: package never appeared"; adb -s emulator-5554 shell pm list packages || true; fi; mkdir -p shots-run/caps shots-run/CompresslyScreenshots; : > pass1-console.log; (tail -f pass1-console.log) & TAIL_PID=$!; (while :; do ts=$(date +%s%3N); f=shots-run/caps/frame-$ts.png; if adb -s emulator-5554 exec-out screencap -p > "$f" 2>/dev/null; then adb -s emulator-5554 shell "echo $ts > /data/local/tmp/compressly_frame_ts" 2>/dev/null; echo "COMPRESSLY-FRAME $ts $f" >> pass1-console.log; fi; sleep 1; done) & CAP_PID=$!; ./gradlew :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.ScreenshotRegressionTest --no-daemon >> pass1-console.log 2>&1; GRADLE_RC=$?; kill $CAP_PID $TAIL_PID 2>/dev/null; wait $CAP_PID $TAIL_PID 2>/dev/null; XML=$(find app/build/outputs/androidTest-results -name "TEST-*.xml" 2>/dev/null | head -1); echo "test xml: ${XML:-none}"; grep -o "COMPRESSLY-WINDOW [^<]*" "$XML" 2>/dev/null | head -6; python3 scripts/pick_frames.py "$XML" shots-run/caps shots-run/CompresslyScreenshots; PICK_RC=$?; adb -s emulator-5554 logcat -d -b crash -t 300 2>/dev/null | tee pass1-crash.log || true; echo "captured screenshots:"; ls -la shots-run/CompresslyScreenshots; R=0; [ $GRADLE_RC -ne 0 ] && R=1; [ $PICK_RC -ne 0 ] && R=1; exit $R
+            else
+              echo "warmup: package never appeared"
+              adb -s emulator-5554 shell pm list packages || true
+            fi
+            mkdir -p shots-run/caps shots-run/CompresslyScreenshots
+            : > pass1-console.log
+            (tail -f pass1-console.log) & TAIL_PID=$!
+            (while :; do
+               ts=$(date +%s%3N)
+               f=shots-run/caps/frame-$ts.png
+               if adb -s emulator-5554 exec-out screencap -p > "$f" 2>/dev/null; then
+                 adb -s emulator-5554 shell "echo $ts > /data/local/tmp/compressly_frame_ts" 2>/dev/null
+                 echo "COMPRESSLY-FRAME $ts $f" >> pass1-console.log
+               fi
+               sleep 1
+             done) & CAP_PID=$!
+            ./gradlew :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.ScreenshotRegressionTest --no-daemon >> pass1-console.log 2>&1
+            GRADLE_RC=$?
+            kill $CAP_PID $TAIL_PID 2>/dev/null
+            wait $CAP_PID $TAIL_PID 2>/dev/null
+            XML=$(find app/build/outputs/androidTest-results -name "TEST-*.xml" 2>/dev/null | head -1)
+            echo "test xml: ${XML:-none}"
+            grep -o "COMPRESSLY-WINDOW [^<]*" "$XML" 2>/dev/null | head -6
+            python3 scripts/pick_frames.py "$XML" shots-run/caps shots-run/CompresslyScreenshots
+            PICK_RC=$?
+            adb -s emulator-5554 logcat -d -b crash -t 300 2>/dev/null | tee pass1-crash.log || true
+            echo "captured screenshots:"
+            ls -la shots-run/CompresslyScreenshots
+            R=0
+            [ $GRADLE_RC -ne 0 ] && R=1
+            [ $PICK_RC -ne 0 ] && R=1
+            exit $R
 
       - name: Show pulled screenshots
-        if: success()
+        if: always()
         run: |
-          # Pulled inside the emulator-runner script (the emulator is gone
-          # by the time this step runs).
           ls -la shots-run/CompresslyScreenshots || true
 
       - name: Visual regression (first capture commits the baseline, later runs pixel-diff)
@@ -254,8 +288,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      # PASS 2 — FRESH app data: the full E2E journey starts from
-      # onboarding, which requires first-run state.
+      # PASS 2 — FRESH app data: full E2E journey. Independent of passes 1/3.
       - name: Pass 2 - full E2E journey (fresh app data)
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -270,7 +303,7 @@ jobs:
             adb -s emulator-5554 shell pm clear ir.siliksama.hajmino || adb -s emulator-5554 shell pm clear ir.siliksama.hajmino.debug
             ./gradlew --no-configuration-cache :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.MainFlowE2ETest --no-daemon
 
-      # PASS 3 — engine smoke + batch e2e + a11y scan + i18n runtime.
+      # PASS 3 — engine smoke + batch e2e + a11y + i18n. Independent of passes 1/2.
       - name: Pass 3 - engine, batch, a11y, i18n
         uses: reactivecircus/android-emulator-runner@v2
         with:
