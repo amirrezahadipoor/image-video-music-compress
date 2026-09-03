@@ -90,6 +90,15 @@ class MainFlowE2ETest {
         throw AssertionError("UI: \"$what\" never became clickable within ${seconds}s")
     }
 
+    private fun appHasTextOrDesc(text: String, seconds: Long): Boolean {
+        val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(seconds)
+        while (System.currentTimeMillis() < deadline) {
+            if (waitForNode(By.pkg(appPackage).text(text), 1) != null) return true
+            if (waitForNode(By.pkg(appPackage).desc(text), 1) != null) return true
+        }
+        return false
+    }
+
     private fun waitClickable(sel: BySelector, what: String, seconds: Long): Boolean {
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(seconds)
         while (System.currentTimeMillis() < deadline) {
@@ -155,9 +164,17 @@ class MainFlowE2ETest {
         // ── 1. Fresh launch → onboarding carousel ───────────────────────
         launchApp()
         val next = faString(R.string.onboard_next)
+        val start = faString(R.string.onboard_start)
         clickText(next, 60)
-        repeat(4) { clickText(next, 10) }
-        clickText(faString(R.string.onboard_start), 10)
+        // 5 pages: on the first four the button says "after/next", on the
+        // last it flips to "start". Give each page a generous budget (the
+        // pager animateScrollToPage + Compose recomposition on a bare
+        // emulator is slow) and re-resolve on stale handles.
+        repeat(4) {
+            if (appHasTextOrDesc(start, 4)) return@repeat
+            safeClick(By.text(next), "onboarding next", seconds = 25)
+        }
+        safeClick(By.text(start), "onboarding start", seconds = 30)
 
         // ── 2. Home ─────────────────────────────────────────────────────
         val photoCard = faString(R.string.home_compress_photo)

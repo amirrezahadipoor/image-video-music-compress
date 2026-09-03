@@ -67,12 +67,24 @@ class ComposeAccessibilityScanTest {
         return false
     }
 
-    private fun clickAppNode(text: String, byDescription: Boolean, seconds: Long = 15) {
+    private fun clickAppNode(text: String, byDescription: Boolean, seconds: Long = 20) {
         val sel = if (byDescription) By.pkg(appPackage).desc(text) else By.pkg(appPackage).text(text)
         val found = waitForNode(sel, seconds)
             ?: throw AssertionError("a11y: control \"$text\" never appeared")
-        found.click()
-        device.waitForIdle()
+        // Compose recomposition can invalidate the handle between find and
+        // click; re-resolve and retry instead of failing the audit spuriously.
+        val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(seconds)
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                found.click()
+                device.waitForIdle()
+                return
+            } catch (_: androidx.test.uiautomator.StaleObjectException) {
+                val again = waitForNode(sel, 1) ?: break
+                found = again
+            }
+        }
+        throw AssertionError("a11y: control \"$text\" never became clickable")
     }
 
     /** Topmost node of the app (window root or its child). */
@@ -129,10 +141,13 @@ class ComposeAccessibilityScanTest {
         // First launch (fresh CI install) shows onboarding — scan it, then
         // walk through to home.
         val next = faString(R.string.onboard_next)
+        val start = faString(R.string.onboard_start)
         if (appHasText(next, 30)) {
             assertLabeled("onboarding")
-            repeat(4) { clickAppNode(next, byDescription = false) }
-            clickAppNode(faString(R.string.onboard_start), byDescription = false)
+            repeat(4) {
+                clickAppNode(next, byDescription = false)
+            }
+            clickAppNode(start, byDescription = false)
         } else {
             org.junit.Assert.assertTrue(
                 "neither onboarding nor home appeared",

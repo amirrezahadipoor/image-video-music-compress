@@ -34,6 +34,11 @@ class I18nSanityTest {
         Configuration(context.resources.configuration).apply { setLocale(Locale.ENGLISH) }
     ).resources
 
+    /** The FA (default product language) resources. */
+    private fun faResources() = context.createConfigurationContext(
+        Configuration(context.resources.configuration).apply { setLocale(Locale("fa")) }
+    ).resources
+
     @Test
     fun en_configuration_resolves_real_english_strings() {
         val en = enResources()
@@ -47,7 +52,12 @@ class I18nSanityTest {
             assertFalse("EN string for id=$id must not be blank", value.isBlank())
             // The EN value must differ from the FA default (else the EN
             // entry is missing and we are silently reading Persian).
-            val faValue = context.getString(id)
+            // NOTE: read the FA value from the fa configuration explicitly.
+            // The test PROCESS runs under the device locale (en-US on CI) —
+            // it does not go through MainActivity.attachBaseContext, so
+            // context.getString() would resolve ENGLISH, not Persian, and the
+            // test would compare EN==EN and always fail.
+            val faValue = faResources().getString(id)
             assertNotEquals(
                 "string id=$id has no distinct EN translation (fell back to FA)",
                 faValue, value
