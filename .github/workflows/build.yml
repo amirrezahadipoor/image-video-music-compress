@@ -268,14 +268,17 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Scan for committed secrets
+        shell: bash
         run: |
-          set -e
+          # NOTE: deliberately no `set -e`; the `git ls-files | while ...` pipe
+          # makes the script's exit status that of the LAST command, which is
+          # unreliable as a gate. We count findings and exit explicitly.
           FAIL=0
           echo "== tracked keystore =="
           K=$(git ls-files | grep -Ei '\.(jks|keystore|p12|pfx)$' || true)
           if [ -n "$K" ]; then echo "::error::A signing keystore is tracked in git: $K"; FAIL=1; else echo "OK: no keystore tracked"; fi
           echo "== hardcoded signing password =="
-          if grep -RniE 'system\.getenv\([^)]*\)\s*\?:\s*"[^"]+"' app/build.gradle.kts | grep -iE 'password|pass|key' ; then
+          if grep -RniE 'system\.getenv\([^)]*\)\s*\?:\s*"[^"]+"' app/build.gradle.kts | grep -qiE 'password|pass|key'; then
             echo "::error::Hardcoded signing password fallback present"; FAIL=1
           else
             echo "OK: no hardcoded password fallback"
@@ -284,7 +287,7 @@ jobs:
           if git grep -lEI 'BEGIN (RSA|EC|OPENSSH|PGP) PRIVATE KEY' ; then echo "::error::A private-key literal was found"; FAIL=1; else echo "OK: no private-key literals"; fi
           echo "== large tracked blobs (>500 KB) =="
           git ls-files | while read -r f; do [ -f "$f" ] || continue; S=$(stat -c%s "$f" 2>/dev/null || echo 0); [ "$S" -gt 500000 ] && echo "$f ($S bytes)"; done
-          [ "$FAIL" -eq 0 ] && echo "SECURITY AUDIT PASSED" || { echo "SECURITY AUDIT FAILED"; exit 1; }
+          if [ "$FAIL" -eq 0 ]; then echo "SECURITY AUDIT PASSED"; exit 0; else echo "SECURITY AUDIT FAILED"; exit 1; fi
 
   # ── Lint — static quality gate ───────────────────────────────────────
   # Lint is now a HARD gate: abortOnError=true in build.gradle.kts and this

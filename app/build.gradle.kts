@@ -113,10 +113,13 @@ android {
             ) {
                 // Materialise the keystore into a well-known, git-ignored path
                 // (never tracked) so the rest of the DSL can consume it as a file.
-                val ksFile = rootProject.layout.buildDirectory
-                    .dir("protected")
-                    .file("signing-keystore.jks")
-                    .get().asFile
+                // Note: rootProject.layout.buildDirectory is a DirectoryProperty;
+                // resolve it via .get().asFile (the DSL `.dir()/.file()` overloads
+                // aren't available on the Provider here).
+                val ksFile = java.io.File(
+                    rootProject.layout.buildDirectory.get().asFile,
+                    "protected/signing-keystore.jks"
+                )
                 ksFile.parentFile.mkdirs()
                 ksFile.writeBytes(java.util.Base64.getDecoder().decode(ksB64))
 
