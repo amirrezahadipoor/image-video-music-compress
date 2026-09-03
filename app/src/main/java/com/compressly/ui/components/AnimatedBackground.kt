@@ -47,6 +47,13 @@ fun AnimatedBlobs(
         infiniteRepeatable(tween(4_000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse), label = "pulse")
 
+    // REDUCE-MOTION: freeze the drifting blobs to a fixed, calm arrangement.
+    val reduce = rememberReduceMotion()
+    val a1v = if (reduce) 0f else a1
+    val a2v = if (reduce) 0f else a2
+    val a3v = if (reduce) 0f else a3
+    val pulsev = if (reduce) 1f else pulse
+
     val alpha = if (dark) 0.08f else 0.06f
 
     Canvas(modifier = modifier.fillMaxSize()) {
@@ -54,11 +61,11 @@ fun AnimatedBlobs(
         val h = size.height
 
         // Blob 1 — primary color, orbits upper-right
-        val b1x = w * 0.7f + cos(Math.toRadians(a1.toDouble())).toFloat() * w * 0.22f
-        val b1y = h * 0.2f + sin(Math.toRadians(a1.toDouble())).toFloat() * h * 0.12f
+        val b1x = w * 0.7f + cos(Math.toRadians(a1v.toDouble())).toFloat() * w * 0.22f
+        val b1y = h * 0.2f + sin(Math.toRadians(a1v.toDouble())).toFloat() * h * 0.12f
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(primary.copy(alpha = alpha * pulse), Color.Transparent),
+                colors = listOf(primary.copy(alpha = alpha * pulsev), Color.Transparent),
                 center = Offset(b1x, b1y),
                 radius = w * 0.45f
             ),
@@ -67,8 +74,8 @@ fun AnimatedBlobs(
         )
 
         // Blob 2 — tertiary (violet), bottom-left
-        val b2x = w * 0.2f + cos(Math.toRadians(a2.toDouble())).toFloat() * w * 0.15f
-        val b2y = h * 0.75f + sin(Math.toRadians(a2.toDouble())).toFloat() * h * 0.10f
+        val b2x = w * 0.2f + cos(Math.toRadians(a2v.toDouble())).toFloat() * w * 0.15f
+        val b2y = h * 0.75f + sin(Math.toRadians(a2v.toDouble())).toFloat() * h * 0.10f
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(tertiary.copy(alpha = alpha * 0.8f), Color.Transparent),
@@ -80,8 +87,8 @@ fun AnimatedBlobs(
         )
 
         // Blob 3 — secondary (teal), center-wandering
-        val b3x = w * 0.5f + cos(Math.toRadians(a3.toDouble())).toFloat() * w * 0.30f
-        val b3y = h * 0.5f + sin(Math.toRadians(a3.toDouble() * 0.7)).toFloat() * h * 0.25f
+        val b3x = w * 0.5f + cos(Math.toRadians(a3v.toDouble())).toFloat() * w * 0.30f
+        val b3y = h * 0.5f + sin(Math.toRadians(a3v.toDouble() * 0.7)).toFloat() * h * 0.25f
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(secondary.copy(alpha = alpha * 0.5f), Color.Transparent),

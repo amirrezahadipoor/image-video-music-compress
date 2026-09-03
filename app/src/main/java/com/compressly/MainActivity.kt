@@ -23,7 +23,9 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import ir.siliksama.hajmino.BuildConfig
 import ir.siliksama.hajmino.R
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.compressly.core.data.ThemeMode
 import com.compressly.core.service.CompressionJobService
 import com.compressly.core.util.CrashGuard
@@ -132,6 +134,63 @@ class MainActivity : ComponentActivity() {
             if (jobId != -1L) {
                 (application as CompresslyApp).container.navigationBus.navigate(NavRequest.OpenJob(jobId))
             }
+            return
+        }
+
+        // SHARE-TARGET: the app can be the destination of a share. The user
+        // picks us from any app's share sheet with a big media file / multiple
+        // files; we compress them (and strip EXIF metadata) and hand back to a
+        // fresh share. No new screen — it reuses the compression settings flow.
+        handleSharedMedia(intent)
+    }
+
+    /**
+     * Handles an incoming ACTION_SEND / ACTION_SEND_MULTIPLE by building a
+     * selection from the shared URIs and routing into the compression flow.
+     * Nothing happens if there is nothing shareable (never a crash).
+     */
+    private fun handleSharedMedia(intent: Intent?) {
+        if (intent == null) return
+        val action = intent.action
+        if (action != Intent.ACTION_SEND && action != Intent.ACTION_SEND_MULTIPLE) return
+
+        val streams: List<android.net.Uri> = when (action) {
+            Intent.ACTION_SEND -> intent.getParcelableExtra(Intent.EXTRA_STREAM)
+                ?.let { listOf(it) } ?: emptyList()
+            else -> intent.getParcelableArrayListExtra<android.net.Uri>(Intent.EXTRA_STREAM) ?: emptyList()
+        }
+        if (streams.isEmpty()) return
+
+        val app = application as CompresslyApp
+        lifecycleScope.launch {
+            val items = withContext(Dispatchers.IO) {
+                streams.mapNotNull { uri ->
+                    val type = mediaTypeOf(app, uri)
+                    if (type == null) return@mapNotNull null
+                    com.compressly.core.engine.model.InputItem(
+                        itemId = System.nanoTime() + uri.toString().hashCode(),
+                        uri = uri,
+                        displayName = com.compressly.core.util.Uris.displayNameOf(app, uri),
+                        sizeBytes = com.compressly.core.util.Uris.sizeOf(app, uri),
+                        mediaType = type
+                    )
+                }
+            }
+            // Mixed share: use the type of the first resolved item.
+            val type = items.firstOrNull()?.mediaType ?: return@launch
+            app.container.selection.set(com.compressly.Selection(type, items))
+            app.container.navigationBus.navigate(NavRequest.OpenSettings(type))
+        }
+    }
+
+    /** Best-effort media-type classification from MIME or contentResolver. */
+    private fun mediaTypeOf(context: Context, uri: android.net.Uri): com.compressly.core.engine.model.MediaType? {
+        val mime = runCatching { context.contentResolver.getType(uri) }.getOrNull() ?: return null
+        return when {
+            mime.startsWith("image/") -> com.compressly.core.engine.model.MediaType.PHOTO
+            mime.startsWith("video/") -> com.compressly.core.engine.model.MediaType.VIDEO
+            mime.startsWith("audio/") -> com.compressly.core.engine.model.MediaType.AUDIO
+            else -> null
         }
     }
 
@@ -168,6 +227,10 @@ private fun HandleNavRequests(container: AppContainer, navController: NavHostCon
                 }
                 is NavRequest.OpenEntry -> navController.navigate(Routes.result(request.entryId)) {
                     launchSingleTop = true
+                }
+                is NavRequest.OpenSettings -> navController.navigate(Routes.settings(request.mediaType.name)) {
+                    launchSingleTop = true
+                    popUpTo(Routes.HOME) { inclusive = false }
                 }
             }
         }

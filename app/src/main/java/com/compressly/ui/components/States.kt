@@ -156,10 +156,11 @@ fun ShimmerBox(
         animationSpec = infiniteRepeatable(tween(700)),
         label = "shimmerAlpha"
     )
+    val a = if (rememberReduceMotion()) 0.6f else alpha
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(cornerRadius))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = a))
     )
 }
 

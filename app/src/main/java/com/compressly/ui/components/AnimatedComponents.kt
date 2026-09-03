@@ -95,6 +95,7 @@ fun ShimmerPlaceholder(
     modifier: Modifier = Modifier,
     cornerRadius: Dp = 16.dp
 ) {
+    val reduce = rememberReduceMotion()
     val t = rememberInfiniteTransition(label = "shimmer")
     val offset by t.animateFloat(
         initialValue = -1f, targetValue = 2f,
@@ -104,18 +105,21 @@ fun ShimmerPlaceholder(
         ),
         label = "shimmer_offset"
     )
+    // Reduce-motion: show a static muted placeholder instead of a sweeping shine.
+    val static = if (reduce) 0f else offset
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(cornerRadius))
             .background(
-                Brush.linearGradient(
+                if (reduce) MaterialTheme.colorScheme.surfaceVariant
+                else Brush.linearGradient(
                     colors = listOf(
                         MaterialTheme.colorScheme.surfaceVariant,
                         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                         MaterialTheme.colorScheme.surfaceVariant,
                     ),
-                    start = androidx.compose.ui.geometry.Offset(offset * 1000f, 0f),
-                    end = androidx.compose.ui.geometry.Offset(offset * 1000f + 600f, 0f)
+                    start = androidx.compose.ui.geometry.Offset(static * 1000f, 0f),
+                    end = androidx.compose.ui.geometry.Offset(static * 1000f + 600f, 0f)
                 )
             )
     )
@@ -130,6 +134,7 @@ fun PulsingDot(
     size: Dp = 10.dp,
     modifier: Modifier = Modifier
 ) {
+    val reduce = rememberReduceMotion()
     val t = rememberInfiniteTransition(label = "dot_pulse")
     val scale by t.animateFloat(
         1f, 1.45f,
@@ -147,6 +152,8 @@ fun PulsingDot(
         ),
         label = "dot_alpha"
     )
+    val s = if (reduce) 1f else scale
+    val a = if (reduce) 1f else alpha
     Box(
         modifier = modifier.size(size),
         contentAlignment = Alignment.Center
@@ -155,9 +162,9 @@ fun PulsingDot(
         Box(
             modifier = Modifier
                 .size(size)
-                .scale(scale)
+                .scale(s)
                 .clip(CircleShape)
-                .background(color.copy(alpha = alpha * 0.3f))
+                .background(color.copy(alpha = a * 0.3f))
         )
         // Core
         Box(
@@ -181,6 +188,7 @@ fun BeatingHeart(
     modifier: Modifier = Modifier,
     contentDescription: String? = null
 ) {
+    val reduce = rememberReduceMotion()
     val t = rememberInfiniteTransition(label = "heartbeat")
     val scale by t.animateFloat(
         1f, 1.16f,
@@ -198,13 +206,15 @@ fun BeatingHeart(
         ),
         label = "heart_alpha"
     )
+    val s = if (reduce) 1f else scale
+    val a = if (reduce) 1f else alpha
     Icon(
         imageVector = Icons.Filled.Favorite,
         contentDescription = contentDescription,
-        tint = tint.copy(alpha = alpha),
+        tint = tint.copy(alpha = a),
         modifier = modifier
             .size(size)
-            .scale(scale)
+            .scale(s)
     )
 }
 
@@ -227,13 +237,15 @@ fun AnimatedGradientBar(
         label = "bar_scale"
     )
 
-    // Subtle shimmer sweep on the bar
+    // Subtle shimmer sweep on the bar (degraded to static with reduce-motion)
+    val reduce = rememberReduceMotion()
     val t = rememberInfiniteTransition(label = "bar_shimmer")
     val shimmer by t.animateFloat(
         -1f, 3f,
         infiniteRepeatable(tween(3000, easing = LinearEasing), RepeatMode.Restart),
         label = "bar_shimmer_val"
     )
+    val shimmerVal = if (reduce) 0f else shimmer
 
     Box(
         modifier = modifier
@@ -256,14 +268,15 @@ fun AnimatedGradientBar(
                 .height(56.dp)
                 .graphicsLayer(alpha = 0.25f)
                 .background(
-                    Brush.linearGradient(
+                    if (reduce) Color.Transparent
+                    else Brush.linearGradient(
                         colors = listOf(
                             Color.Transparent,
                             Color.White.copy(alpha = 0.4f),
                             Color.Transparent,
                         ),
-                        start = androidx.compose.ui.geometry.Offset(shimmer * 600f, 0f),
-                        end = androidx.compose.ui.geometry.Offset(shimmer * 600f + 200f, 56f)
+                        start = androidx.compose.ui.geometry.Offset(shimmerVal * 600f, 0f),
+                        end = androidx.compose.ui.geometry.Offset(shimmerVal * 600f + 200f, 56f)
                     )
                 )
         )
