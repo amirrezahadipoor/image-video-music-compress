@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
@@ -66,7 +67,13 @@ fun ActionButton(
             .scale(scale)
             .clip(RoundedCornerShape(28.dp))
             .background(if (enabled) Brush.horizontalGradient(gradient) else Brush.horizontalGradient(listOf(Color(0xFF9A9AAC), Color(0xFF9A9AAC))))
-            .semantics { role = Role.Button }
+            .semantics {
+                role = Role.Button
+                // Ensure the clickable surface carries an accessible label
+                // even when the inner Text composes as a separate node (the
+                // a11y audit / TalkBack then never sees an anonymous button).
+                if (text.isNotBlank()) contentDescription = text
+            }
             .clickable(
                 enabled = enabled && !loading,
                 interactionSource = interactionSource,

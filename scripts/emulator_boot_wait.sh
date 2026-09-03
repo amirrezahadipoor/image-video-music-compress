@@ -12,5 +12,18 @@ $ADB shell pm clear ir.siliksama.hajmino 2>/dev/null || \
   $ADB shell pm clear ir.siliksama.hajmino.debug 2>/dev/null || true
 echo "boot complete; installing + running: $*"
 ./gradlew :app:installBazaarDebug --no-daemon || true
-exec ./gradlew --no-configuration-cache :app:connectedBazaarDebugAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.class="$1" --no-daemon
+
+# $1 is a comma-separated list of test classes. Run each class in its OWN
+# gradle/connected invocation: when several classes run in one instrumentation
+# invocation, AGP aborts the whole batch with "Failed to instantiate test
+# runner class" if a single class fails to init (R8/jar-merge quirk), instead
+# of just reporting that one class. One-at-a-time keeps the others green and
+# surfaces the real per-class result.
+RC=0
+IFS=','; for cls in $1; do
+  [ -z "$cls" ] && continue
+  echo "=== running $cls ==="
+  ./gradlew --no-configuration-cache :app:connectedBazaarDebugAndroidTest \
+    -Pandroid.testInstrumentationRunnerArguments.class="$cls" --no-daemon || RC=1
+done
+exit "$RC"

@@ -29,19 +29,6 @@ wait_boot() {
   $ADB shell input keyevent 82 || true
 }
 
-# Dismiss transient system dialogs (e.g. "Pixel Launcher isn't responding"
-# thanks to the slow CI emulator) that would otherwise occlude the app and
-# blow the pixel-diff. Restarting the launcher/app clears them; failing that,
-# press the "Wait" button (a shell keyevent/dpad often lands on it).
-dismiss_system_dialogs() {
-  $ADB shell am start -a android.intent.action.MAIN -c android.intent.category.HOME >/dev/null 2>&1 || true
-  sleep 2
-  # Focus app again and send a back so any blocking ANR alert away.
-  $ADB shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
-  $ADB shell input keyevent KEYCODE_ENTER >/dev/null 2>&1 || true
-  sleep 1
-}
-
 # Launch the app to a specific screen and capture a stable frame.
 # $1 = snap route ("onboarding" | "home" | "history")
 # $2 = capture file name
@@ -53,17 +40,23 @@ capture_screen() {
   $ADB shell am force-stop "$PKG_LENIENT" 2>/dev/null || true
   $ADB shell pm clear "$PKG" 2>/dev/null || true
   $ADB shell pm clear "$PKG_LENIENT" 2>/dev/null || true
+  # Launch, settle, then RE-focus the app (no HOME, no keyevent that can
+  # trigger the task switcher) so a stray system dialog — or a different app
+  # that a keyevent would have brought to front — cannot end up on screen.
   $ADB shell am start -W \
     -n "$PKG/$ACTIVITY" \
     --es "$BIGEXTRA" "$route" \
     --ez "$SKIPEXTRA" "$skip" || true
-  # Let cold-start + Compose settle (dexopt/transitions on a bare emulator).
-  sleep 25
-  dismiss_system_dialogs
+  sleep 20
+  $ADB shell am start \
+    -n "$PKG/$ACTIVITY" \
+    --es "$BIGEXTRA" "$route" \
+    --ez "$SKIPEXTRA" "$skip" || true
+  sleep 5
   # Capture a burst of frames and pick the LARGEST (most content) one — a
-  # dialog/splash frame is small/flat, the real screen is bigger.
+  # dialog/splash/launcher frame is small/flat, the real app screen is bigger.
   local best=""; local bestsz=0; local i
-  for i in 1 2 3 4; do
+  for i in 1 2 3; do
     local tmp="$OUT/.frame.png"
     $ADB exec-out screencap -p > "$tmp" 2>/dev/null
     local s
