@@ -311,8 +311,8 @@ object VideoPlanner {
         if (durMs < 1_000L) return null
         val durSec = durMs / 1000.0
         // Invert the estimator's container overhead so the budget is for payload.
-        val payloadBudget = ((targetBytes - CONTAINER_OVERHEAD_BYTES) / CONTAINER_OVERHEAD_RATIO)
-            .coerceAtLeast(0L).toDouble()
+        val payloadBudget = ((targetBytes - CONTAINER_OVERHEAD_BYTES).toDouble() / CONTAINER_OVERHEAD_RATIO)
+            .coerceAtLeast(0.0)
         val audioBps = audioBitrateBps(info, settings, preset).toLong()
         val audioBytes = audioBps * durMs / 8_000.0
         val videoBytes = (payloadBudget - audioBytes).coerceAtLeast(0.0)
