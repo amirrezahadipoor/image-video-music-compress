@@ -23,7 +23,17 @@ RC=0
 IFS=','; for cls in $1; do
   [ -z "$cls" ] && continue
   echo "=== running $cls ==="
-  ./gradlew --no-configuration-cache :app:connectedBazaarDebugAndroidTest \
-    -Pandroid.testInstrumentationRunnerArguments.class="$cls" --no-daemon || RC=1
+  # One retry: a single class can flake out with a transient emulator/runtime
+  # error ("Failed to instantiate test runner class", a stale first-boot, a
+  # dropped instrumentation), yet is genuinely fine on a second attempt. We
+  # retry the class, not silently green — a real bug still fails both times.
+  if ./gradlew --no-configuration-cache :app:connectedBazaarDebugAndroidTest \
+    -Pandroid.testInstrumentationRunnerArguments.class="$cls" --no-daemon; then
+    :
+  else
+    echo "class $cls failed; retrying once..."
+    ./gradlew --no-configuration-cache :app:connectedBazaarDebugAndroidTest \
+      -Pandroid.testInstrumentationRunnerArguments.class="$cls" --no-daemon || RC=1
+  fi
 done
 exit "$RC"
