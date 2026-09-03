@@ -114,7 +114,11 @@ class ComposeAccessibilityScanTest {
                     val text = node.text?.trim().orEmpty()
                     val desc = node.contentDescription?.trim().orEmpty()
                     if (text.isEmpty() && desc.isEmpty()) {
-                        violations += "$path (${node.className})"
+                        // Include the node's bounds so the offending control
+                        // can be pinpointed in the report (top of screen?
+                        // bottom CTA? pager page?).
+                        val b = node.visibleBounds
+                        violations += "$path (${node.className}) @[${b.left.toInt()},${b.top.toInt()},${b.right.toInt()},${b.bottom.toInt()}]"
                     }
                 }
                 node.children.forEachIndexed { i, child -> walk(child, "$path/$i", depth + 1) }
