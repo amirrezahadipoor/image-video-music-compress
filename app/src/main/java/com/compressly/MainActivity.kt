@@ -154,10 +154,13 @@ class MainActivity : ComponentActivity() {
         val action = intent.action
         if (action != Intent.ACTION_SEND && action != Intent.ACTION_SEND_MULTIPLE) return
 
+        @Suppress("DEPRECATION")
         val streams: List<android.net.Uri> = when (action) {
-            Intent.ACTION_SEND -> intent.getParcelableExtra(Intent.EXTRA_STREAM)
-                ?.let { listOf(it) } ?: emptyList()
-            else -> intent.getParcelableArrayListExtra<android.net.Uri>(Intent.EXTRA_STREAM) ?: emptyList()
+            Intent.ACTION_SEND ->
+                intent.getParcelableExtra<android.net.Uri>(Intent.EXTRA_STREAM)
+                    ?.let { listOf(it) } ?: emptyList()
+            else ->
+                intent.getParcelableArrayListExtra<android.net.Uri>(Intent.EXTRA_STREAM) ?: emptyList()
         }
         if (streams.isEmpty()) return
 

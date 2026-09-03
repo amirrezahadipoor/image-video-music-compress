@@ -107,21 +107,23 @@ fun ShimmerPlaceholder(
     )
     // Reduce-motion: show a static muted placeholder instead of a sweeping shine.
     val static = if (reduce) 0f else offset
+    val brush = if (reduce) {
+        Brush.solidColor(MaterialTheme.colorScheme.surfaceVariant)
+    } else {
+        Brush.linearGradient(
+            colors = listOf(
+                MaterialTheme.colorScheme.surfaceVariant,
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                MaterialTheme.colorScheme.surfaceVariant,
+            ),
+            start = androidx.compose.ui.geometry.Offset(static * 1000f, 0f),
+            end = androidx.compose.ui.geometry.Offset(static * 1000f + 600f, 0f)
+        )
+    }
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(cornerRadius))
-            .background(
-                if (reduce) MaterialTheme.colorScheme.surfaceVariant
-                else Brush.linearGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surfaceVariant,
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                        MaterialTheme.colorScheme.surfaceVariant,
-                    ),
-                    start = androidx.compose.ui.geometry.Offset(static * 1000f, 0f),
-                    end = androidx.compose.ui.geometry.Offset(static * 1000f + 600f, 0f)
-                )
-            )
+            .background(brush)
     )
 }
 
@@ -262,23 +264,25 @@ fun AnimatedGradientBar(
         contentAlignment = Alignment.Center
     ) {
         // Shimmer overlay
+        val shimmerBrush = if (reduce) {
+            Brush.solidColor(Color.Transparent)
+        } else {
+            Brush.linearGradient(
+                colors = listOf(
+                    Color.Transparent,
+                    Color.White.copy(alpha = 0.4f),
+                    Color.Transparent,
+                ),
+                start = androidx.compose.ui.geometry.Offset(shimmerVal * 600f, 0f),
+                end = androidx.compose.ui.geometry.Offset(shimmerVal * 600f + 200f, 56f)
+            )
+        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .graphicsLayer(alpha = 0.25f)
-                .background(
-                    if (reduce) Color.Transparent
-                    else Brush.linearGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            Color.White.copy(alpha = 0.4f),
-                            Color.Transparent,
-                        ),
-                        start = androidx.compose.ui.geometry.Offset(shimmerVal * 600f, 0f),
-                        end = androidx.compose.ui.geometry.Offset(shimmerVal * 600f + 200f, 56f)
-                    )
-                )
+                .graphicsLayer(alpha = if (reduce) 0f else 0.25f)
+                .background(shimmerBrush)
         )
         content()
     }
