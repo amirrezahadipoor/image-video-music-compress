@@ -344,13 +344,12 @@ class PhotoCompressor(private val context: Context) {
         val h = bitmap.height
         if (w <= 0 || h <= 0) return SmartPhotoAdvisor.Metrics(0f, 0, 0f)
         val target = 6_000
-        // Sample roughly `target` pixels spread across the WHOLE bitmap.
-        // The old stride `step = (w*h)/target` produced only ~target²/(w·h)
-        // samples — for a 12 MP photo that was 2-4 corner pixels, so the
-        // Smart ladder's detail/noise metrics were noise. With the correct
-        // stride, the number of sampled pixels ≈ (w/step)·(h/step) ≈ target.
-        val area = w.toLong() * h
-        val step = kotlin.math.ceil(kotlin.math.sqrt(area.toDouble() / target)).toInt().coerceAtLeast(1)
+        // SAMPLE-FIX: the old stride `step = (w*h)/target` produced only
+        // ~target²/(w·h) samples — for a 12 MP photo that was 2-4 corner
+        // pixels, so the Smart ladder's detail/noise metrics were noise.
+        // The correct stride (see SmartSample) samples ~target pixels across
+        // the WHOLE bitmap regardless of resolution.
+        val step = SmartSample.strideFor(w, h, target)
         val sample = ArrayList<Int>(target)
         var y = 0
         while (y < h) {

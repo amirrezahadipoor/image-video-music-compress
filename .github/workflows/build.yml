@@ -246,6 +246,35 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  # ── Security audit (report-only, non-blocking) ───────────────────────
+  # Detects a committed signing keystore / hardcoded signing password. This is
+  # the single biggest risk in this repo and is NOT yet safe to gate (the
+  # password literal is still in build.gradle.kts and the .jks is tracked), so
+  # it reports loudly without blocking. It becomes a hard gate once the owner
+  # removes the keystore + reads credentials only from GitHub Secrets.
+  security:
+    name: Security audit (keystore / secrets)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - name: Scan for committed secrets
+        run: |
+          set -e
+          echo "== tracked keystore =="
+          K=$(git ls-files | grep -Ei '\.(jks|keystore|p12|pfx)$' || true)
+          if [ -n "$K" ]; then echo "::warning::Tracking a signing keystore in git: $K"; else echo "OK: no keystore tracked"; fi
+          echo "== hardcoded signing password =="
+          if grep -RniE '\?:\s*"[^"]+"' app/build.gradle.kts | grep -iE 'password|pass|key'; then
+            echo "::warning::Hardcoded signing password fallback present in app/build.gradle.kts"
+          else
+            echo "OK: no hardcoded password fallback"
+          fi
+          echo "== large tracked blobs (>500 KB) =="
+          git ls-files | while read -r f; do [ -f "$f" ] || continue; S=$(stat -c%s "$f" 2>/dev/null || echo 0); [ "$S" -gt 500000 ] && echo "$f ($S bytes)"; done || true
+          echo "== private-key literals =="
+          if git grep -lEI 'BEGIN (RSA|EC|OPENSSH|PGP) PRIVATE KEY' || true; then echo "::warning::A private-key literal was found"; else echo "OK: no private-key literals"; fi
+
   # ── Lint — static quality gate ───────────────────────────────────────
   # Lint is now a HARD gate: abortOnError=true in build.gradle.kts and this
   # job no longer continues-on-error, so HardcodedText, missing

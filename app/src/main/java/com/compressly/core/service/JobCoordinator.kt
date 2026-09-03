@@ -286,18 +286,16 @@ class JobCoordinator(
             itemControls.remove(jobId)
             jobPaused.remove(jobId)
             cancelledItems.remove(jobId)
-            val finalStatus = when {
-                jobCancelled.get() -> JobStatus.CANCELLED
-                !anySuccess.get() && anyFailure.get() -> JobStatus.FAILED
-                !anySuccess.get() && anyCancelled.get() -> JobStatus.CANCELLED
-                // PARTIAL-FIX: previously any failure was swallowed whenever at
-                // least one item succeeded (anySuccess short-circuited the FAILED
-                // branch), so a mixed batch was reported as a clean COMPLETED and
-                // the "done" notification fired. A batch where SOME items failed
-                // is now its own honest terminal state.
-                anyFailure.get() -> JobStatus.PARTIAL
-                else -> JobStatus.COMPLETED
-            }
+            // PARTIAL-FIX: delegated to the pure JobStatusResolver so the exact
+            // precedence is unit-tested. Previously any failure was swallowed
+            // whenever at least one item succeeded (anySuccess short-circuited
+            // the FAILED branch), so a mixed batch was reported as COMPLETED.
+            val finalStatus = JobStatusResolver.resolve(
+                anySuccess = anySuccess.get(),
+                anyFailure = anyFailure.get(),
+                anyCancelled = anyCancelled.get(),
+                jobCancelled = jobCancelled.get()
+            )
             updateJob(jobId) { it.copy(status = finalStatus, isPaused = false) }
             stopServiceIfIdle()
             // Prune terminal jobs from memory (results live in Room). 3 minutes
