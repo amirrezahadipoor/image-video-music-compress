@@ -286,7 +286,10 @@ jobs:
           echo "== private-key literals =="
           if git grep -lEI 'BEGIN (RSA|EC|OPENSSH|PGP) PRIVATE KEY' ; then echo "::error::A private-key literal was found"; FAIL=1; else echo "OK: no private-key literals"; fi
           echo "== large tracked blobs (>500 KB) =="
-          git ls-files | while read -r f; do [ -f "$f" ] || continue; S=$(stat -c%s "$f" 2>/dev/null || echo 0); [ "$S" -gt 500000 ] && echo "$f ($S bytes)"; done
+          # NOTE: the `if` form is required — `[ cond ] && echo` returns 1 for a
+          # non-large file, and GitHub's `bash -e -o pipefail` then kills the
+          # whole step. `if` always returns 0.
+          git ls-files | while read -r f; do [ -f "$f" ] || continue; S=$(stat -c%s "$f" 2>/dev/null || echo 0); if [ "$S" -gt 500000 ]; then echo "$f ($S bytes)"; fi; done
           if [ "$FAIL" -eq 0 ]; then echo "SECURITY AUDIT PASSED"; exit 0; else echo "SECURITY AUDIT FAILED"; exit 1; fi
 
   # ── Lint — static quality gate ───────────────────────────────────────
