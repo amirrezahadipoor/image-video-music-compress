@@ -194,6 +194,12 @@ android {
         // so HardcodedText / missing contentDescription / etc. could slip into
         // release silently. Now errors fail the build so lint is a real gate.
         abortOnError = true
+        // LINT-8.7-CRASH-FIX: the lifecycle `NullSafeMutableLiveData` detector
+        // crashes on Kotlin 2.x (IncompatibleClassChangeError: KaCallableMemberCall
+        // "but interface was expected"). This is a lint tooling bug, not a real
+        // finding — that check has no bearing on this app (no LiveData is used).
+        // Disabled here so lint stays a live gate instead of crashing the job.
+        disable += "NullSafeMutableLiveData"
     }
 }
 
