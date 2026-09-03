@@ -119,12 +119,12 @@ object OutputStore {
         // tree-backed documents either — so an orphaned half-written file
         // would stay in the user's folder after a cancel/failure. Resolve the
         // tree URI we hold and look the document up by name as a last resort.
-        var deleted = runCatching { DocumentFile.fromSingleUri(context, uri)?.delete() }
-            .getOrDefault(false)
+        val deleted = runCatching { DocumentFile.fromSingleUri(context, uri)?.delete() }
+            .getOrDefault(false) ?: false
         if (!deleted) {
             val tree = customTreeUri?.let { runCatching { DocumentFile.fromTreeUri(context, Uri.parse(it)) }.getOrNull() }
             if (tree != null) {
-                deleted = runCatching {
+                val found = runCatching {
                     val name = nameOf(uri)
                     // Walk the same <tree>/Hajmino/<Photos|Videos|Audio>/ layout a
                     // document may live in: search every subfolder for the name.
@@ -132,9 +132,11 @@ object OutputStore {
                     hajmino.listFiles()
                         .firstNotNullOfOrNull { sub -> sub.listFiles().firstOrNull { it.name == name } }
                         ?.delete() ?: false
-                }.getOrDefault(false)
+                }.getOrDefault(false) ?: false
+                if (found) return
             }
         }
+        if (!deleted) runCatching { context.contentResolver.delete(uri, null, null) }
         if (!deleted) runCatching { context.contentResolver.delete(uri, null, null) }
     }
 

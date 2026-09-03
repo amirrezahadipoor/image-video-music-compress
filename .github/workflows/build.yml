@@ -12,6 +12,15 @@ env:
     -Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m
     -Dorg.gradle.workers.max=2 -Dfile.encoding=UTF-8
   BAZAAR_RSA_KEY: ${{ secrets.BAZAAR_RSA_KEY }}
+  # SIGNING: the release signing keystore + credentials come only from repo
+  # secrets (the old committed .jks is COMPROMISED and removed). Exposed to
+  # every job so `assembleBazaarRelease` can sign regardless of which job runs;
+  # debug/lint/test jobs simply ignore them (build.gradle.kts populates the
+  # signing config only when all four are present).
+  COMPRESSLY_KEYSTORE_BASE64: ${{ secrets.COMPRESSLY_KEYSTORE_BASE64 }}
+  COMPRESSLY_KEYSTORE_PASSWORD: ${{ secrets.COMPRESSLY_KEYSTORE_PASSWORD }}
+  COMPRESSLY_KEY_ALIAS: ${{ secrets.COMPRESSLY_KEY_ALIAS }}
+  COMPRESSLY_KEY_PASSWORD: ${{ secrets.COMPRESSLY_KEY_PASSWORD }}
 
 jobs:
   # ── Bazaar build only ─────────────────────────────────────────────────

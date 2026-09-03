@@ -105,27 +105,26 @@ android {
             val kAlias   = System.getenv("COMPRESSLY_KEY_ALIAS")
             val kPass    = System.getenv("COMPRESSLY_KEY_PASSWORD")
 
-            if (ksB64.isNullOrBlank() || ksPass.isNullOrBlank() || kAlias.isNullOrBlank() || kPass.isNullOrBlank()) {
-                throw GradleException(
-                    "Release signing credentials are missing. " +
-                    "Set COMPRESSLY_KEYSTORE_BASE64 / COMPRESSLY_KEYSTORE_PASSWORD / " +
-                    "COMPRESSLY_KEY_ALIAS / COMPRESSLY_KEY_PASSWORD (build environment / CI secrets). " +
-                    "Refusing to fall back to any hardcoded credential."
-                )
-            }
-            // Materialise the keystore into a well-known, git-ignored path
-            // (never tracked) so the rest of the DSL can consume it as a file.
-            val ksFile = rootProject.layout.buildDirectory
-                .dir("protected")
-                .file("signing-keystore.jks")
-                .get().asFile
-            ksFile.parentFile.mkdirs()
-            ksFile.writeBytes(java.util.Base64.getDecoder().decode(ksB64))
+            // Only a real release build needs credentials; debug/lint/test jobs
+            // do not sign, so leave the config empty there rather than throwing
+            // during configuration (which would break a `lintBazaarDebug` run).
+            if (!ksB64.isNullOrBlank() && !ksPass.isNullOrBlank() &&
+                !kAlias.isNullOrBlank() && !kPass.isNullOrBlank()
+            ) {
+                // Materialise the keystore into a well-known, git-ignored path
+                // (never tracked) so the rest of the DSL can consume it as a file.
+                val ksFile = rootProject.layout.buildDirectory
+                    .dir("protected")
+                    .file("signing-keystore.jks")
+                    .get().asFile
+                ksFile.parentFile.mkdirs()
+                ksFile.writeBytes(java.util.Base64.getDecoder().decode(ksB64))
 
-            storeFile     = ksFile
-            storePassword = ksPass
-            keyAlias      = kAlias
-            keyPassword   = kPass
+                storeFile     = ksFile
+                storePassword = ksPass
+                keyAlias      = kAlias
+                keyPassword   = kPass
+            }
         }
     }
 

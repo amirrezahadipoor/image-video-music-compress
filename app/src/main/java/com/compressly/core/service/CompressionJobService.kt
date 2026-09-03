@@ -194,6 +194,17 @@ class CompressionJobService : Service() {
         }
     }
 
+    private fun releaseWakeLock() {
+        // WAKELOCK-RENEW-FIX: restored — the refactor that added renew-on-tick
+        // accidentally dropped this function, which is called from the idle
+        // path and onDestroy. Guarded with runCatching so a non-held lock
+        // (already released / never acquired) never crashes.
+        runCatching {
+            wakeLock?.let { wl -> if (wl.isHeld) wl.release() }
+        }
+        wakeLock = null
+    }
+
     override fun onDestroy() {
         releaseWakeLock()
         collector?.cancel()
