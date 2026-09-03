@@ -20,7 +20,7 @@ sealed class CompressionSettings {
     data class Audio(val settings: AudioSettings, override val preset: CompressionPreset) : CompressionSettings()
 }
 
-enum class JobStatus { RUNNING, PAUSED, CANCELLING, COMPLETED, FAILED, CANCELLED }
+enum class JobStatus { RUNNING, PAUSED, CANCELLING, COMPLETED, FAILED, CANCELLED, PARTIAL }
 
 enum class ItemPhase { QUEUED, PREPARING, COMPRESSING, FINALIZING, DONE, FAILED, CANCELLED }
 

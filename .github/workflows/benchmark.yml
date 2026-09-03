@@ -117,12 +117,16 @@ jobs:
               lines.append(f"| {stamp} | {test} | {metric} | {vals[len(vals)//2]:.0f} |")
           text = text.rstrip() + "\n" + "\n".join(lines) + "\n"
 
-          # Keep the table bounded: retain only the newest 40 data rows.
+          # Keep the table bounded but preserve a meaningful long-term trend:
+          # retain the newest 240 data rows (about 6-7 months of nightly
+          # runs) instead of only 40, so regressions do not age out of view.
+          # A monthly aggregate could be added later if the table grows to
+          # the point where the daily rows stop reading well.
           header_end = text.index("|---|---|---|---|") + len("|---|---|---|---|")
           header, data = text[:header_end], text[header_end:]
           rows_txt = [ln for ln in data.splitlines() if ln.startswith("|")]
-          if len(rows_txt) > 40:
-              text = header + "\n" + "\n".join(rows_txt[-40:]) + "\n"
+          if len(rows_txt) > 240:
+              text = header + "\n" + "\n".join(rows_txt[-240:]) + "\n"
 
           open(doc, "w", encoding="utf-8").write(text)
           for (test, metric), vals in sorted(rows.items()):

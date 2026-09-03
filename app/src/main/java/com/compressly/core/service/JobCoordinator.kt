@@ -290,6 +290,12 @@ class JobCoordinator(
                 jobCancelled.get() -> JobStatus.CANCELLED
                 !anySuccess.get() && anyFailure.get() -> JobStatus.FAILED
                 !anySuccess.get() && anyCancelled.get() -> JobStatus.CANCELLED
+                // PARTIAL-FIX: previously any failure was swallowed whenever at
+                // least one item succeeded (anySuccess short-circuited the FAILED
+                // branch), so a mixed batch was reported as a clean COMPLETED and
+                // the "done" notification fired. A batch where SOME items failed
+                // is now its own honest terminal state.
+                anyFailure.get() -> JobStatus.PARTIAL
                 else -> JobStatus.COMPLETED
             }
             updateJob(jobId) { it.copy(status = finalStatus, isPaused = false) }

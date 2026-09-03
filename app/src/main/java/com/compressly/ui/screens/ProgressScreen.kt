@@ -96,6 +96,13 @@ fun ProgressScreen(
             }
             JobStatus.FAILED -> if (announced.add("err")) SoundEffects.play(SoundEffects.Type.ERROR)
             JobStatus.CANCELLED -> if (announced.add("cancel")) SoundEffects.play(SoundEffects.Type.CLICK)
+            // PARTIAL-FIX: a mixed batch is terminal too — alert the user and
+            // navigate to the result screen (some files did succeed).
+            JobStatus.PARTIAL -> {
+                if (announced.add("partial")) SoundEffects.play(SoundEffects.Type.ERROR)
+                val entry = container.historyRepository.getFirstDoneByJob(jobId)
+                if (entry != null) onResult(entry.id) else onHistory()
+            }
             else -> Unit
         }
     }
@@ -143,7 +150,8 @@ fun ProgressScreen(
 
         val isTerminal = current.status == JobStatus.COMPLETED ||
             current.status == JobStatus.FAILED ||
-            current.status == JobStatus.CANCELLED
+            current.status == JobStatus.CANCELLED ||
+            current.status == JobStatus.PARTIAL
 
         Column(
             modifier = Modifier
@@ -280,7 +288,8 @@ fun ProgressScreen(
 private fun ElapsedEta(job: com.compressly.core.engine.model.JobState) {
     val terminal = job.status == JobStatus.COMPLETED ||
         job.status == JobStatus.FAILED ||
-        job.status == JobStatus.CANCELLED
+        job.status == JobStatus.CANCELLED ||
+        job.status == JobStatus.PARTIAL
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     // TICK-FIX: once the job reaches a terminal state the elapsed number is
     // final — ticking every 500 ms until navigation just burned battery and
@@ -321,6 +330,7 @@ private fun statusLabel(status: JobStatus, isPaused: Boolean): String = when {
     status == JobStatus.COMPLETED -> stringResource(R.string.progress_complete)
     status == JobStatus.FAILED -> stringResource(R.string.progress_failed)
     status == JobStatus.CANCELLED -> stringResource(R.string.progress_stopped_by_user)
+    status == JobStatus.PARTIAL -> stringResource(R.string.progress_partial)
     else -> stringResource(R.string.progress_compressing)
 }
 
@@ -407,6 +417,11 @@ private fun TerminalSummary(
                 text = stringResource(R.string.progress_stopped_by_user),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface
+            )
+            JobStatus.PARTIAL -> Text(
+                text = stringResource(R.string.result_title_partial),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.error
             )
             else -> Text(
                 text = stringResource(R.string.result_items_success, doneCount, job.items.size),

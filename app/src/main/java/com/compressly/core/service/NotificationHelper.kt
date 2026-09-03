@@ -95,6 +95,8 @@ object NotificationHelper {
                 context.resources.getQuantityString(R.plurals.notif_done_text, doneCount, doneCount)
             JobStatus.CANCELLED -> context.getString(R.string.progress_stopped_by_user) to
                 context.getString(R.string.progress_stopped_by_user)
+            JobStatus.PARTIAL -> context.getString(R.string.notif_partial_title) to
+                context.getString(R.string.notif_partial_text, doneCount, job.items.size)
             else -> context.getString(R.string.notif_failed_title) to
                 context.getString(R.string.error_generic)
         }

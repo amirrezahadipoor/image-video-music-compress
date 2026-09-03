@@ -246,15 +246,15 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # ── Lint — static quality gate (non-gating for now) ───────────────────
-  # Wired in as a REPORT first (measure, then gate — same pattern as the
-  # macrobenchmark trend). Once the report is clean this flips to a hard
-  # gate: lint catches HardcodedText, missing contentDescription and
-  # resource issues statically, on every push.
+  # ── Lint — static quality gate ───────────────────────────────────────
+  # Lint is now a HARD gate: abortOnError=true in build.gradle.kts and this
+  # job no longer continues-on-error, so HardcodedText, missing
+  # contentDescription and resource issues break the build on every push
+  # instead of silently shipping.
   lint:
-    name: Lint report (non-gating)
+    name: Lint gate (bazaar debug)
     runs-on: ubuntu-latest
-    continue-on-error: true
+    continue-on-error: false
     timeout-minutes: 30
     concurrency:
       group: lint

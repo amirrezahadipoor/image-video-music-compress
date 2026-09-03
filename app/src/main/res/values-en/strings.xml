@@ -141,6 +141,7 @@
     <string name="progress_paused">Paused</string>
     <string name="progress_complete">Complete</string>
     <string name="progress_failed">Failed</string>
+    <string name="progress_partial">Completed with errors</string>
     <string name="progress_eta">About %1$s left</string>
     <string name="progress_elapsed">Elapsed %1$s</string>
     <string name="progress_stopped_by_user">Cancelled</string>
@@ -150,6 +151,7 @@
     <!-- Result -->
     <string name="result_title_success">Done!</string>
     <string name="result_title_failed">Something went wrong</string>
+    <string name="result_title_partial">Completed with errors</string>
     <string name="result_reduction">Size reduced by %1$s</string>
     <string name="result_before_size">Before</string>
     <string name="result_after_size">After</string>
@@ -220,7 +222,8 @@
     <string name="notif_channel_desc">Progress and controls for running compression jobs</string>
     <string name="notif_title">Compressing %1$s</string>
     <string name="notif_item">%1$d of %2$d</string>
-    <string name="notif_done_title">Compression finished</string><string name="notif_failed_title">Compression failed</string>
+    <string name="notif_done_title">Compression finished</string><string name="notif_failed_title">Compression failed</string><string name="notif_partial_title">Compression incomplete</string>
+    <string name="notif_partial_text">%1$d of %2$d files compressed successfully</string>
     <!-- Units / formats --><string name="time_sec">%1$ds</string>
     <string name="unknown">Unknown</string>
     <!-- Misc -->

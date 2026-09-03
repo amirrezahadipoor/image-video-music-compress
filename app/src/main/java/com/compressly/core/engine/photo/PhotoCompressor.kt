@@ -344,7 +344,13 @@ class PhotoCompressor(private val context: Context) {
         val h = bitmap.height
         if (w <= 0 || h <= 0) return SmartPhotoAdvisor.Metrics(0f, 0, 0f)
         val target = 6_000
-        val step = kotlin.math.max(1, (w * h) / target)
+        // Sample roughly `target` pixels spread across the WHOLE bitmap.
+        // The old stride `step = (w*h)/target` produced only ~target²/(w·h)
+        // samples — for a 12 MP photo that was 2-4 corner pixels, so the
+        // Smart ladder's detail/noise metrics were noise. With the correct
+        // stride, the number of sampled pixels ≈ (w/step)·(h/step) ≈ target.
+        val area = w.toLong() * h
+        val step = kotlin.math.ceil(kotlin.math.sqrt(area.toDouble() / target)).toInt().coerceAtLeast(1)
         val sample = ArrayList<Int>(target)
         var y = 0
         while (y < h) {
@@ -411,6 +417,17 @@ class PhotoCompressor(private val context: Context) {
                         dst.setAttribute(tag, value)
                     }
                 } catch (_: Exception) { }
+            }
+            // COLOR-4 FIX: the source's colour-space tag (e.g. Display-P3 vs
+            // sRGB) was silently dropped, so a wide-gamut photo came out with
+            // sRGB metadata even though its pixels were still P3-tagged in the
+            // decode. Copy it so the pairing of pixels + metadata stays true.
+            // (Android's Bitmap.compress does not embed a full ICC profile in
+            // JPEG, so the remaining gap — true ICC bytes — is an encoder
+            // limitation; the metadata tag is now at least carried through.)
+            runCatching {
+                src.getAttribute(ExifInterface.TAG_COLOR_SPACE)?.takeIf { it.isNotBlank() && it != "0" }
+                    ?.let { dst.setAttribute(ExifInterface.TAG_COLOR_SPACE, it) }
             }
             dst.setAttribute(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL.toString())
             dst.setAttribute(ExifInterface.TAG_IMAGE_WIDTH, width.toString())

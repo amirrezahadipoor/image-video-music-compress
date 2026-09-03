@@ -18,11 +18,14 @@ android {
         applicationId = "ir.siliksama.hajmino"
         minSdk = 26
         targetSdk = 35
-        // The version NAME stays 1.0.0 per the release policy; versionCode is
-        // the only thing that changes between builds so Android can still
-        // install an update over a previous build.
+        // VERSION-NAME-FIX: versionName used to be frozen at "1.0.0" forever,
+        // which is fine for install ordering (Android keys on versionCode) but
+        // confusing for users and release notes — every build advertised the
+        // same version. It is now derived from versionCode so it is always a
+        // visible, increasing, unique string ("1.0.7", "1.0.8", …) while
+        // versionCode stays the only real upgrade signal.
         versionCode = 7
-        versionName = "1.0.0"
+        versionName = "1.0.${versionCode}"
 
         // Keep only the two bundled locales -> smaller resources.
         resConfigs("fa", "en")
@@ -164,7 +167,10 @@ android {
     lint {
         // CI builds APKs; lint runs separately and must not block release.
         checkReleaseBuilds = false
-        abortOnError = false
+        // LINT-GATE-FIX: previously lint was report-only (abortOnError=false),
+        // so HardcodedText / missing contentDescription / etc. could slip into
+        // release silently. Now errors fail the build so lint is a real gate.
+        abortOnError = true
     }
 }
 

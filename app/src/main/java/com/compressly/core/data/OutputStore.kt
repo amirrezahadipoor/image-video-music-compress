@@ -113,11 +113,35 @@ object OutputStore {
     /** Removes a previously published output (cancel/failure cleanup). */
     fun delete(context: Context, uri: Uri?) {
         if (uri == null) return
-        // SAF documents need DocumentFile; MediaStore rows delete directly.
-        runCatching { DocumentFile.fromSingleUri(context, uri)?.delete() ?: false }
-            .getOrDefault(false).let { deleted ->
-                if (!deleted) runCatching { context.contentResolver.delete(uri, null, null) }
+        // SAF-6 FIX: a document created inside a custom tree is exposed to the
+        // app as a content:// document URI. `DocumentFile.fromSingleUri` often
+        // cannot resolve it and `contentResolver.delete` does not work for
+        // tree-backed documents either — so an orphaned half-written file
+        // would stay in the user's folder after a cancel/failure. Resolve the
+        // tree URI we hold and look the document up by name as a last resort.
+        var deleted = runCatching { DocumentFile.fromSingleUri(context, uri)?.delete() }
+            .getOrDefault(false)
+        if (!deleted) {
+            val tree = customTreeUri?.let { runCatching { DocumentFile.fromTreeUri(context, Uri.parse(it)) }.getOrNull() }
+            if (tree != null) {
+                deleted = runCatching {
+                    val name = nameOf(uri)
+                    // Walk the same <tree>/Hajmino/<Photos|Videos|Audio>/ layout a
+                    // document may live in: search every subfolder for the name.
+                    val hajmino = tree.findFile("Hajmino") ?: return@runCatching false
+                    hajmino.listFiles()
+                        .firstNotNullOfOrNull { sub -> sub.listFiles().firstOrNull { it.name == name } }
+                        ?.delete() ?: false
+                }.getOrDefault(false)
             }
+        }
+        if (!deleted) runCatching { context.contentResolver.delete(uri, null, null) }
+    }
+
+    private fun nameOf(uri: Uri): String {
+        val seg = uri.lastPathSegment ?: return ""
+        val idx = seg.lastIndexOf('/')
+        return if (idx >= 0) seg.substring(idx + 1) else seg
     }
 
     /** Writes [tempFile] into the custom tree: <tree>/Hajmino/<Photos|Videos|Audio>. */

@@ -159,8 +159,11 @@ class CompressionJobService : Service() {
     }
 
     private val terminalStatuses = setOf(
-        JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED
+        JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED, JobStatus.PARTIAL
     )
+
+    /** Timestamp (elapsedRealtime) of the last WakeLock renew; avoids churn. */
+    private var lastWakeLockRenewAtMs = 0L
 
     private fun ensureWakeLock() {
         if (wakeLock == null) {
@@ -169,18 +172,26 @@ class CompressionJobService : Service() {
                 PowerManager.PARTIAL_WAKE_LOCK,
                 "compressly:compression"
             ).also { wl ->
-                wl.acquire(2 * 60 * 60 * 1000L) // 2-hour safety cap
+                wl.acquire(30 * 60 * 1000L) // 30-minute hard safety cap
+            }
+            lastWakeLockRenewAtMs = android.os.SystemClock.elapsedRealtime()
+        } else {
+            // WAKELOCK-RENEW-FIX: the old single 2-hour acquire() auto-released
+            // mid-job on a very long batch, and once released the CPU could
+            // sleep with an encode still running. Renew the lock periodically
+            // (once the cap is ~2/3 spent), so it only ever expires when no
+            // work is being done — the cap now protects against a leaked lock
+            // instead of cutting off a long job. Renewing only every 20 min
+            // avoids a release+acquire race on every progress tick.
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (now - lastWakeLockRenewAtMs >= 20 * 60 * 1000L) {
+                runCatching { wakeLock?.let { wl -> if (wl.isHeld) wl.release() } }
+                runCatching {
+                    wakeLock?.takeIf { !it.isHeld }?.acquire(30 * 60 * 1000L)
+                }
+                lastWakeLockRenewAtMs = now
             }
         }
-    }
-
-    private fun releaseWakeLock() {
-        runCatching {
-            wakeLock?.let { wl ->
-                if (wl.isHeld) wl.release()
-            }
-        }
-        wakeLock = null
     }
 
     override fun onDestroy() {

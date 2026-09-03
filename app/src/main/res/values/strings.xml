@@ -141,6 +141,7 @@
     <string name="progress_paused">متوقف شده</string>
     <string name="progress_complete">تکمیل شد</string>
     <string name="progress_failed">ناموفق</string>
+    <string name="progress_partial">تکمیل با خطا</string>
     <string name="progress_eta">حدود %1$s مانده</string>
     <string name="progress_elapsed">گذشت %1$s</string>
     <string name="progress_stopped_by_user">لغو شد</string>
@@ -150,6 +151,7 @@
     <!-- Result -->
     <string name="result_title_success">انجام شد!</string>
     <string name="result_title_failed">مشکلی پیش آمد</string>
+    <string name="result_title_partial">تکمیل با خطا</string>
     <string name="result_reduction">حجم %1$s کاهش یافت</string>
     <string name="result_before_size">قبل</string>
     <string name="result_after_size">بعد</string>
@@ -220,7 +222,8 @@
     <string name="notif_channel_desc">پیشرفت و کنترل فشرده‌سازی‌های در حال اجرا</string>
     <string name="notif_title">در حال فشرده‌سازی %1$s</string>
     <string name="notif_item">%1$d از %2$d</string>
-    <string name="notif_done_title">فشرده‌سازی تمام شد</string><string name="notif_failed_title">فشرده‌سازی ناموفق بود</string>
+    <string name="notif_done_title">فشرده‌سازی تمام شد</string><string name="notif_failed_title">فشرده‌سازی ناموفق بود</string><string name="notif_partial_title">فشرده‌سازی ناتمام</string>
+    <string name="notif_partial_text">%1$d از %2$d فایل با موفقیت فشرده شد</string>
     <!-- Units / formats --><string name="time_sec">%1$d ثانیه</string>
     <string name="unknown">نامشخص</string>
     <!-- Misc -->
