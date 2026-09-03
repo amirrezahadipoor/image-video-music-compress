@@ -68,9 +68,15 @@ class ComposeAccessibilityScanTest {
     }
 
     private fun clickAppNode(text: String, byDescription: Boolean, seconds: Long = 20) {
+        // The CTA semantics is a clearAndSetSemantics node whose label lives
+        // in contentDescription (not text) after the a11y fix, so accept EITHER
+        // a text or a contentDescription match regardless of the byDescription
+        // hint (kept for call-site intent).
         val sel = if (byDescription) By.pkg(appPackage).desc(text) else By.pkg(appPackage).text(text)
+        val alt = if (byDescription) By.pkg(appPackage).text(text) else By.pkg(appPackage).desc(text)
         var found = waitForNode(sel, seconds)
-            ?: throw AssertionError("a11y: control \"$text\" never appeared")
+        if (found == null) found = waitForNode(alt, 3)
+        found ?: throw AssertionError("a11y: control \"$text\" never appeared")
         // Compose recomposition can invalidate the handle between find and
         // click; re-resolve and retry instead of failing the audit spuriously.
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(seconds)
@@ -80,7 +86,7 @@ class ComposeAccessibilityScanTest {
                 device.waitForIdle()
                 return
             } catch (_: androidx.test.uiautomator.StaleObjectException) {
-                val again = waitForNode(sel, 1) ?: break
+                val again = waitForNode(sel, 1) ?: waitForNode(alt, 1) ?: break
                 found = again
             }
         }
