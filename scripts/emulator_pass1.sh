@@ -29,6 +29,19 @@ wait_boot() {
   $ADB shell input keyevent 82 || true
 }
 
+# Dismiss transient system dialogs (e.g. "Pixel Launcher isn't responding"
+# thanks to the slow CI emulator) that would otherwise occlude the app and
+# blow the pixel-diff. Restarting the launcher/app clears them; failing that,
+# press the "Wait" button (a shell keyevent/dpad often lands on it).
+dismiss_system_dialogs() {
+  $ADB shell am start -a android.intent.action.MAIN -c android.intent.category.HOME >/dev/null 2>&1 || true
+  sleep 2
+  # Focus app again and send a back so any blocking ANR alert away.
+  $ADB shell input keyevent KEYCODE_BACK >/dev/null 2>&1 || true
+  $ADB shell input keyevent KEYCODE_ENTER >/dev/null 2>&1 || true
+  sleep 1
+}
+
 # Launch the app to a specific screen and capture a stable frame.
 # $1 = snap route ("onboarding" | "home" | "history")
 # $2 = capture file name
@@ -46,10 +59,20 @@ capture_screen() {
     --ez "$SKIPEXTRA" "$skip" || true
   # Let cold-start + Compose settle (dexopt/transitions on a bare emulator).
   sleep 25
-  $ADB exec-out screencap -p > "$OUT/$file" 2>/dev/null
-  local sz
-  sz=$(wc -c < "$OUT/$file" 2>/dev/null || echo 0)
-  echo "captured $file -> $sz bytes (route=$route)"
+  dismiss_system_dialogs
+  # Capture a burst of frames and pick the LARGEST (most content) one — a
+  # dialog/splash frame is small/flat, the real screen is bigger.
+  local best=""; local bestsz=0; local i
+  for i in 1 2 3 4; do
+    local tmp="$OUT/.frame.png"
+    $ADB exec-out screencap -p > "$tmp" 2>/dev/null
+    local s
+    s=$(wc -c < "$tmp" 2>/dev/null || echo 0)
+    if [ "$s" -gt "$bestsz" ]; then bestsz=$s; cp "$tmp" "$OUT/$file"; fi
+    sleep 1
+  done
+  rm -f "$OUT/.frame.png"
+  echo "captured $file -> ${bestsz} bytes (route=$route)"
 }
 
 echo "== install bazaar debug =="

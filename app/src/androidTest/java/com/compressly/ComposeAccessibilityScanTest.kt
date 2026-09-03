@@ -69,7 +69,7 @@ class ComposeAccessibilityScanTest {
 
     private fun clickAppNode(text: String, byDescription: Boolean, seconds: Long = 20) {
         val sel = if (byDescription) By.pkg(appPackage).desc(text) else By.pkg(appPackage).text(text)
-        val found = waitForNode(sel, seconds)
+        var found = waitForNode(sel, seconds)
             ?: throw AssertionError("a11y: control \"$text\" never appeared")
         // Compose recomposition can invalidate the handle between find and
         // click; re-resolve and retry instead of failing the audit spuriously.
