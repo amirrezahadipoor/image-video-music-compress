@@ -27,3 +27,8 @@ secrets.properties
 *.jks
 *.keystore
 dist/
+
+# Signing keystores/credentials — never commit (see app/build.gradle.kts signingConfigs)
+*.jks
+*.keystore
+app/build/protected/

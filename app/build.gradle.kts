@@ -85,14 +85,44 @@ android {
 
     signingConfigs {
         create("release") {
-            // The keystore file lives in the repository root. Credentials are
-            // read from environment variables (CI secrets) or fall back to the
-            // committed defaults — safe because the .jks is already public.
-            val ksPass = System.getenv("KEYSTORE_PASSWORD") ?: "hajmino_B2k9!Xq"
-            val kAlias = System.getenv("KEY_ALIAS")         ?: "hajmino_key"
-            val kPass  = System.getenv("KEY_PASSWORD")      ?: "hajmino_B2k9!Xq"
+            // SIGNING-SEC-FIX: the previous config read the committed
+            // hajmino_secure.jks and fell back to a hardcoded password — the
+            // keystore + password were both in the repo and recoverable by any
+            // reader of the public repo. That key is now considered COMPROMISED
+            // and must not be used.
+            //
+            // The keystore and every credential are read ONLY from environment
+            // variables (GitHub Actions secrets):
+            //   COMPRESSLY_KEYSTORE_BASE64  — base64 of the signing keystore
+            //   COMPRESSLY_KEYSTORE_PASSWORD — keystore store password
+            //   COMPRESSLY_KEY_ALIAS          — key alias
+            //   COMPRESSLY_KEY_PASSWORD       — key password
+            // If a credential is missing, the build FORBIDDEN to proceed — there
+            // is deliberately NO fallback literal, so a compromised key can never
+            // silently re-enter a signed build.
+            val ksB64    = System.getenv("COMPRESSLY_KEYSTORE_BASE64")
+            val ksPass   = System.getenv("COMPRESSLY_KEYSTORE_PASSWORD")
+            val kAlias   = System.getenv("COMPRESSLY_KEY_ALIAS")
+            val kPass    = System.getenv("COMPRESSLY_KEY_PASSWORD")
 
-            storeFile     = file("../hajmino_secure.jks")
+            if (ksB64.isNullOrBlank() || ksPass.isNullOrBlank() || kAlias.isNullOrBlank() || kPass.isNullOrBlank()) {
+                throw GradleException(
+                    "Release signing credentials are missing. " +
+                    "Set COMPRESSLY_KEYSTORE_BASE64 / COMPRESSLY_KEYSTORE_PASSWORD / " +
+                    "COMPRESSLY_KEY_ALIAS / COMPRESSLY_KEY_PASSWORD (build environment / CI secrets). " +
+                    "Refusing to fall back to any hardcoded credential."
+                )
+            }
+            // Materialise the keystore into a well-known, git-ignored path
+            // (never tracked) so the rest of the DSL can consume it as a file.
+            val ksFile = rootProject.layout.buildDirectory
+                .dir("protected")
+                .file("signing-keystore.jks")
+                .get().asFile
+            ksFile.parentFile.mkdirs()
+            ksFile.writeBytes(java.util.Base64.getDecoder().decode(ksB64))
+
+            storeFile     = ksFile
             storePassword = ksPass
             keyAlias      = kAlias
             keyPassword   = kPass
