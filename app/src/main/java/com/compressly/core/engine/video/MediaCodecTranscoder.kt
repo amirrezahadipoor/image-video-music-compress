@@ -770,13 +770,28 @@ private suspend fun mergePass(
         fun readVideo(): Boolean {
             if (videoDone) return false
             // SIZED-BUF-FIX: size the buffer to the real sample BEFORE reading.
-            // (getSampleSize() is a long on API 35; clamp for ByteBuffer.)
-            val sampleSize = videoExtractor.sampleSize
-                .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+            // NEWAPI-FIX: MediaExtractor#getSampleSize is API 28+ (this is what our
+            // minSdk-26 lint gate flagged) and would NoSuchMethodError on
+            // Android 8.0/8.1. Only pre-size when available; on API 26-27 we can't
+            // know the size ahead, so fall back to readSampleData() reporting the
+            // bytes it wrote and grow the buffer if the frame is exceptionally large.
+            val sampleSize = if (android.os.Build.VERSION.SDK_INT >= 28) {
+                videoExtractor.sampleSize.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+            } else {
+                // API < 28: readSampleData() itself reports the size it wrote.
+                0
+            }
             if (sampleSize > videoBuf.capacity()) {
                 videoBuf = ByteBuffer.allocateDirect(sampleSize)
             }
-            val sz = videoExtractor.readSampleData(videoBuf, 0)
+            var sz = videoExtractor.readSampleData(videoBuf, 0)
+            // Grow-and-retry: on pre-28 a frame can exceed the (unpre-sized) buffer.
+            var retries = 0
+            while (sz < 0 && retries < 3 && videoBuf.capacity() < 64 * 1024 * 1024) {
+                videoBuf = ByteBuffer.allocateDirect(videoBuf.capacity() * 4)
+                sz = videoExtractor.readSampleData(videoBuf, 0)
+                retries++
+            }
             if (sz < 0) { videoDone = true; return false }
             videoInfo.set(0, sz, videoExtractor.sampleTime, sampleFlagsToCodecFlags(videoExtractor.sampleFlags))
             videoExtractor.advance()
