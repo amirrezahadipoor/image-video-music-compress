@@ -320,7 +320,7 @@ HSPLandroidx/collection/LongSparseArray;->indexOfKey(J)I
 HSPLandroidx/collection/LongSparseArray;->isEmpty()Z
 HSPLandroidx/collection/LongSparseArray;->keyAt(I)J
 HSPLandroidx/collection/LongSparseArray;->put(JLjava/lang/Object;)V
-PLandroidx/collection/LongSparseArray;->remove(J)V
+HSPLandroidx/collection/LongSparseArray;->remove(J)V
 HSPLandroidx/collection/LongSparseArray;->size()I
 HSPLandroidx/collection/LongSparseArray;->valueAt(I)Ljava/lang/Object;
 Landroidx/collection/LongSparseArrayKt;
@@ -1419,10 +1419,11 @@ HSPLandroidx/compose/foundation/gestures/DragGestureNode$initializePointerInputN
 HSPLandroidx/compose/foundation/gestures/DragGestureNode$initializePointerInputNode$1$shouldAwaitTouchSlop$1;->invoke()Ljava/lang/Object;
 Landroidx/compose/foundation/gestures/FlingBehavior;
 Landroidx/compose/foundation/gestures/ForEachGestureKt;
-PLandroidx/compose/foundation/gestures/ForEachGestureKt;->allPointersUp(Landroidx/compose/ui/input/pointer/AwaitPointerEventScope;)Z
-PLandroidx/compose/foundation/gestures/ForEachGestureKt;->awaitAllPointersUp(Landroidx/compose/ui/input/pointer/AwaitPointerEventScope;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+HSPLandroidx/compose/foundation/gestures/ForEachGestureKt;->allPointersUp(Landroidx/compose/ui/input/pointer/AwaitPointerEventScope;)Z
+HSPLandroidx/compose/foundation/gestures/ForEachGestureKt;->awaitAllPointersUp(Landroidx/compose/ui/input/pointer/AwaitPointerEventScope;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 HSPLandroidx/compose/foundation/gestures/ForEachGestureKt;->awaitEachGesture(Landroidx/compose/ui/input/pointer/PointerInputScope;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-PLandroidx/compose/foundation/gestures/ForEachGestureKt$awaitAllPointersUp$3;-><init>(Lkotlin/coroutines/Continuation;)V
+Landroidx/compose/foundation/gestures/ForEachGestureKt$awaitAllPointersUp$3;
+HSPLandroidx/compose/foundation/gestures/ForEachGestureKt$awaitAllPointersUp$3;-><init>(Lkotlin/coroutines/Continuation;)V
 Landroidx/compose/foundation/gestures/ForEachGestureKt$awaitEachGesture$2;
 HSPLandroidx/compose/foundation/gestures/ForEachGestureKt$awaitEachGesture$2;-><init>(Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;)V
 HSPLandroidx/compose/foundation/gestures/ForEachGestureKt$awaitEachGesture$2;->create(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Lkotlin/coroutines/Continuation;
@@ -6432,7 +6433,7 @@ HSPLandroidx/compose/ui/input/pointer/Node;->buildCache(Landroidx/collection/Lon
 HSPLandroidx/compose/ui/input/pointer/Node;->cleanUpHits(Landroidx/compose/ui/input/pointer/InternalPointerEvent;)V
 HSPLandroidx/compose/ui/input/pointer/Node;->clearCache()V
 HSPLandroidx/compose/ui/input/pointer/Node;->dispatchFinalEventPass(Landroidx/compose/ui/input/pointer/InternalPointerEvent;)Z
-HPLandroidx/compose/ui/input/pointer/Node;->dispatchMainEventPass(Landroidx/collection/LongSparseArray;Landroidx/compose/ui/layout/LayoutCoordinates;Landroidx/compose/ui/input/pointer/InternalPointerEvent;Z)Z
+HSPLandroidx/compose/ui/input/pointer/Node;->dispatchMainEventPass(Landroidx/collection/LongSparseArray;Landroidx/compose/ui/layout/LayoutCoordinates;Landroidx/compose/ui/input/pointer/InternalPointerEvent;Z)Z
 HSPLandroidx/compose/ui/input/pointer/Node;->getModifierNode()Landroidx/compose/ui/Modifier$Node;
 HSPLandroidx/compose/ui/input/pointer/Node;->getPointerIds()Landroidx/compose/ui/input/pointer/util/PointerIdArray;
 HSPLandroidx/compose/ui/input/pointer/Node;->hasPositionChanged(Landroidx/compose/ui/input/pointer/PointerEvent;Landroidx/compose/ui/input/pointer/PointerEvent;)Z
@@ -10581,7 +10582,6 @@ Landroidx/datastore/core/DataStoreImpl$data$1$invokeSuspend$$inlined$map$1$2;
 HSPLandroidx/datastore/core/DataStoreImpl$data$1$invokeSuspend$$inlined$map$1$2;-><init>(Lkotlinx/coroutines/flow/FlowCollector;)V
 Landroidx/datastore/core/DataStoreImpl$incrementCollector$1;
 HSPLandroidx/datastore/core/DataStoreImpl$incrementCollector$1;-><init>(Landroidx/datastore/core/DataStoreImpl;Lkotlin/coroutines/Continuation;)V
-HSPLandroidx/datastore/core/DataStoreImpl$incrementCollector$1;->invokeSuspend(Ljava/lang/Object;)Ljava/lang/Object;
 Landroidx/datastore/core/DataStoreImpl$incrementCollector$2$1;
 HSPLandroidx/datastore/core/DataStoreImpl$incrementCollector$2$1;-><init>(Landroidx/datastore/core/DataStoreImpl;Lkotlin/coroutines/Continuation;)V
 HSPLandroidx/datastore/core/DataStoreImpl$incrementCollector$2$1;->create(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Lkotlin/coroutines/Continuation;
@@ -13884,7 +13884,7 @@ Lkotlin/coroutines/intrinsics/IntrinsicsKt__IntrinsicsKt;
 HSPLkotlin/coroutines/intrinsics/IntrinsicsKt__IntrinsicsKt;->getCOROUTINE_SUSPENDED()Ljava/lang/Object;
 Lkotlin/coroutines/jvm/internal/BaseContinuationImpl;
 HSPLkotlin/coroutines/jvm/internal/BaseContinuationImpl;-><init>(Lkotlin/coroutines/Continuation;)V
-PLkotlin/coroutines/jvm/internal/BaseContinuationImpl;->releaseIntercepted()V
+HSPLkotlin/coroutines/jvm/internal/BaseContinuationImpl;->releaseIntercepted()V
 HSPLkotlin/coroutines/jvm/internal/BaseContinuationImpl;->resumeWith(Ljava/lang/Object;)V
 Lkotlin/coroutines/jvm/internal/Boxing;
 HSPLkotlin/coroutines/jvm/internal/Boxing;->boxBoolean(Z)Ljava/lang/Boolean;
@@ -14723,6 +14723,7 @@ HSPLkotlinx/coroutines/channels/BufferedChannel;->getSendSegment$volatile$FU()Lj
 HSPLkotlinx/coroutines/channels/BufferedChannel;->getSendersAndCloseStatus$volatile$FU()Ljava/util/concurrent/atomic/AtomicLongFieldUpdater;
 HSPLkotlinx/coroutines/channels/BufferedChannel;->getSendersCounter$kotlinx_coroutines_core()J
 HSPLkotlinx/coroutines/channels/BufferedChannel;->get_closeCause$volatile$FU()Ljava/util/concurrent/atomic/AtomicReferenceFieldUpdater;
+HSPLkotlinx/coroutines/channels/BufferedChannel;->hasElements$kotlinx_coroutines_core()Z
 HSPLkotlinx/coroutines/channels/BufferedChannel;->incCompletedExpandBufferAttempts$default(Lkotlinx/coroutines/channels/BufferedChannel;JILjava/lang/Object;)V
 HSPLkotlinx/coroutines/channels/BufferedChannel;->incCompletedExpandBufferAttempts(J)V
 HSPLkotlinx/coroutines/channels/BufferedChannel;->invokeCloseHandler()V
@@ -14764,6 +14765,7 @@ HSPLkotlinx/coroutines/channels/BufferedChannel$BufferedChannelIterator;->hasNex
 HSPLkotlinx/coroutines/channels/BufferedChannel$BufferedChannelIterator;->hasNextOnNoWaiterSuspend(Lkotlinx/coroutines/channels/ChannelSegment;IJLkotlin/coroutines/Continuation;)Ljava/lang/Object;
 HSPLkotlinx/coroutines/channels/BufferedChannel$BufferedChannelIterator;->invokeOnCancellation(Lkotlinx/coroutines/internal/Segment;I)V
 HSPLkotlinx/coroutines/channels/BufferedChannel$BufferedChannelIterator;->next()Ljava/lang/Object;
+HSPLkotlinx/coroutines/channels/BufferedChannel$BufferedChannelIterator;->onClosedHasNext()Z
 HSPLkotlinx/coroutines/channels/BufferedChannel$BufferedChannelIterator;->tryResumeHasNext(Ljava/lang/Object;)Z
 HSPLkotlinx/coroutines/channels/BufferedChannel$BufferedChannelIterator;->tryResumeHasNextOnClosedChannel()V
 Lkotlinx/coroutines/channels/BufferedChannel$SendBroadcast;
@@ -14936,7 +14938,6 @@ HSPLkotlinx/coroutines/flow/FlowKt__EmittersKt$onStart$$inlined$unsafeFlow$1;-><
 HSPLkotlinx/coroutines/flow/FlowKt__EmittersKt$onStart$$inlined$unsafeFlow$1;->collect(Lkotlinx/coroutines/flow/FlowCollector;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 Lkotlinx/coroutines/flow/FlowKt__EmittersKt$onStart$$inlined$unsafeFlow$1$1;
 HSPLkotlinx/coroutines/flow/FlowKt__EmittersKt$onStart$$inlined$unsafeFlow$1$1;-><init>(Lkotlinx/coroutines/flow/FlowKt__EmittersKt$onStart$$inlined$unsafeFlow$1;Lkotlin/coroutines/Continuation;)V
-HSPLkotlinx/coroutines/flow/FlowKt__EmittersKt$onStart$$inlined$unsafeFlow$1$1;->invokeSuspend(Ljava/lang/Object;)Ljava/lang/Object;
 Lkotlinx/coroutines/flow/FlowKt__LimitKt;
 HSPLkotlinx/coroutines/flow/FlowKt__LimitKt;->dropWhile(Lkotlinx/coroutines/flow/Flow;Lkotlin/jvm/functions/Function2;)Lkotlinx/coroutines/flow/Flow;
 HSPLkotlinx/coroutines/flow/FlowKt__LimitKt;->takeWhile(Lkotlinx/coroutines/flow/Flow;Lkotlin/jvm/functions/Function2;)Lkotlinx/coroutines/flow/Flow;
@@ -15374,6 +15375,7 @@ HSPLkotlinx/coroutines/internal/ResizableAtomicArray;->get(I)Ljava/lang/Object;
 HSPLkotlinx/coroutines/internal/ResizableAtomicArray;->setSynchronized(ILjava/lang/Object;)V
 Lkotlinx/coroutines/internal/ScopeCoroutine;
 HSPLkotlinx/coroutines/internal/ScopeCoroutine;-><init>(Lkotlin/coroutines/CoroutineContext;Lkotlin/coroutines/Continuation;)V
+HSPLkotlinx/coroutines/internal/ScopeCoroutine;->afterCompletionUndispatched()V
 HSPLkotlinx/coroutines/internal/ScopeCoroutine;->afterResume(Ljava/lang/Object;)V
 Lkotlinx/coroutines/internal/Segment;
 HSPLkotlinx/coroutines/internal/Segment;-><clinit>()V
