@@ -778,12 +778,15 @@ class VideoPlannerTest {
         )
         val target = VideoPlanner.targetVideoBitrate(uhd, settings, CompressionPreset.BALANCED)
         assertTrue(target > 0)
-        // 100 MB / 60 s = ~13.9 Mbps is the ceiling for the whole file; the
-        // video rate must sit at or below it (after a margin of realism).
-        val ceilingPerSec = (100L * 1024 * 1024 * 8) / 60_000L
-        assertTrue("target $target exceeds budgetable rate", target <= ceilingPerSec.toInt())
-        // And it must still fit inside a sane encoder range.
-        assertTrue(target <= 13_000_000)
+        // The whole file (video + audio + container) must land under 100 MB.
+        // 100 MB over 60 s = ~13.98 Mbps is the absolute ceiling. The planner
+        // deducts the ~3% container overhead, so the video rate sits just under
+        // that, never over it.
+        val pureCeilingBps = (100L * 1024 * 1024 * 8) / 60L
+        assertTrue("target $target exceeds pure ceiling $pureCeilingBps", target <= pureCeilingBps.toInt())
+        // And the result must still be a real (large-enough to be a 100 MB
+        // budget) rate — not crushed to the encoder floor.
+        assertTrue("target $target is implausibly small for a 100 MB budget", target > 10_000_000)
     }
 
     @Test
