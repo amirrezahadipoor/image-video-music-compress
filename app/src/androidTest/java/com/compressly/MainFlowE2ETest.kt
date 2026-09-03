@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
+import android.media.MediaScannerConnection
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -152,6 +153,10 @@ class MainFlowE2ETest {
             ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) },
             null, null
         )
+        // MediaProvider may not have indexed the freshly-inserted image by
+        // the time the system photo picker opens (esp. on a slow CI emulator).
+        // Trigger an explicit scan so the picker reliably offers it.
+        MediaScannerConnection.scanFile(context, arrayOf(uri.toString().removePrefix("file://")), null, null)
         return uri
     }
 
