@@ -33,14 +33,21 @@ data class PhotoSettings(
 /** Resolution choices for video output. */
 enum class VideoResolution {
     ORIGINAL,
+    R2160,
     R1080,
     R720,
     R480,
     CUSTOM
 }
 
-/** H.264 is compatible everywhere; H.265 is smaller on newer devices. */
-enum class VideoCodec { H264, H265 }
+/**
+ * Video codecs. H.264 is compatible everywhere and needs no engine support;
+ * H.265 is ~40% smaller on newer devices; AV1 is the most efficient of all but
+ * still rare on-device, so it is shown only when a hardware/software AV1
+ * encoder exists (Software AV1 = c2.android.av1.encoder, shipped on Android 12+
+ * and always present on the CI emulator).
+ */
+enum class VideoCodec { H264, H265, AV1 }
 
 /** What to do with the audio track of a video. */
 enum class VideoAudioMode { KEEP, COMPRESS, STRIP }
@@ -57,7 +64,23 @@ data class VideoSettings(
     val audioMode: VideoAudioMode = VideoAudioMode.KEEP,
     val trimEnabled: Boolean = false,
     val trimStartMs: Long = 0L,
-    val trimEndMs: Long = 0L
+    val trimEndMs: Long = 0L,
+    /**
+     * Compress to "under this many MB" instead of to a quality tier. When set,
+     * VideoPlanner prices the encode so the output (container included) lands
+     * at or below this budget; the existing corrective pass then enforces it in
+     * the face of hardware-encoder bitrate overshoot. Null = derive from the
+     * preset as usual.
+     */
+    val sizeTargetMb: Int? = null,
+    /**
+     * Carry the source's colour/HDR metadata (transfer, standard, range) into
+     * the output when the encoder accepts it, so an HDR10/HDR10+ clip is not
+     * silently flattened to SDR. Only respected when the encoder honours the
+     * keys; otherwise the format falls back to the minimal one and the encode
+     * still succeeds.
+     */
+    val preserveHdr: Boolean = true
 )
 
 enum class AudioFormat { AAC, MP3 }

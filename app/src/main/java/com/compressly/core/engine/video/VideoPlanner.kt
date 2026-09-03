@@ -172,6 +172,7 @@ object VideoPlanner {
 
         var (capW, capH) = when (settings.resolution) {
             VideoResolution.ORIGINAL -> displayW to displayH
+            VideoResolution.R2160 -> longEdgeCap(3840, displayW, displayH)
             VideoResolution.R1080 -> longEdgeCap(1920, displayW, displayH)
             VideoResolution.R720 -> longEdgeCap(1280, displayW, displayH)
             VideoResolution.R480 -> longEdgeCap(854, displayW, displayH)
@@ -238,6 +239,14 @@ object VideoPlanner {
         settings: VideoSettings,
         preset: CompressionPreset
     ): Int {
+        // A size target ("compress this under X MB") overrides everything: the
+        // user stated a concrete budget, not a quality tier. It wins over the
+        // manual bitrate too (a manual rate and a size budget are mutually
+        // exclusive intents; the budget is the stronger one).
+        settings.sizeTargetMb?.takeIf { it > 0 }?.let {
+            sizeTargetBitrate(info, settings, preset, it.toLong() * 1024L * 1024L)
+                ?.let { st -> return st.coerceIn(MIN_BITRATE, MAX_BITRATE) }
+        }
         // An explicit manual bitrate always wins — the user is in control.
         settings.bitrate?.let { return it.coerceIn(MIN_BITRATE, MAX_BITRATE) }
 
@@ -275,6 +284,45 @@ object VideoPlanner {
     }
 
     /**
+     * The video bitrate that an output of [targetBytes] (the WHOLE file,
+     * container and audio included) needs to stay under, or null when the job
+     * has no measurable duration to price against.
+     *
+     * The budget is derived from the encoder's point of view: subtract the
+     * container overhead [estimatedFileBytes] adds, then the audio track (the
+     * same [audioBitrateBps] the transcoder actually uses), and price whatever
+     * is left as video. The result is capped at the source rate (no-gain honesty
+     * — never encode a file above what it already carries) and clamped to the
+     * encoder rate range. The existing corrective pass then re-encodes when a
+     * hardware encoder overshoots, so the promise is kept in the face of VBR
+     * slop.
+     */
+    fun sizeTargetBitrate(
+        info: MediaInfo,
+        settings: VideoSettings,
+        preset: CompressionPreset,
+        targetBytes: Long
+    ): Int? {
+        if (targetBytes <= 0L) return null
+        var durMs = info.durationMs.takeIf { it > 0 } ?: return null
+        if (settings.trimEnabled && settings.trimStartMs >= 0 && settings.trimEndMs > settings.trimStartMs) {
+            durMs = settings.trimEndMs - settings.trimStartMs
+        }
+        if (durMs < 1_000L) return null
+        val durSec = durMs / 1000.0
+        // Invert the estimator's container overhead so the budget is for payload.
+        val payloadBudget = ((targetBytes - CONTAINER_OVERHEAD_BYTES) / CONTAINER_OVERHEAD_RATIO)
+            .coerceAtLeast(0L).toDouble()
+        val audioBps = audioBitrateBps(info, settings, preset).toLong()
+        val audioBytes = audioBps * durMs / 8_000.0
+        val videoBytes = (payloadBudget - audioBytes).coerceAtLeast(0.0)
+        val bps = (videoBytes * 8.0 / durSec).toInt()
+        val source = sourceVideoBitrate(info)
+        val capped = if (source > 0) minOf(bps.toLong(), (source * NO_GAIN_RATIO).toLong()).toInt() else bps
+        return capped.coerceIn(MIN_BITRATE, MAX_BITRATE)
+    }
+
+    /**
      * Quality-aware Smart target: bits per pixel per frame, priced against the
      * resolution and frame rate the encoder will really write.
      */
@@ -293,7 +341,7 @@ object VideoPlanner {
             com.compressly.core.engine.analysis.ComplexityMath.bitrateFactor(complexity)
         else 1f
         var bitrate = (qualityTarget(width.toLong() * height, fps, bpp) * complexityFactor).toInt()
-        if (codec == VideoCodec.H265) bitrate = (bitrate * H265_EFFICIENCY).toInt()
+        bitrate = (bitrate * codecEfficiency(codec)).toInt()
         return bitrate.coerceIn(SMART_MIN_BITRATE, 16_000_000)
     }
 
@@ -352,6 +400,9 @@ object VideoPlanner {
     /** H.265 needs roughly this share of the H.264 bits for the same quality. */
     const val H265_EFFICIENCY = 0.62
 
+    /** AV1 is even more efficient than HEVC (~15-20% further for the same quality). */
+    const val AV1_EFFICIENCY = 0.50
+
     /**
      * Bits/second that holds a given bits-per-pixel-per-frame quality at a size
      * and rate.
@@ -401,8 +452,15 @@ object VideoPlanner {
         // is what finally squeezes a bloated source instead of reproducing its
         // bloat at 60%.
         var bitrate = minOf(fromSource, ceiling)
-        if (settings.codec == VideoCodec.H265) bitrate *= H265_EFFICIENCY
+        bitrate *= codecEfficiency(settings.codec)
         return bitrate.toInt()
+    }
+
+    /** Bits needed for the same perceptual quality relative to H.264. */
+    fun codecEfficiency(codec: VideoCodec): Double = when (codec) {
+        VideoCodec.H265 -> H265_EFFICIENCY
+        VideoCodec.AV1 -> AV1_EFFICIENCY
+        VideoCodec.H264 -> 1.0
     }
 
     /**
@@ -639,8 +697,12 @@ object VideoPlanner {
         // source size — the user's explicit codec choice was ignored.
         val sourceMime = info.mimeType?.lowercase() ?: ""
         val sourceIsHevc = sourceMime.contains("hevc")
+        val sourceIsAv1 = sourceMime.contains("av01") || sourceMime.contains("av1")
         if (settings.codec == VideoCodec.H265 && !sourceIsHevc) return false
-        if (settings.codec == VideoCodec.H264 && sourceIsHevc) return false
+        if (settings.codec == VideoCodec.AV1 && !sourceIsAv1) return false
+        if (settings.codec == VideoCodec.H264 && (sourceIsHevc || sourceIsAv1)) return false
+        // A size target is a real request too: it must never be "nothing to do".
+        if (settings.sizeTargetMb != null && settings.sizeTargetMb > 0) return false
         val (w, h) = outputDims(info, settings, preset)
         if (w != align16(info.width) || h != align16(info.height)) return false
         return true

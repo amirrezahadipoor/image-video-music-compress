@@ -62,6 +62,7 @@ class SettingsViewModel(private val container: AppContainer, private val context
         val originalSize: Long = 0L,
         val estimatedSize: Long = 0L,
         val h265Available: Boolean = true,
+        val av1Available: Boolean = false,
         val h265FellBack: Boolean = false,
         val preview: PreviewState = PreviewState.Idle,
         val waveform: List<Float> = emptyList(),
@@ -154,7 +155,8 @@ class SettingsViewModel(private val container: AppContainer, private val context
                 it.copy(
                     info = info,
                     originalSize = originalSize,
-                    h265Available = CodecSupport.hasEncoder("video/hevc")
+                    h265Available = CodecSupport.hasEncoder("video/hevc"),
+                    av1Available = CodecSupport.hasEncoder("video/av01")
                 )
             }
             // ANALYSIS-FIX: videos get a content probe before the numbers are
@@ -455,10 +457,19 @@ class SettingsViewModel(private val container: AppContainer, private val context
             if (s.smart) CompressionPreset.SMART else s.preset
         )
         MediaType.VIDEO -> {
-            val effective = if (!s.h265Available && s.video.codec == com.compressly.core.engine.model.VideoCodec.H265) {
-                s.video.copy(codec = com.compressly.core.engine.model.VideoCodec.H264)
-            } else s.video
-            CompressionSettings.Video(effective, if (s.smart) CompressionPreset.SMART else s.preset)
+            // Unavailable codecs (no matching encoder on this device) fall back
+            // to H.264 rather than failing the whole job.
+            val codec = when {
+                !s.h265Available && s.video.codec == com.compressly.core.engine.model.VideoCodec.H265 ->
+                    com.compressly.core.engine.model.VideoCodec.H264
+                !s.av1Available && s.video.codec == com.compressly.core.engine.model.VideoCodec.AV1 ->
+                    com.compressly.core.engine.model.VideoCodec.H264
+                else -> s.video.codec
+            }
+            CompressionSettings.Video(
+                s.video.copy(codec = codec),
+                if (s.smart) CompressionPreset.SMART else s.preset
+            )
         }
         MediaType.AUDIO -> CompressionSettings.Audio(
             s.audio,

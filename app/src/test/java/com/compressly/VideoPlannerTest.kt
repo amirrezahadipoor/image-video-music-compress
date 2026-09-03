@@ -736,4 +736,79 @@ class VideoPlannerTest {
         assertTrue(gate.shouldKeep(525_000))
         assertFalse(gate.shouldKeep(530_000))
     }
+
+    // ---- B2: AV1 / 4K -----------------------------------------------------
+
+    @Test
+    fun av1NeedsFewerBitsThanH265() {
+        val h264 = VideoPlanner.smartBitrate(1920, 1080, 30, VideoCodec.H264)
+        val h265 = VideoPlanner.smartBitrate(1920, 1080, 30, VideoCodec.H265)
+        val av1 = VideoPlanner.smartBitrate(1920, 1080, 30, VideoCodec.AV1)
+        assertTrue("AV1 $av1 should beat H265 $h265", av1 < h265)
+        assertTrue("H265 $h265 should beat H264 $h264", h265 < h264)
+    }
+
+    @Test
+    fun explicit4kResolutionIsHonoured() {
+        val settings = VideoSettings(codec = VideoCodec.H264, resolution = com.compressly.core.engine.model.VideoResolution.R2160)
+        val (w, h) = VideoPlanner.outputDims(uhd, settings, CompressionPreset.BALANCED)
+        assertEquals(3840, w)
+        assertEquals(2160, h)
+    }
+
+    @Test
+    fun codecEfficiencyDropsWithBetterCodecs() {
+        assertEquals(1.0, VideoPlanner.codecEfficiency(VideoCodec.H264), 1e-6)
+        assertTrue(VideoPlanner.codecEfficiency(VideoCodec.H265) < 1.0)
+        assertTrue(VideoPlanner.codecEfficiency(VideoCodec.AV1) < VideoPlanner.codecEfficiency(VideoCodec.H265))
+    }
+
+    // ---- B3: size-target compression -------------------------------------
+
+    @Test
+    fun sizeTargetPricesTheOutputUnderTheBudget() {
+        // 100 MB budget on a 60 s clip, audio stripped: the video rate must be
+        // chosen so the whole container lands under ~100 MB.
+        val settings = VideoSettings(
+            codec = VideoCodec.H264,
+            audioMode = VideoAudioMode.STRIP,
+            resolution = VideoResolution.R1080,
+            sizeTargetMb = 100
+        )
+        val target = VideoPlanner.targetVideoBitrate(uhd, settings, CompressionPreset.BALANCED)
+        assertTrue(target > 0)
+        // 100 MB / 60 s = ~13.9 Mbps is the ceiling for the whole file; the
+        // video rate must sit at or below it (after a margin of realism).
+        val ceilingPerSec = (100L * 1024 * 1024 * 8) / 60_000L
+        assertTrue("target $target exceeds budgetable rate", target <= ceilingPerSec.toInt())
+        // And it must still fit inside a sane encoder range.
+        assertTrue(target <= 13_000_000)
+    }
+
+    @Test
+    fun sizeTargetIsNeverAboveTheSourceRate() {
+        val info = messenger720 // source ~1.2 Mbps
+        val settings = VideoSettings(
+            codec = VideoCodec.H264,
+            audioMode = VideoAudioMode.KEEP,
+            sizeTargetMb = 500 // huge budget — must never let the rate exceed source
+        )
+        val target = VideoPlanner.targetVideoBitrate(info, settings, CompressionPreset.BALANCED)
+        val source = VideoPlanner.sourceVideoBitrate(info)
+        assertTrue("target $target over source $source", target < source)
+    }
+
+    @Test
+    fun sizeTargetIsNeverSkippedAsNoOp() {
+        val settings = VideoSettings(sizeTargetMb = 50)
+        assertFalse("a size target is a real request", VideoPlanner.isNoOpTranscode(uhd, settings, CompressionPreset.BALANCED))
+    }
+
+    // ---- B5: no-gain honesty ---------------------------------------------
+
+    @Test
+    fun av1RequestIsNotSkippedAsNoOp() {
+        // A source that is NOT av1 but the user asked for AV1 must re-encode.
+        assertFalse(VideoPlanner.isNoOpTranscode(uhd.copy(mimeType = "video/avc"), VideoSettings(codec = VideoCodec.AV1), CompressionPreset.BALANCED))
+    }
 }

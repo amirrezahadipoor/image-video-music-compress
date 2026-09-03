@@ -98,12 +98,14 @@
     <!-- Video options -->
     <string name="video_resolution">رزولوشن</string>
     <string name="video_resolution_original">اصلی</string>
+    <string name="video_resolution_2160">۴K (۲۱۶۰p)</string>
     <string name="video_resolution_1080">۱۰۸۰p (فول‌اچ‌دی)</string>
     <string name="video_resolution_720">۷۲۰p (اچ‌دی)</string>
     <string name="video_resolution_480">۴۸۰p (اس‌دی)</string>
     <string name="video_resolution_custom">دلخواه</string>
     <string name="video_fps">نرخ فریم</string>
     <string name="video_fps_original">اصلی</string>
+    <string name="video_fps_60">۶۰ فریم بر ثانیه</string>
     <string name="video_fps_30">۳۰ فریم بر ثانیه</string>
     <string name="video_fps_24">۲۴ فریم بر ثانیه</string>
     <string name="video_codec">کدک ویدیو</string>
@@ -111,7 +113,17 @@
     <string name="video_codec_h264_desc">روی همه دستگاه‌ها پخش می‌شود. حجم بیشتر.</string>
     <string name="video_codec_h265">H.265 (HEVC)</string>
     <string name="video_codec_h265_desc">تا ۴۰٪ کوچک‌تر با کیفیت یکسان. فقط دستگاه‌های جدیدتر.</string>
+    <string name="video_codec_av1">AV1</string>
+    <string name="video_codec_av1_desc">مقرون‌به‌صرفه‌ترین کدک؛ تا ~۵۰٪ کوچک‌تر از H.264. پشتیبانی محدودتر.</string>
     <string name="video_codec_unavailable">رمزگذار H.265 روی این دستگاه موجود نیست. از H.264 استفاده می‌شود.</string>
+    <string name="video_codec_av1_unavailable">رمزگذار AV1 روی این دستگاه موجود نیست. از H.264 استفاده می‌شود.</string>
+    <string name="video_size_target">هدف اندازه</string>
+    <string name="video_size_target_on">فشرده‌سازی «زیر این حجم»</string>
+    <string name="video_size_target_desc">به‌جای سطح کیفیت، یک بودجه‌ی محدود بر حسب مگابایت تعیین کن.</string>
+    <string name="video_size_target_value">زیر %1$d مگابایت</string>
+    <string name="video_video_hdr">رنگ و HDR</string>
+    <string name="video_hdr_preserve">حفظ متادیتای رنگ/HDR</string>
+    <string name="video_hdr_preserve_desc">اگر رمزگذار اجازه دهد، رنگ و HDR منبع حفظ می‌شود تا ویدیو به حالت عادی تنزل نکند.</string>
     <string name="video_audio_track">صدای ویدیو</string>
     <string name="video_audio_keep">حفظ صدای اصلی</string>
     <string name="video_audio_compress">فشرده‌سازی صدا نیز</string>

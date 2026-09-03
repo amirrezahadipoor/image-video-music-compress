@@ -98,12 +98,14 @@
     <!-- Video options -->
     <string name="video_resolution">Resolution</string>
     <string name="video_resolution_original">Original</string>
+    <string name="video_resolution_2160">4K (2160p)</string>
     <string name="video_resolution_1080">1080p (Full HD)</string>
     <string name="video_resolution_720">720p (HD)</string>
     <string name="video_resolution_480">480p (SD)</string>
     <string name="video_resolution_custom">Custom</string>
     <string name="video_fps">Frame rate</string>
     <string name="video_fps_original">Original</string>
+    <string name="video_fps_60">60 fps</string>
     <string name="video_fps_30">30 fps</string>
     <string name="video_fps_24">24 fps</string>
     <string name="video_codec">Video codec</string>
@@ -111,7 +113,17 @@
     <string name="video_codec_h264_desc">Plays everywhere. Larger files.</string>
     <string name="video_codec_h265">H.265 (HEVC)</string>
     <string name="video_codec_h265_desc" formatted="false">Up to 40% smaller, same quality. Newer devices only.</string>
+    <string name="video_codec_av1">AV1</string>
+    <string name="video_codec_av1_desc" formatted="false">Most efficient codec; up to ~50% smaller than H.264. Limited device support.</string>
     <string name="video_codec_unavailable">H.265 encoder not available on this device. Using H.264.</string>
+    <string name="video_codec_av1_unavailable">AV1 encoder not available on this device. Using H.264.</string>
+    <string name="video_size_target">Size target</string>
+    <string name="video_size_target_on">Compress under this size</string>
+    <string name="video_size_target_desc">Set a concrete size budget in MB instead of a quality tier.</string>
+    <string name="video_size_target_value">Under %1$d MB</string>
+    <string name="video_video_hdr">Colour &amp; HDR</string>
+    <string name="video_hdr_preserve">Preserve colour/HDR metadata</string>
+    <string name="video_hdr_preserve_desc">If the encoder allows, source colour and HDR metadata are kept so the clip is not flattened to SDR.</string>
     <string name="video_audio_track">Audio track</string>
     <string name="video_audio_keep">Keep original audio</string>
     <string name="video_audio_compress">Compress audio too</string>

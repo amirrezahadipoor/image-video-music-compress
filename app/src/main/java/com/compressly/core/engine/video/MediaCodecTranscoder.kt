@@ -33,6 +33,7 @@ class MediaCodecTranscoder(private val context: Context) {
     companion object {
         private const val MIME_H264 = "video/avc"
         private const val MIME_H265 = "video/hevc"
+        private const val MIME_AV1 = "video/av01"
         private const val MIME_AAC = "audio/mp4a-latm"
         private const val TIMEOUT_US = 10_000L
 
@@ -73,7 +74,7 @@ class MediaCodecTranscoder(private val context: Context) {
         // one encoder by name and never retried, so a vendor encoder that rejects
         // the configured format (missing COLOR_FormatSurface, unknown keys,
         // resolution limits) killed the whole transcode with no fallback at all.
-        val requestedMime = if (settings.codec == VideoCodec.H265) MIME_H265 else MIME_H264
+        val requestedMime = requestedMimeFor(settings.codec)
         val encoderChoices = resolveEncoderCandidates(requestedMime)
         if (encoderChoices.isEmpty()) throw VideoCompressionException(ERR_NO_ENCODER)
 
@@ -105,13 +106,12 @@ class MediaCodecTranscoder(private val context: Context) {
                 ?: throw VideoCompressionException(ERR_NO_VIDEO)
             File(outputPath).outputStream().use { out -> input.use { it.copyTo(out, 256 * 1024) } }
             onProgress(1f)
-            val isHevc = (plannedInfo.mimeType ?: "").contains("hevc", ignoreCase = true)
             // Labeled (local) return: a plain `return` is prohibited inside a
             // suspend lambda, but the value flows out as withContext's result.
             return@withContext Stats(
                 File(outputPath).length(),
                 plannedInfo.durationMs,
-                if (isHevc) "h265" else "h264"
+                codecLabel(plannedInfo.mimeType)
             )
         }
         val outW = plan.width
@@ -268,10 +268,7 @@ class MediaCodecTranscoder(private val context: Context) {
             if (File(outputPath).length() <= 0) {
                 throw VideoCompressionException(ERR_ENCODE)
             }
-            val codecTag = when (firstPass.choice.mime) {
-                MIME_H265 -> "h265"
-                else -> "h264"
-            }
+            val codecTag = codecLabel(firstPass.choice.mime)
             // STATS-FIX: measure from the RECOVERED info (the original `info`
             // has a zero duration when MediaInspector failed, which made the
             // stats bar show 0 s for a perfectly good file). And base the
@@ -348,13 +345,17 @@ class MediaCodecTranscoder(private val context: Context) {
             val inputMime = inputFormat.getString(MediaFormat.KEY_MIME)
                 ?: throw VideoCompressionException(ERR_DECODE)
 
+            // HDR-passthrough: read the source colour/HDR metadata once here
+            // (it belongs to the source track) and hand it to the encoder.
+            val hdr = if (settings.preserveHdr) readHdrInfo(inputFormat) else null
+
             // ── Pick a working encoder across the candidate list ──────────
             var encoder: MediaCodec? = null
             var inputSurface: android.view.Surface? = null
             for (candidate in choices) {
                 var enc: MediaCodec? = null
                 try {
-                    enc = createConfiguredEncoder(candidate, outW, outH, targetBitrate, targetFps, plan)
+                    enc = createConfiguredEncoder(candidate, outW, outH, targetBitrate, targetFps, plan, hdr)
                     val surface = enc.createInputSurface()
                     enc.start()
                     // Success on this candidate — commit and move on.
@@ -581,7 +582,8 @@ class MediaCodecTranscoder(private val context: Context) {
         outH: Int,
         targetBitrate: Int,
         targetFps: Int,
-        plan: VideoPlanner.Plan
+        plan: VideoPlanner.Plan,
+        hdr: HdrInfo?
     ): MediaCodec {
         fun buildFormat(full: Boolean): MediaFormat =
             MediaFormat.createVideoFormat(choice.mime, outW, outH).apply {
@@ -592,6 +594,17 @@ class MediaCodecTranscoder(private val context: Context) {
                     MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface
                 )
                 if (full) {
+                    // HDR-passthrough: carry the source colour transfer,
+                    // standard and range so an HDR10/HDR10+ clip is not
+                    // flattened to SDR. These keys sit behind the same
+                    // full-format/minimal-format retry as every other optional
+                    // key: an encoder that rejects them falls back to the
+                    // minimal format (SDR) rather than aborting the job.
+                    if (hdr != null) {
+                        setInteger(MediaFormat.KEY_COLOR_TRANSFER, hdr.colorTransfer)
+                        setInteger(MediaFormat.KEY_COLOR_STANDARD, hdr.colorStandard)
+                        setInteger(MediaFormat.KEY_COLOR_RANGE, hdr.colorRange)
+                    }
                     // A fixed 2 s GOP at a very low bitrate lets single key
                     // frames eat the whole budget; the planner widens it.
                     setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, plan.iFrameInterval)
@@ -927,22 +940,69 @@ private suspend fun mergePass(
      *  timeline — see the TRIM-KEY-FIX notes in [videoPass]. */
     private data class VideoPassResult(val choice: EncoderChoice, val firstKeptPtsUs: Long)
 
+    /** Human label for a codec, used in the result summary. */
+    private fun codecLabel(mime: String?): String {
+        val m = mime?.lowercase() ?: return "h264"
+        return when {
+            m.contains("av01") || m.contains("av1") -> "av1"
+            m.contains("hevc") -> "h265"
+            else -> "h264"
+        }
+    }
+
+    /** Colour/HDR metadata to carry from the source track into the encoder. */
+    private data class HdrInfo(
+        val colorTransfer: Int,
+        val colorStandard: Int,
+        val colorRange: Int
+    )
+
+    /** The container MIME family for a codec request. */
+    private fun requestedMimeFor(codec: VideoCodec): String = when (codec) {
+        VideoCodec.H265 -> MIME_H265
+        VideoCodec.AV1 -> MIME_AV1
+        VideoCodec.H264 -> MIME_H264
+    }
+
     /**
-     * All usable encoders for [requestedMime], best first: hardware, then
-     * software, and for HEVC the H.264 fallback (hardware, then software).
-     * Each candidate is configured independently by [videoPass] (with its own
+     * All usable encoders for [requestedMime], best first: the requested codec
+     * (hardware, then software), then its compatibility chain — AV1 falls back
+     * to HEVC then H.264, HEVC falls back to H.264 — so a device that cannot
+     * honour the request still produces a file instead of failing. Each
+     * candidate is configured independently by [videoPass] (with its own
      * minimal-format retry), so one broken vendor entry can no longer abort
      * the whole transcode.
      */
     private fun resolveEncoderCandidates(requestedMime: String): List<EncoderChoice> {
         val result = mutableListOf<EncoderChoice>()
-        findEncoder(requestedMime, hardwareOnly = true)?.let { result += EncoderChoice(it, requestedMime) }
-        findEncoder(requestedMime, hardwareOnly = false)?.let { result += EncoderChoice(it, requestedMime) }
-        if (requestedMime == MIME_H265) {
-            findEncoder(MIME_H264, hardwareOnly = true)?.let { result += EncoderChoice(it, MIME_H264) }
-            findEncoder(MIME_H264, hardwareOnly = false)?.let { result += EncoderChoice(it, MIME_H264) }
+        val chain = when (requestedMime) {
+            MIME_AV1 -> listOf(MIME_AV1, MIME_H265, MIME_H264)
+            MIME_H265 -> listOf(MIME_H265, MIME_H264)
+            else -> listOf(MIME_H264)
+        }
+        for (mime in chain) {
+            findEncoder(mime, hardwareOnly = true)?.let { result += EncoderChoice(it, mime) }
+            findEncoder(mime, hardwareOnly = false)?.let { result += EncoderChoice(it, mime) }
         }
         return result
+    }
+
+    /**
+     * Reads the colour/HDR metadata from a source track format, or null when
+     * the track is not HDR (transfer/standard/range all present) — in which
+     * case the encoder uses its own defaults. Only the three integer keys are
+     * read; static HDR metadata (KEY_HDR_STATIC_INFO) is a buffer of variable
+     * length and is deliberately not relayed, because relaying it risks
+     * encoders rejecting the format.
+     */
+    private fun readHdrInfo(format: MediaFormat): HdrInfo? {
+        fun key(name: String): Int? =
+            if (format.containsKey(name)) runCatching { format.getInteger(name) }.getOrNull() else null
+        val transfer = key(MediaFormat.KEY_COLOR_TRANSFER)
+        val standard = key(MediaFormat.KEY_COLOR_STANDARD)
+        val range = key(MediaFormat.KEY_COLOR_RANGE)
+        if (transfer == null || standard == null || range == null) return null
+        return HdrInfo(transfer, standard, range)
     }
 
     private fun findEncoder(mime: String, hardwareOnly: Boolean): String? {

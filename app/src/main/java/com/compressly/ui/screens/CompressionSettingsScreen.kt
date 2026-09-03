@@ -43,6 +43,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import kotlin.math.roundToInt
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -638,12 +639,16 @@ private fun VideoAdvanced(
 ) {
     SectionHeader(stringResource(R.string.video_resolution))
     ChipSelector(
-        options = listOf(VideoResolution.ORIGINAL, VideoResolution.R1080, VideoResolution.R720, VideoResolution.R480),
+        options = listOf(
+            VideoResolution.ORIGINAL, VideoResolution.R2160,
+            VideoResolution.R1080, VideoResolution.R720, VideoResolution.R480
+        ),
         selected = state.video.resolution,
         labelOf = { res ->
             stringResource(
                 when (res) {
                     VideoResolution.ORIGINAL -> R.string.video_resolution_original
+                    VideoResolution.R2160 -> R.string.video_resolution_2160
                     VideoResolution.R1080 -> R.string.video_resolution_1080
                     VideoResolution.R720 -> R.string.video_resolution_720
                     VideoResolution.R480 -> R.string.video_resolution_480
@@ -657,11 +662,12 @@ private fun VideoAdvanced(
 
     SectionHeader(stringResource(R.string.video_fps))
     ChipSelector(
-        options = listOf(null, 30, 24),
+        options = listOf(null, 60, 30, 24),
         selected = state.video.frameRate,
         labelOf = { fps ->
             when (fps) {
                 null -> stringResource(R.string.video_fps_original)
+                60 -> stringResource(R.string.video_fps_60)
                 30 -> stringResource(R.string.video_fps_30)
                 else -> stringResource(R.string.video_fps_24)
             }
@@ -672,24 +678,32 @@ private fun VideoAdvanced(
 
     SectionHeader(stringResource(R.string.video_codec))
     ChipSelector(
-        options = listOf(VideoCodec.H264, VideoCodec.H265),
+        options = listOf(VideoCodec.H264, VideoCodec.H265, VideoCodec.AV1),
         selected = state.video.codec,
         labelOf = { codec ->
-            stringResource(if (codec == VideoCodec.H264) R.string.video_codec_h264 else R.string.video_codec_h265)
+            stringResource(
+                when (codec) {
+                    VideoCodec.H264 -> R.string.video_codec_h264
+                    VideoCodec.H265 -> R.string.video_codec_h265
+                    VideoCodec.AV1 -> R.string.video_codec_av1
+                }
+            )
         },
         onSelect = { codec -> viewModel.setVideoSettings { it.copy(codec = codec) } }
     )
     Text(
-        text = if (state.video.codec == VideoCodec.H265) {
-            stringResource(R.string.video_codec_h265_desc)
-        } else {
-            stringResource(R.string.video_codec_h264_desc)
-        },
+        text = stringResource(
+            when (state.video.codec) {
+                VideoCodec.H265 -> R.string.video_codec_h265_desc
+                VideoCodec.AV1 -> R.string.video_codec_av1_desc
+                VideoCodec.H264 -> R.string.video_codec_h264_desc
+            }
+        ),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 6.dp)
     )
-    if (!state.h265Available && state.video.codec == VideoCodec.H265) {
+    if (state.video.codec == VideoCodec.H265 && !state.h265Available) {
         Spacer(Modifier.height(6.dp))
         Text(
             text = stringResource(R.string.video_codec_unavailable),
@@ -697,6 +711,28 @@ private fun VideoAdvanced(
             color = MaterialTheme.colorScheme.error
         )
     }
+    if (state.video.codec == VideoCodec.AV1 && !state.av1Available) {
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = stringResource(R.string.video_codec_av1_unavailable),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error
+        )
+    }
+    Spacer(Modifier.height(14.dp))
+
+    // Size-target: "compress this under X MB" instead of a quality tier.
+    SectionHeader(stringResource(R.string.video_size_target))
+    SizeTargetSection(state, viewModel)
+    Spacer(Modifier.height(14.dp))
+
+    SectionHeader(stringResource(R.string.video_video_hdr))
+    ToggleRow(
+        title = stringResource(R.string.video_hdr_preserve),
+        description = stringResource(R.string.video_hdr_preserve_desc),
+        checked = state.video.preserveHdr,
+        onCheckedChange = { on -> viewModel.setVideoSettings { it.copy(preserveHdr = on) } }
+    )
     Spacer(Modifier.height(14.dp))
 
     SectionHeader(stringResource(R.string.video_audio_track))
@@ -717,6 +753,39 @@ private fun VideoAdvanced(
     Spacer(Modifier.height(14.dp))
 
     TrimSection(state, viewModel)
+}
+
+/** "Compress to under X MB" — a concrete size budget the user sets. */
+@Composable
+private fun SizeTargetSection(
+    state: SettingsViewModel.UiState,
+    viewModel: SettingsViewModel
+) {
+    val target = state.video.sizeTargetMb
+    ToggleRow(
+        title = stringResource(R.string.video_size_target_on),
+        description = stringResource(R.string.video_size_target_desc),
+        checked = target != null,
+        onCheckedChange = { on ->
+            viewModel.setVideoSettings { it.copy(sizeTargetMb = if (on) (target ?: 50) else null) }
+        }
+    )
+    if (target != null) {
+        Spacer(Modifier.height(10.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                text = stringResource(R.string.video_size_target_value, target),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Slider(
+            value = target.toFloat(),
+            onValueChange = { v -> viewModel.setVideoSettings { it.copy(sizeTargetMb = v.roundToInt()) } },
+            valueRange = 10f..500f,
+            steps = 48
+        )
+    }
 }
 
 @Composable
