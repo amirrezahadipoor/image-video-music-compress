@@ -234,6 +234,7 @@ jobs:
 
       # PASS 2 — FRESH app data: full E2E journey. Independent of passes 1/3.
       - name: Pass 2 - full E2E journey (fresh app data)
+        if: always()
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -244,6 +245,7 @@ jobs:
             bash scripts/emulator_boot_wait.sh com.compressly.MainFlowE2ETest
 
       - name: Pass 3 - engine, batch, a11y, i18n
+        if: always()
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35

@@ -67,6 +67,29 @@ class MainFlowE2ETest {
     private fun waitForNode(sel: BySelector, seconds: Long): UiObject2? =
         device.wait(Until.findObject(sel), TimeUnit.SECONDS.toMillis(seconds))
 
+    /**
+     * Click a node found by [sel], re-resolving it on every
+     * StaleObjectException. Compose recomposition invalidates UiObject2
+     * handles between the `findObject` and the `click`, and on a fresh CI
+     * emulator that race is common — so retry rather than explode.
+     */
+    private fun safeClick(sel: BySelector, what: String, seconds: Long) {
+        val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(seconds)
+        while (System.currentTimeMillis() < deadline) {
+            val node = waitForNode(sel, 1)
+            if (node != null) {
+                try {
+                    node.click()
+                    device.waitForIdle()
+                    return
+                } catch (_: androidx.test.uiautomator.StaleObjectException) {
+                    // node invalidated by recomposition; re-find and retry
+                }
+            }
+        }
+        throw AssertionError("UI: \"$what\" never became clickable within ${seconds}s")
+    }
+
     private fun waitClickable(sel: BySelector, what: String, seconds: Long): Boolean {
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(seconds)
         while (System.currentTimeMillis() < deadline) {
@@ -145,16 +168,16 @@ class MainFlowE2ETest {
         check(waitClickable(By.desc(photoName), "the inserted photo", seconds = 45)) {
             "Picker: the inserted photo never appeared"
         }
-        waitForNode(By.desc(photoName), 10)!!.click()
+        safeClick(By.desc(photoName), "the inserted photo", seconds = 15)
 
         // The multi-select action button (EN device locale):
         if (waitForNode(By.desc("Select"), 8) != null) {
-            waitForNode(By.desc("Select"), 10)!!.click()
+            safeClick(By.desc("Select"), "Select (desc)", seconds = 15)
         } else {
             check(waitClickable(By.text("Select"), "Select (text)", seconds = 15)) {
                 "Picker: the Select button never appeared"
             }
-            waitForNode(By.text("Select"), 10)!!.click()
+            safeClick(By.text("Select"), "Select (text)", seconds = 15)
         }
 
         // ── 4. Back in the app: settings screen with the picked file ────
@@ -162,7 +185,7 @@ class MainFlowE2ETest {
         check(waitClickable(By.text(compress), "compress CTA", seconds = 30)) {
             "Back in the app: the compress CTA never appeared (picker result lost?)"
         }
-        waitForNode(By.text(compress), 10)!!.click()
+        safeClick(By.text(compress), "compress CTA", seconds = 15)
         device.waitForIdle()
 
         // ── 5. Progress → (auto) result ─────────────────────────────────
@@ -178,7 +201,7 @@ class MainFlowE2ETest {
         }
 
         // ── 6. History: the entry with the real file name ───────────────
-        waitForNode(By.text(viewHistory), 10)!!.click()
+        safeClick(By.text(viewHistory), "view history", seconds = 15)
         device.waitForIdle()
         check(waitClickable(By.text(faString(R.string.history_title)),
             "history title", seconds = 15)) { "history screen never appeared" }
