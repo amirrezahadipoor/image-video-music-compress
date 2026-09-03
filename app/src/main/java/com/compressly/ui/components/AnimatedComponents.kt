@@ -107,8 +107,18 @@ fun ShimmerPlaceholder(
     )
     // Reduce-motion: show a static muted placeholder instead of a sweeping shine.
     val static = if (reduce) 0f else offset
+    // A flat, single-colour gradient in the reduce-motion case reads as a
+    // static placeholder (Brush.solidColor isn't available in this Compose
+    // version, so we use a uniform two-stop linear gradient instead).
     val brush = if (reduce) {
-        Brush.solidColor(MaterialTheme.colorScheme.surfaceVariant)
+        Brush.linearGradient(
+            colors = listOf(
+                MaterialTheme.colorScheme.surfaceVariant,
+                MaterialTheme.colorScheme.surfaceVariant,
+            ),
+            start = androidx.compose.ui.geometry.Offset(0f, 0f),
+            end = androidx.compose.ui.geometry.Offset(0f, 0f)
+        )
     } else {
         Brush.linearGradient(
             colors = listOf(
@@ -265,7 +275,12 @@ fun AnimatedGradientBar(
     ) {
         // Shimmer overlay
         val shimmerBrush = if (reduce) {
-            Brush.solidColor(Color.Transparent)
+            // Uniform transparent gradient = no visible sweep.
+            Brush.linearGradient(
+                colors = listOf(Color.Transparent, Color.Transparent),
+                start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                end = androidx.compose.ui.geometry.Offset(0f, 0f)
+            )
         } else {
             Brush.linearGradient(
                 colors = listOf(
