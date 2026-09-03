@@ -6,7 +6,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -41,7 +45,7 @@ import kotlinx.coroutines.launch
  *   skip-onboarding-entirely for new users.
  */
 @Composable
-fun AppNavHost(navController: NavHostController) {
+fun AppNavHost(navController: NavHostController, initialSnapRoute: String? = null) {
     val context = LocalContext.current
     val container = (context.applicationContext as CompresslyApp).container
     val scope = rememberCoroutineScope()
@@ -53,6 +57,24 @@ fun AppNavHost(navController: NavHostController) {
     // Don't render NavHost until we know the onboarding state.
     // This avoids a visible flash from HOME → ONBOARDING on first launch.
     if (onboardingDone == null) return
+
+    // Debug/snapshot CI: once the NavHost is composed, jump straight to the
+    // requested top-level screen (the capture runs without driving any
+    // accessibility nodes). Uses the composition scope so the request is not
+    // lost to the SharedFlow's replay=0 when it is emitted before the
+    // collector subscribes.
+    val snapDone = remember { mutableStateOf(false) }
+    LaunchedEffect(initialSnapRoute, onboardingDone) {
+        if (initialSnapRoute != null && !snapDone.value) {
+            snapDone.value = true
+            // Allow the start destination (and its transitions) to settle.
+            kotlinx.coroutines.delay(350)
+            navController.navigate(initialSnapRoute) {
+                launchSingleTop = true
+                popUpTo(navController.graph.startDestinationId) { inclusive = false }
+            }
+        }
+    }
 
     NavHost(
         navController = navController,

@@ -18,9 +18,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import ir.siliksama.hajmino.R
+import kotlinx.coroutines.launch
 import com.compressly.core.data.ThemeMode
 import com.compressly.core.service.CompressionJobService
 import com.compressly.core.util.CrashGuard
@@ -50,6 +52,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val container = (application as CompresslyApp).container
 
+        val snapScreen = intent?.getStringExtra(EXTRA_SNAP_SCREEN)
+
         setContent {
             val themeMode by container.settingsRepository.themeMode
                 .collectAsStateWithLifecycle(initialValue = ThemeMode.SYSTEM)
@@ -73,7 +77,7 @@ class MainActivity : ComponentActivity() {
                 }
                 val navController = rememberNavController()
                 HandleNavRequests(container, navController)
-                AppNavHost(navController = navController)
+                AppNavHost(navController = navController, initialSnapRoute = snapScreen)
             }
         }
 
@@ -105,12 +109,26 @@ class MainActivity : ComponentActivity() {
 
     /** Notification taps route into the app via the navigation bus. */
     private fun handleIntent(intent: Intent?) {
+        // SNAP_SCREEN is consumed in setContent (via `snapScreen`) so the
+        // navigation happens AFTER the NavHost exists. Marking onboarding done
+        // here is safe either way — a returning/new user without the flag is
+        // unaffected and this only runs when the debug extra is present.
+        if (intent?.getBooleanExtra(EXTRA_SNAP_SKIP_ONBOARDING, false) == true) {
+            val app = application as CompresslyApp
+            lifecycleScope.launch { app.container.settingsRepository.markOnboardingDone() }
+        }
         if (intent?.action == CompressionJobService.ACTION_OPEN_JOB) {
             val jobId = intent.getLongExtra(CompressionJobService.EXTRA_JOB_ID, -1L)
             if (jobId != -1L) {
                 (application as CompresslyApp).container.navigationBus.navigate(NavRequest.OpenJob(jobId))
             }
         }
+    }
+
+    companion object {
+        /** Debug-only intent extras used by the CI visual-regression pass. */
+        const val EXTRA_SNAP_SCREEN = "com.compressly.extra.SNAP_SCREEN"
+        const val EXTRA_SNAP_SKIP_ONBOARDING = "com.compressly.extra.SNAP_SKIP_ONBOARDING"
     }
 }
 
