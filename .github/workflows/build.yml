@@ -94,7 +94,22 @@ jobs:
           print(f"i18n parity OK: {len(fa)} keys in both languages")
           PY
 
-      # ── 2. Build the Bazaar release APK ────────────────────────────────
+      # ── 2. Materialise the signing keystore (from the base64 secret) so the
+      #       release APK can be signed. The keystore + credentials are never in
+      #       git; they come only from repo secrets. If the secret is missing the
+      #       release build fails loudly (no fallback).
+      - name: Materialise signing keystore
+        run: |
+          if [ -z "$COMPRESSLY_KEYSTORE_BASE64" ]; then
+            echo "::warning::COMPRESSLY_KEYSTORE_BASE64 secret is empty — the release APK will be unsigned/skip signing."
+          else
+            mkdir -p "$HOME/.gradle/compressly"
+            echo "$COMPRESSLY_KEYSTORE_BASE64" | base64 -d > "$HOME/.gradle/compressly/hajmino-signing.jks"
+            echo "COMPRESSLY_KEYSTORE_FILE=$HOME/.gradle/compressly/hajmino-signing.jks" >> "$GITHUB_ENV"
+            echo "signing keystore materialised: $(stat -c%s "$HOME/.gradle/compressly/hajmino-signing.jks") bytes"
+          fi
+
+      # ── 3. Build the Bazaar release APK ────────────────────────────────
       - name: Build Bazaar release APK
         run: |
           ./gradlew \
@@ -377,6 +392,17 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+
+      - name: Materialise signing keystore
+        run: |
+          if [ -z "$COMPRESSLY_KEYSTORE_BASE64" ]; then
+            echo "::warning::COMPRESSLY_KEYSTORE_BASE64 secret is empty — baseline profile build may not sign."
+          else
+            mkdir -p "$HOME/.gradle/compressly"
+            echo "$COMPRESSLY_KEYSTORE_BASE64" | base64 -d > "$HOME/.gradle/compressly/hajmino-signing.jks"
+            echo "COMPRESSLY_KEYSTORE_FILE=$HOME/.gradle/compressly/hajmino-signing.jks" >> "$GITHUB_ENV"
+            echo "signing keystore materialised: $(stat -c%s "$HOME/.gradle/compressly/hajmino-signing.jks") bytes"
+          fi
 
       - name: Generate Baseline Profile
         run: |

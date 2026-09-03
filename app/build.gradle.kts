@@ -100,7 +100,10 @@ android {
             // If a credential is missing, the build FORBIDDEN to proceed — there
             // is deliberately NO fallback literal, so a compromised key can never
             // silently re-enter a signed build.
-            val ksB64    = System.getenv("COMPRESSLY_KEYSTORE_BASE64")
+            // The workflow materialises the keystore from the base64 secret into
+            // a git-ignored path and exports its location as COMPRESSLY_KEYSTORE_FILE,
+            // avoiding any base64/decode logic (and its import problems) here.
+            val ksPath   = System.getenv("COMPRESSLY_KEYSTORE_FILE")
             val ksPass   = System.getenv("COMPRESSLY_KEYSTORE_PASSWORD")
             val kAlias   = System.getenv("COMPRESSLY_KEY_ALIAS")
             val kPass    = System.getenv("COMPRESSLY_KEY_PASSWORD")
@@ -108,21 +111,10 @@ android {
             // Only a real release build needs credentials; debug/lint/test jobs
             // do not sign, so leave the config empty there rather than throwing
             // during configuration (which would break a `lintBazaarDebug` run).
-            if (!ksB64.isNullOrBlank() && !ksPass.isNullOrBlank() &&
+            if (!ksPath.isNullOrBlank() && !ksPass.isNullOrBlank() &&
                 !kAlias.isNullOrBlank() && !kPass.isNullOrBlank()
             ) {
-                // Materialise the keystore into a well-known, git-ignored path
-                // (never tracked) so the rest of the DSL can consume it as a file.
-                // NOTE: buildDirectory is a DirectoryProperty; resolve via
-                // .get().asFile → java.io.File, then .resolve(name). We avoid a
-                // fully-qualified `java.io.File(...)` because that token is not
-                // reliably resolvable inside the Gradle Kotlin DSL.
-                val ksFile = rootProject.layout.buildDirectory.get().asFile
-                    .resolve("protected/signing-keystore.jks")
-                ksFile.parentFile.mkdirs()
-                ksFile.writeBytes(java.util.Base64.getDecoder().decode(ksB64))
-
-                storeFile     = ksFile
+                storeFile     = file(ksPath)
                 storePassword = ksPass
                 keyAlias      = kAlias
                 keyPassword   = kPass
