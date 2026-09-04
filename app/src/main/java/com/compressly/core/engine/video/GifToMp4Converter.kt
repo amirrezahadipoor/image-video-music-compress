@@ -1,15 +1,14 @@
-package com.compressly.core.engine.video
-
-/*
- * Deprecation note: [android.graphics.Movie] is deprecated, but it is still the
- * only dependency-free, fully-offline way to decode the *animated* frames of a
- * GIF on this app's minimum API (26). The modern ImageDecoder only yields an
- * AnimatedImageDrawable on API 28+; on 26/27 it silently flattens to a static
- * first frame and would regress GIF handling. So we keep Movie and suppress the
- * deprecation warning for the whole file (file-level so it also covers the
- * import at line 4, which a class-level @Suppress would not).
- */
 @file:Suppress("DEPRECATION")
+// Deprecation note: android.graphics.Movie is deprecated, but it is still the
+// only dependency-free, fully-offline way to decode the *animated* frames of a
+// GIF on this app's minimum API (26). The modern ImageDecoder only yields an
+// AnimatedImageDrawable on API 28+; on 26/27 it silently flattens to a static
+// first frame and would regress GIF handling. So we keep Movie and suppress the
+// deprecation warning for the whole file (file-level so it also covers the
+// import, which a class-level @Suppress would not). @file: is valid only at the
+// very top of the file (before the package directive).
+
+package com.compressly.core.engine.video
 
 import android.content.Context
 import android.graphics.Movie
