@@ -30,6 +30,7 @@ import com.compressly.ui.screens.ProgressScreen
 import com.compressly.ui.screens.PremiumScreen
 import com.compressly.ui.screens.PrivacyPolicyScreen
 import com.compressly.ui.screens.ResultScreen
+import com.compressly.ui.screens.StorageDashboardScreen
 import com.compressly.ui.screens.SupportScreen
 import kotlinx.coroutines.launch
 
@@ -104,10 +105,17 @@ fun AppNavHost(navController: NavHostController, initialSnapRoute: String? = nul
             )
         }
 
+        composable(Routes.STORAGE) {
+            StorageDashboardScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
         composable(Routes.HOME) {
             HomeScreen(
                 onOpenSettings = { type -> navController.navigate(Routes.settings(type.name)) },
                 onOpenHistory = { navController.navigate(Routes.HISTORY) },
+                onOpenStorage = { navController.navigate(Routes.STORAGE) },
                 onOpenAppSettings = { navController.navigate(Routes.APP_SETTINGS) },
                 onOpenPremium = { navController.navigate(Routes.PREMIUM) },
                 onOpenSupport = { navController.navigate(Routes.SUPPORT) },

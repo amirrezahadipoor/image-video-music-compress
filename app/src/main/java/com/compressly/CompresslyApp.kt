@@ -9,6 +9,7 @@ import com.compressly.core.billing.BillingManager
 import com.compressly.core.billing.NoopBillingManager
 import com.compressly.core.data.HistoryRepository
 import com.compressly.core.data.SettingsRepository
+import com.compressly.core.data.StorageRepository
 import com.compressly.core.data.db.AppDatabase
 import com.compressly.core.engine.model.InputItem
 import com.compressly.core.engine.model.MediaType
@@ -96,6 +97,7 @@ class AppContainer(app: Application) {
     val database: AppDatabase by lazy { AppDatabase.get(context) }
     val historyRepository: HistoryRepository by lazy { HistoryRepository(database.historyDao()) }
     val settingsRepository: SettingsRepository by lazy { SettingsRepository(context) }
+    val storageRepository: StorageRepository by lazy { StorageRepository(context) }
     val jobCoordinator: JobCoordinator by lazy { JobCoordinator(context, historyRepository) }
     val navigationBus: NavigationBus = NavigationBus()
     val selection: SelectionHolder = SelectionHolder()

@@ -15,8 +15,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -94,6 +96,11 @@ fun OnboardingScreen(onDone: () -> Unit) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    // A1 edge-to-edge: this screen has no Scaffold, so insets
+                    // are applied by hand — otherwise the centered content and
+                    // the bottom CTA slide under the system bars on 35+.
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
                     .padding(horizontal = 32.dp)
                     .semantics { contentDescription = "$title. $body" },
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -136,6 +143,7 @@ fun OnboardingScreen(onDone: () -> Unit) {
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
                 .padding(horizontal = 32.dp, vertical = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {

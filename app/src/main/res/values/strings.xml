@@ -181,6 +181,15 @@
 
     <!-- History -->
     <string name="history_title">تاریخچه</string>
+    <string name="storage_title">ذخیره‌سازی</string>
+    <string name="storage_capacity">ظرفیت دستگاه</string>
+    <string name="storage_capacity_value">%1$s از %2$s</string>
+    <string name="storage_free">%1$s آزاد</string>
+    <string name="storage_saved_title">فضای ذخیره‌شده با فشرده‌سازی</string>
+    <string name="storage_saved_desc">جمع فضایی که این برنامه برای تو آزاد کرده است</string>
+    <string name="storage_largest_title">بزرگ‌ترین فایل‌های رسانه</string>
+    <string name="storage_largest_empty">برای دیدن بزرگ‌ترین فایل‌ها، مجوز دسترسی به رسانه را بده یا فایلی روی دستگاه نباشد.</string>
+    <string name="storage_unnamed">فایل بدون نام</string>
     <string name="history_empty_title">هنوز فشرده‌سازی‌ای انجام نشده</string>
     <string name="history_empty_desc">هر فایلی که فشرده کنید با میزان فضای ذخیره‌شده اینجا نمایش داده می‌شود.</string>
     <string name="history_clear_all">پاک کردن تاریخچه</string>

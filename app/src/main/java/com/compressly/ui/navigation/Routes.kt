@@ -4,6 +4,7 @@ object Routes {
     const val ONBOARDING     = "onboarding"
     const val HOME           = "home"
     const val HISTORY        = "history"
+    const val STORAGE        = "storage"
     const val APP_SETTINGS   = "app_settings"
     const val PREMIUM         = "premium"
     const val SUPPORT         = "support"

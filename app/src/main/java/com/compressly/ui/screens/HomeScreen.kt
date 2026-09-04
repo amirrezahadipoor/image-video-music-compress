@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.PhotoCamera
@@ -98,6 +99,7 @@ import com.compressly.ui.viewmodels.HomeViewModel
 fun HomeScreen(
     onOpenSettings: (MediaType) -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenStorage: () -> Unit,
     onOpenAppSettings: () -> Unit,
     onOpenPremium: () -> Unit,
     onOpenSupport: () -> Unit,
@@ -242,7 +244,7 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            item { HomeHeader(onOpenHistory, onOpenAppSettings, onOpenSupport) }
+            item { HomeHeader(onOpenHistory, onOpenStorage, onOpenAppSettings, onOpenSupport) }
             item { HeroCard(totalSaved) }
             // UI-2 BEAUTY: Active jobs banner takes priority over everything else when visible.
             if (activeJobs.isNotEmpty()) {
@@ -420,6 +422,7 @@ private fun FolderPickRow(onClick: () -> Unit) {
 @Composable
 private fun HomeHeader(
     onOpenHistory: () -> Unit,
+    onOpenStorage: () -> Unit,
     onOpenAppSettings: () -> Unit,
     onOpenSupport: () -> Unit
 ) {
@@ -461,6 +464,19 @@ private fun HomeHeader(
         }
         IconButton(onClick = onOpenHistory) {
             Icon(Icons.Outlined.History, contentDescription = stringResource(R.string.history_title), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        // Storage dashboard (B6): shows device capacity, the largest media
+        // files and how much the app has already saved. A11y-safe label.
+        val storageLabel = stringResource(R.string.storage_title)
+        IconButton(
+            onClick = onOpenStorage,
+            modifier = Modifier.semantics { this.contentDescription = storageLabel }
+        ) {
+            Icon(
+                Icons.Outlined.Save,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
         // A11Y-FIX: the gear is a clickable control — material3's IconButton
         // has no contentDescription parameter (unlike material2), so the

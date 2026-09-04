@@ -181,6 +181,15 @@
 
     <!-- History -->
     <string name="history_title">History</string>
+    <string name="storage_title">Storage</string>
+    <string name="storage_capacity">Device capacity</string>
+    <string name="storage_capacity_value">%1$s of %2$s</string>
+    <string name="storage_free">%1$s free</string>
+    <string name="storage_saved_title">Space saved by compression</string>
+    <string name="storage_saved_desc">Total space this app has freed for you</string>
+    <string name="storage_largest_title">Largest media files</string>
+    <string name="storage_largest_empty">Grant media access, or there are no media files yet.</string>
+    <string name="storage_unnamed">Unnamed file</string>
     <string name="history_empty_title">No compressions yet</string>
     <string name="history_empty_desc">Everything you compress will be listed here with the space you saved.</string>
     <string name="history_clear_all">Clear history</string>

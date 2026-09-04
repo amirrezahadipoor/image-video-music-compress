@@ -26,8 +26,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Compressly"
+        android:enableOnBackInvokedCallback="true"
         tools:targetApi="35">
-
+        <!-- A4 Predictive Back: enables the predictive back gesture/animations on
+             Android 14+. Harmless on older versions; the default behaviour and
+             the Compose NavHost back dispatch are preserved. -->
         <activity
             android:name="com.compressly.MainActivity"
             android:exported="true"
