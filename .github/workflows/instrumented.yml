@@ -66,10 +66,12 @@ jobs:
           script: |
             # Run ONLY the one instrumented MediaCodec test to keep this signal
             # minimal and fast; the rest of the androidTest suite (screenshot
-            # regression, a11y scan) is out of scope for this job.
-            ./gradlew :app:connectedBazaarDebugAndroidTest \
-              -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.VideoTranscodeSmokeTest \
-              --no-daemon --stacktrace
+            # regression, a11y scan) is out of scope for this job. NOTE: keep
+            # this gradle invocation on ONE line — the emulator-runner action
+            # joins the multi-line script with spaces, so backslash line
+            # continuations become a literal `\` argument ("Task '\\' not found")
+            # and the job fails before any test runs.
+            ./gradlew :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.VideoTranscodeSmokeTest --no-daemon --stacktrace
 
       - name: Upload instrumented results
         if: always()

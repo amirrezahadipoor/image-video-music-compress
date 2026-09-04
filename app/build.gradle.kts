@@ -28,7 +28,7 @@ android {
         versionName = "1.0.${versionCode}"
 
         // Keep only the two bundled locales -> smaller resources.
-        resConfigs("fa", "en")
+        resourceConfigurations.addAll(setOf("fa", "en"))
 
         // Instrumented tests (real device/emulator smoke test).
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
