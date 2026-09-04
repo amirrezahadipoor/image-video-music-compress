@@ -313,6 +313,26 @@ fun CompressionSettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                 )
 
+                // ---- Replace original (delete source on success) ----
+                // REPLACE-ORIGINAL: an explicit, opt-in toggle. When ON, each
+                // successfully compressed file replaces its original (the source
+                // is deleted). Placed prominently (not buried in Advanced) because
+                // it is destructive and the user must see it before starting.
+                Spacer(Modifier.height(20.dp))
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.surface
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        ToggleRow(
+                            title = stringResource(R.string.replace_original_title),
+                            description = stringResource(R.string.replace_original_desc),
+                            checked = state.replaceOriginal,
+                            onCheckedChange = viewModel::setReplaceOriginal
+                        )
+                    }
+                }
+
                 // ---- Advanced ----
                 Spacer(Modifier.height(20.dp))
                 SectionHeader(stringResource(R.string.settings_advanced_section))

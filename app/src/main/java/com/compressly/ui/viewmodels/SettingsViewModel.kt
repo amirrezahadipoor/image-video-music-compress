@@ -71,7 +71,9 @@ class SettingsViewModel(private val container: AppContainer, private val context
         val startingJob: Boolean = false,
         val analyzing: Boolean = true,
         val recommended: CompressionPreset? = null,
-        val gradeEstimates: Map<CompressionPreset, Long> = emptyMap()
+        val gradeEstimates: Map<CompressionPreset, Long> = emptyMap(),
+        /** REPLACE-ORIGINAL: delete the source file after a successful compression. */
+        val replaceOriginal: Boolean = false
     )
 
     sealed class PreviewState {
@@ -454,7 +456,8 @@ class SettingsViewModel(private val container: AppContainer, private val context
     private fun buildSettings(s: UiState): CompressionSettings = when (s.mediaType) {
         MediaType.PHOTO -> CompressionSettings.Photo(
             s.photo.copy(smart = s.smart || s.preset == CompressionPreset.SMART),
-            if (s.smart) CompressionPreset.SMART else s.preset
+            if (s.smart) CompressionPreset.SMART else s.preset,
+            replaceOriginal = s.replaceOriginal
         )
         MediaType.VIDEO -> {
             // Unavailable codecs (no matching encoder on this device) fall back
@@ -468,13 +471,20 @@ class SettingsViewModel(private val container: AppContainer, private val context
             }
             CompressionSettings.Video(
                 s.video.copy(codec = codec),
-                if (s.smart) CompressionPreset.SMART else s.preset
+                if (s.smart) CompressionPreset.SMART else s.preset,
+                replaceOriginal = s.replaceOriginal
             )
         }
         MediaType.AUDIO -> CompressionSettings.Audio(
             s.audio,
-            if (s.smart) CompressionPreset.SMART else s.preset
+            if (s.smart) CompressionPreset.SMART else s.preset,
+            replaceOriginal = s.replaceOriginal
         )
+    }
+
+    /** REPLACE-ORIGINAL: toggle whether the source files are deleted on success. */
+    fun setReplaceOriginal(value: Boolean) {
+        _state.update { it.copy(replaceOriginal = value) }
     }
 
     override fun onCleared() {

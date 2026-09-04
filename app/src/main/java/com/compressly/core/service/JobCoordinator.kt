@@ -2,6 +2,7 @@ package com.compressly.core.service
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.core.content.ContextCompat
 import com.compressly.core.data.HistoryRepository
 import com.compressly.core.data.db.HistoryEntry
@@ -192,6 +193,18 @@ class JobCoordinator(
                 }
                 if (result.success) {
                     anySuccess.set(true)
+                    // REPLACE-ORIGINAL: after a genuinely successful compression the
+                    // user may have asked for the original to be deleted so the
+                    // compressed copy takes its place. Only delete when a NEW output
+                    // was actually published (outputUri present and different from the
+                    // input) — the keep-original path returns the input URI itself,
+                    // and deleting that would destroy the file we just kept.
+                    if (settings.replaceOriginal &&
+                        result.outputUri != null &&
+                        result.outputUri != result.inputUri
+                    ) {
+                        deleteOriginalOptional(result.inputUri)
+                    }
                 } else if (result.error == "cancelled") {
                     anyCancelled.set(true)
                 } else {
@@ -367,6 +380,17 @@ class JobCoordinator(
             val job = jobs[jobId] ?: return@update jobs
             jobs + (jobId to transform(job))
         }
+    }
+
+    /**
+     * REPLACE-ORIGINAL: best-effort deletion of a source file. Never fatal: the
+     * app only holds read grants for picked URIs, so a contentResolver.delete can
+     * return 0 or throw (RecoverableSecurityException on Q, SecurityException on
+     * 30+ without a delete grant). We never fail the item — worst case the
+     * original simply stays, which is safe.
+     */
+    private fun deleteOriginalOptional(uri: Uri) {
+        runCatching { context.contentResolver.delete(uri, null, null) }
     }
 
     private fun updateItem(jobId: Long, itemId: Long, transform: (ItemState) -> ItemState) {

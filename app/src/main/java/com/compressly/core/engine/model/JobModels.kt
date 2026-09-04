@@ -15,9 +15,32 @@ data class InputItem(
 sealed class CompressionSettings {
     abstract val preset: CompressionPreset
 
-    data class Photo(val settings: PhotoSettings, override val preset: CompressionPreset) : CompressionSettings()
-    data class Video(val settings: VideoSettings, override val preset: CompressionPreset) : CompressionSettings()
-    data class Audio(val settings: AudioSettings, override val preset: CompressionPreset) : CompressionSettings()
+    /**
+     * REPLACE-ORIGINAL: when true, after a file is successfully compressed the
+     * original source is deleted so the compressed copy takes its place. Only
+     * ever applied when a genuinely NEW output was published (outputUri !=
+     * inputUri) — the keep-original path reports the input URI itself as the
+     * result and must NEVER delete the file it just handed back.
+     */
+    open val replaceOriginal: Boolean = false
+
+    data class Photo(
+        val settings: PhotoSettings,
+        override val preset: CompressionPreset,
+        override val replaceOriginal: Boolean = false
+    ) : CompressionSettings()
+
+    data class Video(
+        val settings: VideoSettings,
+        override val preset: CompressionPreset,
+        override val replaceOriginal: Boolean = false
+    ) : CompressionSettings()
+
+    data class Audio(
+        val settings: AudioSettings,
+        override val preset: CompressionPreset,
+        override val replaceOriginal: Boolean = false
+    ) : CompressionSettings()
 }
 
 enum class JobStatus { RUNNING, PAUSED, CANCELLING, COMPLETED, FAILED, CANCELLED, PARTIAL }
