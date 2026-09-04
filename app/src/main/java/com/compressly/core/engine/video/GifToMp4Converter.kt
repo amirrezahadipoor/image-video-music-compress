@@ -41,8 +41,8 @@ class GifToMp4Converter(private val context: Context) {
             ?: throw GifConversionException("gif_decode")
         if (movie.width() <= 0 || movie.height() <= 0) throw GifConversionException("gif_decode")
 
-        val width = movie.width().alignEven()
-        val height = movie.height().alignEven()
+        val width = alignEven(movie.width())
+        val height = alignEven(movie.height())
         val durationMs = movie.duration().takeIf { it > 0 } ?: 1000L
 
         val fps = 15
@@ -90,7 +90,7 @@ class GifToMp4Converter(private val context: Context) {
             var t = 0L
             while (t < durationMs || frame == 0L) {
                 control.checkActive()
-                movie.setTime(t.coerceAtMost(durationMs))
+                movie.setTime(t.coerceAtMost(durationMs).toInt())
                 val canvas = surface!!.lockCanvas(null)
                 try {
                     canvas.drawColor(android.graphics.Color.BLACK)
@@ -149,7 +149,7 @@ class GifToMp4Converter(private val context: Context) {
         }
     }
 
-    private fun Int.alignEven() = if (this % 2 == 0) this else this + 1
+    private fun alignEven(v: Int) = if (v % 2 == 0) v else v + 1
 }
 
 /** Error key surfaces as a user-facing message. */

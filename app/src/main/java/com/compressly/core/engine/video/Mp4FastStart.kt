@@ -207,8 +207,8 @@ object Mp4FastStart {
     private fun readU32(raf: RandomAccessFile): Int = raf.readInt()
 
     private fun readU32b(b: ByteArray, i: Int): Int =
-        ((b[i] and 0xFF) shl 24) or ((b[i + 1] and 0xFF) shl 16) or
-            ((b[i + 2] and 0xFF) shl 8) or (b[i + 3] and 0xFF)
+        ((b[i].toInt() and 0xFF) shl 24) or ((b[i + 1].toInt() and 0xFF) shl 16) or
+            ((b[i + 2].toInt() and 0xFF) shl 8) or (b[i + 3].toInt() and 0xFF)
 
     private fun writeU32b(b: ByteArray, i: Int, v: Int) {
         b[i] = (v ushr 24).toByte(); b[i + 1] = (v ushr 16).toByte()
