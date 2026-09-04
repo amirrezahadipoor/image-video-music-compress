@@ -259,6 +259,10 @@ class MediaCodecTranscoder(private val context: Context) {
                     onProgress = { p -> onProgress(0.92f + p * 0.08f) }
                 )
             }
+            // FASTSTART-FIX: MediaMuxer writes moov AFTER mdat, so the output
+            // cannot be streamed until the whole file is read. Relocate moov
+            // before mdat (best-effort) so players can start playback early.
+            bestEffortFastStart(outputPath)
             control.checkActive()
             onProgress(1f)
             // VIDEO-FIX-2: never report a zero-byte output as success. When the
@@ -1141,3 +1145,28 @@ private suspend fun mergePass(
 
 /** Expected video-engine failure carrying a stable message key. */
 class VideoCompressionException(val key: String) : Exception(key)
+
+/**
+ * FASTSTART-FIX: best-effort relocate `moov` before `mdat` on the transcoded
+ * output so players can stream it immediately. MediaMuxer (and therefore the
+ * merge pass) writes moov last; this rewrites the container in place with the
+ * same bytes, only re-ordered. It never re-encodes and never corrupts: on any
+ * parse failure it leaves the original file untouched.
+ */
+private fun bestEffortFastStart(outputPath: String) {
+    val src = File(outputPath)
+    if (!src.exists() || src.length() <= 0) return
+    val dst = File(outputPath + ".faststart")
+    try {
+        if (Mp4FastStart.remux(src, dst) && dst.length() > 0 && dst.length() == src.length()) {
+            if (!dst.renameTo(src)) {
+                dst.copyTo(src, overwrite = true)
+                Storage.deleteQuietly(dst)
+            }
+        } else {
+            Storage.deleteQuietly(dst)
+        }
+    } catch (_: Exception) {
+        Storage.deleteQuietly(dst)
+    }
+}
