@@ -80,15 +80,16 @@ fun ActionButton(
                 onClick()
             }
             // Applied AFTER clickable so the label lands on the same node the
-            // click does. We use `semantics` (NOT clearAndSetSemantics) so the
-            // onClick action that .clickable sets on this node is PRESERVED —
-            // clearAndSetSemantics wipes the whole node's semantics, which
-            // would strip the click action and leave TalkBack/switch-access
-            // users unable to activate the button (the a11y audit only checks
-            // for a label, so it wouldn't catch that regression).
-            .semantics {
+            // click does. `mergeDescendants` folds the button's visible label
+            // (child Text) into this node, so TalkBack/uiautomator read a single
+            // node that is BOTH clickable AND labelled — a node that is only one
+            // of those is what the a11y scan flags. We do NOT use
+            // clearAndSetSemantics: that wipes the whole node's semantics and
+            // would strip the click action, leaving switch-access/TalkBack users
+            // unable to activate the button.
+            .semantics(mergeDescendants = true) {
                 role = Role.Button
-                if (text.isNotBlank()) contentDescription = text
+                contentDescription = text
             },
         contentAlignment = Alignment.Center
     ) {
@@ -137,9 +138,9 @@ fun GhostButton(
             .clip(RoundedCornerShape(26.dp))
             .background(MaterialTheme.colorScheme.surface)
             .clickable(enabled = enabled) { onClick() }
-            .semantics {
+            .semantics(mergeDescendants = true) {
                 role = Role.Button
-                if (text.isNotBlank()) contentDescription = text
+                contentDescription = text
             },
         contentAlignment = Alignment.Center
     ) {
