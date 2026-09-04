@@ -200,6 +200,13 @@ android {
         // finding — that check has no bearing on this app (no LiveData is used).
         // Disabled here so lint stays a live gate instead of crashing the job.
         disable += "NullSafeMutableLiveData"
+        // LINT-8.7-KOTLIN2-CRASH-FIX: the Compose `ComposableFlowOperatorDetector`
+        // also crashes on Kotlin 2.x (IncompatibleClassChangeError in
+        // `isFlowOperator`) because AGP 8.7.x lint is built against an older UAST
+        // ABI. Same tooling bug as above, not a real finding. The check flags a
+        // rare pattern (flow operators used inside composition); this app does
+        // not rely on it, so disable it to keep lint a live gate.
+        disable += "FlowOperatorInvokedInComposition"
     }
 }
 
