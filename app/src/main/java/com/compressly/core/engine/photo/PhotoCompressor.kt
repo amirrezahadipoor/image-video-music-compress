@@ -435,6 +435,11 @@ class PhotoCompressor(private val context: Context) {
         }
     }
 
+    // ExifInterface.TAG_ISO_SPEED_RATINGS is deprecated as a constant, but the
+    // string tag it names ("ISOSpeedRatings") is the standard field cameras
+    // write and has no non-deprecated constant to copy verbatim — we preserve
+    // EXIF metadata here, so keep copying the string and silence the symbol.
+    @Suppress("DEPRECATION")
     private val COPY_TAGS = listOf(
         ExifInterface.TAG_MAKE, ExifInterface.TAG_MODEL, ExifInterface.TAG_SOFTWARE,
         ExifInterface.TAG_ARTIST, ExifInterface.TAG_COPYRIGHT,

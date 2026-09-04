@@ -29,7 +29,9 @@ object LocaleHelper {
 
     /** Wraps [context] with the given locale configuration (API 17+). */
     fun apply(context: Context, lang: String): Context {
-        val locale = Locale(lang)
+        // Locale(lang) is deprecated; forLanguageTag is the non-deprecated
+        // equivalent and handles BCP-47 tags ("fa", "en", "fa-IR", ...).
+        val locale = Locale.forLanguageTag(lang)
         Locale.setDefault(locale)
         lastApplied = lang
         val config = Configuration(context.resources.configuration).apply { setLocale(locale) }
