@@ -25,7 +25,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
@@ -79,17 +81,19 @@ fun ActionButton(
                 }
                 onClick()
             }
-            // Applied AFTER clickable so the label lands on the same node the
-            // click does. `mergeDescendants` folds the button's visible label
-            // (child Text) into this node, so TalkBack/uiautomator read a single
-            // node that is BOTH clickable AND labelled — a node that is only one
-            // of those is what the a11y scan flags. We do NOT use
-            // clearAndSetSemantics: that wipes the whole node's semantics and
-            // would strip the click action, leaving switch-access/TalkBack users
-            // unable to activate the button.
-            .semantics(mergeDescendants = true) {
+            // A11Y-FIX (onboarding CTA @[32,520,288,576]): the scan flags a
+            // clickable node with no label. `.semantics(mergeDescendants)`
+            // alone did not surface the label on the CLICKABLE node uiautomator
+            // reads, so we reset the node and re-declare every meaningful
+            // property in one place: role + contentDescription (the label) and
+            // the onClick action itself (so the node stays a real button and
+            // TalkBack/switch-access can still activate it — clearAndSetSemantics
+            // would otherwise strip the click). The child Text is folded away,
+            // which is correct: it is now announced by the contentDescription.
+            .clearAndSetSemantics {
                 role = Role.Button
                 contentDescription = text
+                onClick { onClick(); true }
             },
         contentAlignment = Alignment.Center
     ) {
@@ -138,9 +142,10 @@ fun GhostButton(
             .clip(RoundedCornerShape(26.dp))
             .background(MaterialTheme.colorScheme.surface)
             .clickable(enabled = enabled) { onClick() }
-            .semantics(mergeDescendants = true) {
+            .clearAndSetSemantics {
                 role = Role.Button
                 contentDescription = text
+                onClick { onClick(); true }
             },
         contentAlignment = Alignment.Center
     ) {
