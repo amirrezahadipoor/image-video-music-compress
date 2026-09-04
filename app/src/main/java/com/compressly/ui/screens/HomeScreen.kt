@@ -70,6 +70,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -388,6 +389,9 @@ private fun FolderPickRow(onClick: () -> Unit) {
                     SoundEffects.play(SoundEffects.Type.CLICK)
                     onClick()
                 }
+                // A11Y: fold the row's title/description text into the
+                // clickable node so it is not an anonymous button.
+                .semantics(mergeDescendants = true) {}
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -778,6 +782,8 @@ private fun RecentRow(entry: HistoryEntry, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
+            // A11Y: fold the row's file-name/status text into the clickable node.
+            .semantics(mergeDescendants = true) {}
             .padding(horizontal = 20.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -887,6 +893,8 @@ private fun PremiumBanner(onBuy: () -> Unit) {
             .clip(RoundedCornerShape(16.dp))
             .background(primary)
             .clickable { onBuy() }
+            // A11Y: fold the banner's title/description into the clickable node.
+            .semantics(mergeDescendants = true) {}
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

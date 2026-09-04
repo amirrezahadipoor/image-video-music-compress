@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.compressly.ui.theme.GradientPrimary
@@ -78,7 +79,12 @@ fun PressableCard(
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick
-            ),
+            )
+            // A11Y: fold the card's title/subtitle text up into the clickable
+            // node so the scan's "clickable node must have text or
+            // contentDescription" rule passes — otherwise the card reads as an
+            // anonymous button.
+            .semantics(mergeDescendants = true) {},
         shape = shape,
         color = Color.Transparent
     ) {
