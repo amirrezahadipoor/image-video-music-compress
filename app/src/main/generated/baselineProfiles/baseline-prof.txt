@@ -1492,9 +1492,7 @@ Landroidx/compose/foundation/gestures/ForEachGestureKt$awaitEachGesture$2;
 HSPLandroidx/compose/foundation/gestures/ForEachGestureKt$awaitEachGesture$2;-><init>(Lkotlin/coroutines/CoroutineContext;Lkotlin/jvm/functions/Function2;Lkotlin/coroutines/Continuation;)V
 HSPLandroidx/compose/foundation/gestures/ForEachGestureKt$awaitEachGesture$2;->create(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Lkotlin/coroutines/Continuation;
 HSPLandroidx/compose/foundation/gestures/ForEachGestureKt$awaitEachGesture$2;->invokeSuspend(Ljava/lang/Object;)Ljava/lang/Object;
-Landroidx/compose/foundation/gestures/MouseWheelScrollingLogic;
 Landroidx/compose/foundation/gestures/NestedScrollScope;
-Landroidx/compose/foundation/gestures/NonTouchScrollingLogic;
 Landroidx/compose/foundation/gestures/OnScrollChangedDispatcher;
 Landroidx/compose/foundation/gestures/Orientation;
 HSPLandroidx/compose/foundation/gestures/Orientation;->$values()[Landroidx/compose/foundation/gestures/Orientation;
@@ -1583,7 +1581,6 @@ HSPLandroidx/compose/foundation/gestures/TouchSlopDetector;->getPostSlopOffset-q
 HSPLandroidx/compose/foundation/gestures/TouchSlopDetector;->mainAxis-k-4lQ0M(J)F
 PLandroidx/compose/foundation/gestures/TouchSlopDetector;->reset-k-4lQ0M(J)V
 PLandroidx/compose/foundation/gestures/TouchSlopDetector;->setOrientation(Landroidx/compose/foundation/gestures/Orientation;)V
-Landroidx/compose/foundation/gestures/TrackpadScrollingLogic;
 Landroidx/compose/foundation/gestures/snapping/PagerSnapLayoutInfoProviderKt;
 HSPLandroidx/compose/foundation/gestures/snapping/PagerSnapLayoutInfoProviderKt;->SnapLayoutInfoProvider(Landroidx/compose/foundation/pager/PagerState;Landroidx/compose/foundation/pager/PagerSnapDistance;Lkotlin/jvm/functions/Function3;)Landroidx/compose/foundation/gestures/snapping/SnapLayoutInfoProvider;
 Landroidx/compose/foundation/gestures/snapping/PagerSnapLayoutInfoProviderKt$SnapLayoutInfoProvider$1;
@@ -4815,7 +4812,6 @@ HSPLandroidx/compose/runtime/external/kotlinx/collections/immutable/implementati
 HSPLandroidx/compose/runtime/external/kotlinx/collections/immutable/implementations/immutableMap/TrieNode$ModificationResult;-><init>(Landroidx/compose/runtime/external/kotlinx/collections/immutable/implementations/immutableMap/TrieNode;I)V
 HSPLandroidx/compose/runtime/external/kotlinx/collections/immutable/implementations/immutableMap/TrieNode$ModificationResult;->getNode()Landroidx/compose/runtime/external/kotlinx/collections/immutable/implementations/immutableMap/TrieNode;
 HSPLandroidx/compose/runtime/external/kotlinx/collections/immutable/implementations/immutableMap/TrieNode$ModificationResult;->getSizeDelta()I
-HSPLandroidx/compose/runtime/external/kotlinx/collections/immutable/implementations/immutableMap/TrieNode$ModificationResult;->setNode(Landroidx/compose/runtime/external/kotlinx/collections/immutable/implementations/immutableMap/TrieNode;)V
 Landroidx/compose/runtime/external/kotlinx/collections/immutable/implementations/immutableMap/TrieNodeKt;
 HSPLandroidx/compose/runtime/external/kotlinx/collections/immutable/implementations/immutableMap/TrieNodeKt;->access$insertEntryAtIndex([Ljava/lang/Object;ILjava/lang/Object;Ljava/lang/Object;)[Ljava/lang/Object;
 HSPLandroidx/compose/runtime/external/kotlinx/collections/immutable/implementations/immutableMap/TrieNodeKt;->access$replaceEntryWithNode([Ljava/lang/Object;IILandroidx/compose/runtime/external/kotlinx/collections/immutable/implementations/immutableMap/TrieNode;)[Ljava/lang/Object;
@@ -7152,7 +7148,6 @@ HSPLandroidx/compose/ui/input/pointer/MotionEventAdapter;->createPointerInputEve
 HSPLandroidx/compose/ui/input/pointer/MotionEventAdapter;->getComposePointerId-_I2yYro(I)J
 HSPLandroidx/compose/ui/input/pointer/MotionEventAdapter;->removeStaleIds(Landroid/view/MotionEvent;)V
 PLandroidx/compose/ui/input/pointer/MotionEventAdapter;->resetFakeFingerGesture()V
-Landroidx/compose/ui/input/pointer/MotionEventHelper;
 Landroidx/compose/ui/input/pointer/Node;
 HSPLandroidx/compose/ui/input/pointer/Node;-><clinit>()V
 HSPLandroidx/compose/ui/input/pointer/Node;-><init>(Landroidx/compose/ui/Modifier$Node;)V
@@ -15584,7 +15579,6 @@ HSPLkotlinx/coroutines/ChildContinuation;->getOnCancelling()Z
 Lkotlinx/coroutines/ChildHandle;
 Lkotlinx/coroutines/ChildHandleNode;
 HSPLkotlinx/coroutines/ChildHandleNode;-><init>(Lkotlinx/coroutines/ChildJob;)V
-HSPLkotlinx/coroutines/ChildHandleNode;->invoke(Ljava/lang/Throwable;)V
 Lkotlinx/coroutines/ChildJob;
 Lkotlinx/coroutines/CompletableDeferred;
 Lkotlinx/coroutines/CompletableDeferredImpl;
@@ -15822,7 +15816,6 @@ HSPLkotlinx/coroutines/JobSupport;->nextChild(Lkotlinx/coroutines/internal/LockF
 HSPLkotlinx/coroutines/JobSupport;->notifyCompletion(Lkotlinx/coroutines/NodeList;Ljava/lang/Throwable;)V
 HSPLkotlinx/coroutines/JobSupport;->onCancelling(Ljava/lang/Throwable;)V
 HSPLkotlinx/coroutines/JobSupport;->onCompletionInternal(Ljava/lang/Object;)V
-HSPLkotlinx/coroutines/JobSupport;->parentCancelled(Lkotlinx/coroutines/ParentJob;)V
 HSPLkotlinx/coroutines/JobSupport;->plus(Lkotlin/coroutines/CoroutineContext;)Lkotlin/coroutines/CoroutineContext;
 HSPLkotlinx/coroutines/JobSupport;->promoteSingleToNodeList(Lkotlinx/coroutines/JobNode;)V
 HSPLkotlinx/coroutines/JobSupport;->removeNode$kotlinx_coroutines_core(Lkotlinx/coroutines/JobNode;)V
@@ -15834,9 +15827,6 @@ HSPLkotlinx/coroutines/JobSupport;->toCancellationException(Ljava/lang/Throwable
 HSPLkotlinx/coroutines/JobSupport;->tryFinalizeSimpleState(Lkotlinx/coroutines/Incomplete;Ljava/lang/Object;)Z
 HSPLkotlinx/coroutines/JobSupport;->tryMakeCompleting(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
 HSPLkotlinx/coroutines/JobSupport;->tryMakeCompletingSlowPath(Lkotlinx/coroutines/Incomplete;Ljava/lang/Object;)Ljava/lang/Object;
-HSPLkotlinx/coroutines/JobSupport;->tryWaitForChild(Lkotlinx/coroutines/JobSupport$Finishing;Lkotlinx/coroutines/ChildHandleNode;Ljava/lang/Object;)Z
-Lkotlinx/coroutines/JobSupport$ChildCompletion;
-HSPLkotlinx/coroutines/JobSupport$ChildCompletion;-><init>(Lkotlinx/coroutines/JobSupport;Lkotlinx/coroutines/JobSupport$Finishing;Lkotlinx/coroutines/ChildHandleNode;Ljava/lang/Object;)V
 Lkotlinx/coroutines/JobSupport$Finishing;
 HSPLkotlinx/coroutines/JobSupport$Finishing;-><clinit>()V
 HSPLkotlinx/coroutines/JobSupport$Finishing;-><init>(Lkotlinx/coroutines/NodeList;ZLjava/lang/Throwable;)V
@@ -15959,7 +15949,6 @@ HSPLkotlinx/coroutines/channels/BufferedChannel;->getSendSegment$volatile$FU()Lj
 HSPLkotlinx/coroutines/channels/BufferedChannel;->getSendersAndCloseStatus$volatile$FU()Ljava/util/concurrent/atomic/AtomicLongFieldUpdater;
 HSPLkotlinx/coroutines/channels/BufferedChannel;->getSendersCounter$kotlinx_coroutines_core()J
 HSPLkotlinx/coroutines/channels/BufferedChannel;->get_closeCause$volatile$FU()Ljava/util/concurrent/atomic/AtomicReferenceFieldUpdater;
-HSPLkotlinx/coroutines/channels/BufferedChannel;->hasElements$kotlinx_coroutines_core()Z
 HSPLkotlinx/coroutines/channels/BufferedChannel;->incCompletedExpandBufferAttempts$default(Lkotlinx/coroutines/channels/BufferedChannel;JILjava/lang/Object;)V
 HSPLkotlinx/coroutines/channels/BufferedChannel;->incCompletedExpandBufferAttempts(J)V
 HSPLkotlinx/coroutines/channels/BufferedChannel;->invokeCloseHandler()V
@@ -16610,7 +16599,6 @@ HSPLkotlinx/coroutines/internal/ResizableAtomicArray;->get(I)Ljava/lang/Object;
 HSPLkotlinx/coroutines/internal/ResizableAtomicArray;->setSynchronized(ILjava/lang/Object;)V
 Lkotlinx/coroutines/internal/ScopeCoroutine;
 HSPLkotlinx/coroutines/internal/ScopeCoroutine;-><init>(Lkotlin/coroutines/CoroutineContext;Lkotlin/coroutines/Continuation;)V
-HSPLkotlinx/coroutines/internal/ScopeCoroutine;->afterCompletionUndispatched()V
 HSPLkotlinx/coroutines/internal/ScopeCoroutine;->afterResume(Ljava/lang/Object;)V
 Lkotlinx/coroutines/internal/Segment;
 HSPLkotlinx/coroutines/internal/Segment;-><clinit>()V
