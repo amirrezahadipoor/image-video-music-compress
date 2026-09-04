@@ -75,6 +75,10 @@ class StartupBenchmarks {
     }
 
     private companion object {
-        const val TIMEOUT_MS = 5_000L
+        // A cold CI emulator (debug APK, no baseline profile, slow first boot)
+        // can take >5s to surface the launch window; wait generously here.
+        // This only bounds how long we WAIT for the activity window — it does
+        // not change the measured TTID/TTFD, which the framework captures.
+        const val TIMEOUT_MS = 10_000L
     }
 }
