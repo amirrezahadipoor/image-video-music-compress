@@ -66,7 +66,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -476,24 +475,21 @@ private fun HomeHeader(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        // A11Y-FIX: the gear is a clickable control — material3's IconButton
-        // has no contentDescription parameter (unlike material2), so the
-        // label goes on the node's semantics. Without it TalkBack announces
-        // an anonymous "button" and the accessibility scan fails.
-        val gearLabel = stringResource(R.string.app_settings_title)
+        // A11Y-FIX: the gear is a clickable control. The label must sit on the
+        // node the scan reads — putting it only on the IconButton's semantics
+        // left the inner clickable node unlabeled, which the scan flagged
+        // (@[164,75,212,123]). Carry it on the Icon itself (via RotatingGear).
         IconButton(
             onClick = {
                 spin++
                 SoundEffects.play(SoundEffects.Type.CLICK)
                 onOpenAppSettings()
-            },
-            modifier = Modifier.semantics {
-                this.contentDescription = gearLabel
             }
         ) {
             RotatingGear(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                spinKey = spin
+                spinKey = spin,
+                contentDescription = stringResource(R.string.app_settings_title)
             )
         }
     }

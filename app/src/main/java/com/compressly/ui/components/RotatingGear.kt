@@ -29,7 +29,10 @@ fun RotatingGear(
     tint: Color,
     size: Dp = 24.dp,
     infinite: Boolean = false,
-    spinKey: Int = 0
+    spinKey: Int = 0,
+    /** A11y label for the gear. When null the gear stays decorative and the
+     *  surrounding control must carry its own contentDescription. */
+    contentDescription: String? = null
 ) {
     if (infinite) {
         val transition = rememberInfiniteTransition(label = "gear")
@@ -39,7 +42,7 @@ fun RotatingGear(
             animationSpec = infiniteRepeatable(tween(durationMillis = 9000, easing = LinearEasing)),
             label = "gearAngle"
         )
-        GearIcon(modifier, tint, size, angle)
+        GearIcon(modifier, tint, size, angle, contentDescription)
     } else {
         // One-shot spin triggered by spinKey increments.
         val angle by animateFloatAsState(
@@ -47,15 +50,15 @@ fun RotatingGear(
             animationSpec = tween(durationMillis = 650),
             label = "gearSpin"
         )
-        GearIcon(modifier, tint, size, angle)
+        GearIcon(modifier, tint, size, angle, contentDescription)
     }
 }
 
 @Composable
-private fun GearIcon(modifier: Modifier, tint: Color, size: Dp, angle: Float) {
+private fun GearIcon(modifier: Modifier, tint: Color, size: Dp, angle: Float, contentDescription: String?) {
     Icon(
         imageVector = Icons.Outlined.Settings,
-        contentDescription = null,
+        contentDescription = contentDescription,
         tint = tint,
         modifier = modifier
             .size(size)
