@@ -70,8 +70,18 @@ Home، Onboarding، History، Result، Progress، تنظیمات فشردهسا�
 
 ---
 
-## نکتههای صادقانه (در کد نیست / عمداً deferred)
-- **تبدیل GIF→MP4:** پیادهسازی نشده (GIF از عکس مستثناست و در هیچ موتور first-class قرار ندارد).
-- **fast-start / moov-before-mdat (بهینهسازی استریم):** پیادهسازی نشده.
-- **bump شدن targetSdk به ۳۶:** هنوز روی ۳۵ است؛ برای ثبات build و چون قابل تست runtime نیست عمداً انجام نشد (اپلکیشن روی هدف ۳۵ بهدرستی کار میکند).
-- تستهای instrumented ایمولاتور طبق درخواست از CI حذف شدند؛ مسیرهای runtime MediaCodec توسط build ریلیز + ۲۲۸ تست JVM پوشش داده میشوند.
+## موارد تازه‌اضافه‌شده
+- **تبدیل GIF→MP4:** اول‌کلاس. GIF در `Compressor` روت می‌شود و با `GifToMp4Converter`
+  (کدک H.264، ۱۵fps، بیتریت `w*h*fps*0.16` محدود به ۸۰۰k تا ۲۰M، مدت‌زمان حداقل ۱ ثانیه)
+  به MP4 تبدیل شده و به‌صورت `video/mp4` منتشر می‌شود؛ خطا با `GifConversionException(key)` سطح‌دار.
+- **fast-start / moov-before-mdat (بهینه‌سازی استریم):** `Mp4FastStart` یک remux وابسته-به-چیزی-نیست
+  که `moov` را قبل از `mdat` می‌نهد و `stco`/`co64` را با delta اصلاح می‌کند؛ بدون باز-کدینگ، استریمِ
+  حجیم با محدودسازی read به اندازهٔ باقی‌مانده. در `MediaCodecTranscoder` بلافاصله بعد از mux شدن اعمال می‌شود.
+- **targetSdk = 36 و compileSdk = 36؛ Compose BOM 2026.04.01 (1.11):** ارتقا یافته؛ edge-to-edge و predictive back فعال.
+- **سیگنال runtime MediaCodec:** یک job ایزوله و مینیمال در CI (`instrumented.yml`) که فقط
+  `VideoTranscodeSmokeTest` را روی یک ایمولاتور API 35 اجرا می‌کند (continue-on-error، بدون قرمز کردن commit).
+
+## نکته‌های صادقانه (همچنان deferred)
+- **ایمولاتور سه‌پاس visual-diff:** طبق درخواست حذف شد؛ بازگردانده نمی‌شود. سیگنال runtime
+  اکنون همان تست مینیمال MediaCodec بالا است.
+- **پردازش موازی/parallel encode ویدیو و دوپاس کاملاً پویا/فیدبک-loop:** هنوز به‌صورت دسته‌ای است.

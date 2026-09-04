@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>حجمنو / Compressly — فشرده‌ساز آفلاین عکس، ویدیو و صدا</title>
+<!--
+  Self-contained, dependency-free landing page for the Café Bazaar listing and
+  the marketing site. Everything (styles, the brand glyph, the store mockups)
+  is inline / data-URI so it renders in any browser or offline preview with no
+  network. Brand colors are taken from the app itself:
+    splash/window dark  #12131B   window light  #F7F7FB
+    primary gradient    indigo #5B21C9  →  violet #8B5CF6  (launcher artifact)
+  The funnel/compress glyph below is a faithful inline SVG of the launcher.
+-->
+<style>
+  :root{
+    --ink:#12131B; --ink2:#0E0F16; --bg:#F7F7FB;
+    --indigo:#5B21C9; --violet:#8B5CF6; --accent:#A78BFA; --soft:#6B7280;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Vazirmatn,sans-serif;
+       background:var(--ink);color:#EDEEF6;line-height:1.7;direction:rtl}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  .hero{padding:64px 0 48px;text-align:center;background:
+        radial-gradient(1200px 600px at 50% -10%, rgba(139,92,246,.35), transparent 60%), var(--ink)}
+  .glyph{width:96px;height:96px;margin:0 auto 18px;display:block;
+         border-radius:24px;background:linear-gradient(135deg,var(--indigo),var(--violet));
+         box-shadow:0 12px 40px rgba(139,92,246,.45);padding:18px}
+  h1{font-size:clamp(28px,5vw,44px);margin:0 0 10px;line-height:1.25}
+  .tag{color:var(--accent);font-size:clamp(16px,2.4vw,20px);font-weight:600}
+  .lede{max-width:760px;margin:18px auto 0;color:#C9CCDD;font-size:clamp(15px,2.2vw,18px)}
+  .cta{display:inline-block;margin-top:26px;padding:14px 34px;border-radius:999px;
+       background:linear-gradient(135deg,var(--indigo),var(--violet));color:#fff;
+       font-weight:700;text-decoration:none;box-shadow:0 10px 30px rgba(139,92,246,.4)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin:36px 0}
+  .card{background:#1A1C28;border:1px solid #262A3C;border-radius:16px;padding:24px}
+  .card h3{margin:0 0 8px;color:#fff;font-size:19px}
+  .card p{margin:0;color:#A9AEC2;font-size:15px}
+  .pill{display:inline-block;background:rgba(139,92,246,.15);color:var(--accent);
+        border:1px solid rgba(139,92,246,.4);border-radius:999px;padding:4px 14px;
+        font-size:13px;margin:0 0 10px}
+  section{padding:44px 0;border-top:1px solid #222536}
+  section.alt{background:var(--ink2)}
+  h2{color:#fff;font-size:clamp(22px,3.4vw,30px);margin:0 0 6px}
+  .sub{color:var(--accent);font-weight:600;margin:0 0 22px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px}
+  .shot{background:#0B0D15;border:1px solid #262A3C;border-radius:18px;overflow:hidden}
+  .shot img{width:100%;display:block;aspect-ratio:9/16;object-fit:cover;background:#0B0D15}
+  .shot figcaption{padding:12px 16px;color:#A9AEC2;font-size:14px}
+  .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-top:20px}
+  .num{font-size:34px;font-weight:800;color:var(--accent);margin:0}
+  .num span{font-size:16px;color:#C9CCDD;font-weight:600}
+  .privacy{background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.3);
+           border-radius:16px;padding:26px;margin-top:22px}
+  .privacy b{color:#fff}
+  footer{padding:48px 0 32px;text-align:center;color:#8B90A6;font-size:14px}
+  .note{color:#6B7280;font-size:13px}
+  .en{font-size:13px;color:#8B90A6;margin-top:6px}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">
+      <g fill="#fff">
+        <path d="M5 4h14l-4 5H9L5 4z"/>
+        <path d="M8 10h8l-3 4h-2l-3-4z"/>
+        <path d="M11 15h2l1 3-4 2 1-5z"/>
+      </g>
+    </svg>
+    <h1>حجمنو — فشرده‌ساز کامل و آفلاین</h1>
+    <div class="tag">عکس · ویدیو · صدا — همه روی خودِ گوشی، بدون آپلود</div>
+    <p class="lede">
+      حجم عکس، ویدیو و صدای‌تان را کم کنید؛ تا <b>۴K و ۶۰ فریم</b>، با کدک H.264 / H.265 / AV1،
+      تریم، هدف‌حجم و HDR — و اگر بازکدینگ فایل را کوچک‌تر نکرد، <b>اصالتاً</b> خود فایل اصلی برمی‌گردد.
+    </p>
+    <a class="cta" href="#features">مشاهده امکانات</a>
+    <div class="en">Compressly — font size, keep original, offline-first compressor</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="features">
+    <h2>چرا حجمنو؟</h2>
+    <p class="sub">سه کار اصلی در یک برنامه</p>
+    <div class="cards">
+      <div class="card"><span class="pill">عکس</span><h3>فشرده‌سازی عکس</h3>
+        <p>JPEG / WEBP / PNG، تغییر ابعاد، نردبان تطبیقی کیفیت ۸۵→۷۸→۷۲، حفظ یا حذف EXIF، گارد HEIC.</p>
+        <p class="en">Photos: adaptive quality ladder, EXIF control, HEIC guard.</p></div>
+      <div class="card"><span class="pill">ویدیو</span><h3>فشرده‌سازی ویدیو</h3>
+        <p>H.264 / HEVC / AV1، تا 4K60 و HDR10/HDR10+، تریم آگاه به key-frame، هدف‌حجم «زیر N مگابایت»، دوپاس با گارد مین‌بیتریت.</p>
+        <p class="en">Video: AV1/HEVC, 4K60, HDR pass-through, trim, target size, smart no-gain guard.</p></div>
+      <div class="card"><span class="pill">صدا</span><h3>فشرده‌سازی صدا</h3>
+        <p>AAC و MP3، ۶۴–۳۲۰k، VBR/CBR، حفظ متادیتا و گارد کاهش‌نیافتن حجم.</p>
+        <p class="en">Audio: AAC/MP3, 64–320k, VBR/CBR, metadata kept.</p></div>
+    </div>
+
+    <div class="privacy">
+      <b>حریم خصوصی سنگ‌بناست:</b> <b>هیچ مجوز اینترنت در برنامه نیست.</b> فایل‌ها هرگز از گوشی خارج نمی‌شوند؛
+      هیچ SDK ردیابی، هیچ آپلود، هیچ متادیتایی ارسال نمی‌شود.
+      <div class="en">No INTERNET permission. Files never leave your device — no tracking SDK, no uploads.</div>
+    </div>
+  </section>
+
+  <section class="alt">
+    <h2>محصول چطور به‌دست می‌آید</h2>
+    <p class="sub">همه‌چیز آنی و شفاف</p>
+    <div class="two">
+      <div><p class="num">4K<span> تا ۶۰fps پشتیبانی</span></p></div>
+      <div><p class="num">۵<span> پروفایل فشرده‌سازی (SMART + ۴ پله)</span></p></div>
+      <div><p class="num">۰<span> آپلود / بدون اینترنت</span></p></div>
+      <div><p class="num">۱۲<span> صفحه، RTL فارسی + انگلیسی</span></p></div>
+    </div>
+    <div class="two">
+      <div><p class="num">۱۰۰٪<span> آفلاین و روی خودِ دستگاه</span></p></div>
+      <div><p class="num">۲۲۸<span> تست JVM سبز در CI</span></p></div>
+      <div><p class="num">A12+<span> بازگرداندن اصلی در صورت بی‌سود</span></p></div>
+    </div>
+  </section>
+
+  <section id="screens">
+    <h2>پیش‌نمایش</h2>
+    <p class="sub">نگاه سریع به رابط کاربری</p>
+    <div class="grid">
+      <figure class="shot"><img src="screenshots/01-home.png" alt="نمای برنامه">
+        <figcaption>نمای اصلی — انتخاب عکس / ویدیو / صدا</figcaption></figure>
+      <figure class="shot"><img src="screenshots/02-before-after.png" alt="اسلایدر قبل/بعد">
+        <figcaption>اسلایدر قبل/بعد و صرفه‌جویی حجم</figcaption></figure>
+      <figure class="shot"><img src="screenshots/03-video-progress.png" alt="داشبورد ذخیره‌سازی">
+        <figcaption>داشبورد ذخیره‌سازی و پیشرفت + ETA</figcaption></figure>
+    </div>
+    <p class="note">تصاویر نمونه در پوشه‌ی <code>branding/screenshots/</code> قرار دارند؛ در همین توضیح جای می‌گیرند.</p>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>حجمنو · Compressly</div>
+    <div class="en">Privacy-first, fully offline image / video / audio compressor.</div>
+  </div>
+</footer>
+
+</body>
+</html>
