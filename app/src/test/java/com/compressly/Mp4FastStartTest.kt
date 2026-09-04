@@ -164,7 +164,10 @@ class Mp4FastStartTest {
     fun nonMp4IsLeftUntouched() {
         val src = tmp.newFile("random.bin")
         src.writeBytes("this is not an mp4 file at all".toByteArray())
-        val dst = tmp.newFile("random_out.bin")
+        // NOT tmp.newFile: the rule pre-creates the file, so exists() is always true.
+        // remux must not create dst for a non-MP4, so use a path that doesn't exist.
+        val dst = File(tmp.root, "random_out.bin")
+        if (dst.exists()) dst.delete()
         // No parseable boxes -> must return false and leave dst absent.
         assertFalse(Mp4FastStart.remux(src, dst))
         assertFalse(dst.exists())

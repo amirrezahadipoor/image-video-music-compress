@@ -135,6 +135,10 @@ object Mp4FastStart {
             var remaining = n
             while (remaining > 0) {
                 buf.clear()
+                // Cap each read to what we still need: FileChannel.read reads up to
+                // the buffer's limit, and WITHOUT this the caller's copy would
+                // silently swallow the rest of the file past `n`.
+                buf.limit(minOf(buf.capacity().toLong(), remaining).toInt())
                 val read = ch.read(buf)
                 if (read < 0) break
                 buf.flip()
