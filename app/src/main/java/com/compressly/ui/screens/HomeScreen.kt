@@ -466,15 +466,13 @@ private fun HomeHeader(
             Icon(Icons.Outlined.History, contentDescription = stringResource(R.string.history_title), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         // Storage dashboard (B6): shows device capacity, the largest media
-        // files and how much the app has already saved. A11y-safe label.
-        val storageLabel = stringResource(R.string.storage_title)
-        IconButton(
-            onClick = onOpenStorage,
-            modifier = Modifier.semantics { this.contentDescription = storageLabel }
-        ) {
+        // files and how much the app has already saved. A11y-safe label —
+        // set on the Icon itself (the same pattern as the History icon, which
+        // the scan passes), not only on the IconButton node.
+        IconButton(onClick = onOpenStorage) {
             Icon(
                 Icons.Outlined.Save,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.storage_title),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
