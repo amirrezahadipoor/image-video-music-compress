@@ -70,7 +70,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -389,9 +388,12 @@ private fun FolderPickRow(onClick: () -> Unit) {
                     SoundEffects.play(SoundEffects.Type.CLICK)
                     onClick()
                 }
-                // A11Y: fold the row's title/description text into the
-                // clickable node so it is not an anonymous button.
-                .semantics(mergeDescendants = true) {}
+                // A11Y: label the folder row on its clickable node.
+                .clearAndSetSemantics {
+                    role = Role.Button
+                    contentDescription = stringResource(R.string.folder_pick_title)
+                    onClick { onClick(); true }
+                }
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -727,7 +729,8 @@ private fun ModuleCard(
     com.compressly.ui.components.PressableCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp)
+        shape = RoundedCornerShape(22.dp),
+        label = title
     ) {
     Row(
         modifier = Modifier
@@ -782,8 +785,12 @@ private fun RecentRow(entry: HistoryEntry, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            // A11Y: fold the row's file-name/status text into the clickable node.
-            .semantics(mergeDescendants = true) {}
+            // A11Y: label the row with its file name on the clickable node.
+            .clearAndSetSemantics {
+                role = Role.Button
+                contentDescription = Bidi.isolate(entry.fileName)
+                onClick { onClick(); true }
+            }
             .padding(horizontal = 20.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -893,8 +900,12 @@ private fun PremiumBanner(onBuy: () -> Unit) {
             .clip(RoundedCornerShape(16.dp))
             .background(primary)
             .clickable { onBuy() }
-            // A11Y: fold the banner's title/description into the clickable node.
-            .semantics(mergeDescendants = true) {}
+            // A11Y: label the banner on its clickable node.
+            .clearAndSetSemantics {
+                role = Role.Button
+                contentDescription = stringResource(R.string.premium_title)
+                onClick { onBuy(); true }
+            }
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

@@ -38,7 +38,11 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.compressly.ui.theme.GradientPrimary
@@ -53,6 +57,10 @@ fun PressableCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     shape: RoundedCornerShape = RoundedCornerShape(22.dp),
+    /** A11y label for the card. When provided the card node is labelled with
+     *  it; the child title text is folded away (announced by this description).
+     *  If null the card keeps its plain clickable semantics. */
+    label: String? = null,
     content: @Composable () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -70,21 +78,28 @@ fun PressableCard(
         animationSpec = spring(stiffness = Spring.StiffnessHigh),
         label = "press_elev"
     )
+    val surfaceModifier = modifier
+        .scale(scale)
+        .shadow(elevation, shape, clip = false)
+        .clip(shape)
+        .clickable(
+            interactionSource = interactionSource,
+            indication = null,
+            onClick = onClick
+        )
+        // A11Y: the card node must be both labelled and activatable. uiautomator
+        // reads the node uiautomator exposes, not the merged (folded) semantics
+        // object, so mergeDescendants leaves it unlabeled. Reset the node and
+        // re-declare role + label + onClick on the same node the scan reads.
+        .let { m ->
+            if (label != null) m.clearAndSetSemantics {
+                role = Role.Button
+                contentDescription = label
+                onClick { onClick(); true }
+            } else m
+        }
     Surface(
-        modifier = modifier
-            .scale(scale)
-            .shadow(elevation, shape, clip = false)
-            .clip(shape)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick
-            )
-            // A11Y: fold the card's title/subtitle text up into the clickable
-            // node so the scan's "clickable node must have text or
-            // contentDescription" rule passes — otherwise the card reads as an
-            // anonymous button.
-            .semantics(mergeDescendants = true) {},
+        modifier = surfaceModifier,
         shape = shape,
         color = Color.Transparent
     ) {
