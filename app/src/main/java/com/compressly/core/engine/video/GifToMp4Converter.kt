@@ -43,7 +43,7 @@ class GifToMp4Converter(private val context: Context) {
 
         val width = alignEven(movie.width())
         val height = alignEven(movie.height())
-        val durationMs = movie.duration().takeIf { it > 0 } ?: 1000L
+        val durationMs = movie.duration().takeIf { it > 0 }?.toLong() ?: 1000L
 
         val fps = 15
         val frameCount = max(1, (durationMs * fps / 1000L).toInt())
