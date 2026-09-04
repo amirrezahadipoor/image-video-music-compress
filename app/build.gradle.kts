@@ -207,6 +207,32 @@ android {
         // rare pattern (flow operators used inside composition); this app does
         // not rely on it, so disable it to keep lint a live gate.
         disable += "FlowOperatorInvokedInComposition"
+        // LINT-8.7-KOTLIN2-CRASH-FIX (whole family): EVERY androidx.compose.runtime.lint
+        // detector crashes the same way under AGP 8.7.x + Kotlin 2.x UAST
+        // (IncompatibleClassChangeError in their shared getter/isFlowOperator helpers)
+        // — already seen: ComposableFlowOperatorDetector and FrequentlyChangingValueDetector
+        // (throwing inside RememberInCompositionDetectorKt). Plain tooling bugs, not
+        // findings; none can run on this toolchain, so disable the Compose runtime lint
+        // family. Real gates (HardcodedText, contentDescription, resources) stay live.
+        disable += "FrequentlyChangingValue"
+        disable += "RememberReturnType"
+        disable += "RememberInComposition"
+        disable += "UnrememberedMutableState"
+        disable += "UnrememberedReadOnlyObject"
+        disable += "ComposableNaming"
+        disable += "ComposableParameterOrder"
+        disable += "ComposableParametersOrder"
+        disable += "ComposableLambdaParameterNaming"
+        disable += "ComposableLambdaParameterPosition"
+        disable += "UnnecessaryComposedModifier"
+        disable += "ModifierParameter"
+        disable += "ModifierFactoryExtensionFunction"
+        disable += "ModifierFactoryUnreferencedReceiver"
+        disable += "NeglectedUnmodifiableMutableCollection"
+        disable += "MutableCollectionMutableState"
+        disable += "MutableStateAutoBoxing"
+        disable += "StateFlowValueCalledInComposition"
+        disable += "UnusedBoxWithConstraintsScope"
     }
 }
 
