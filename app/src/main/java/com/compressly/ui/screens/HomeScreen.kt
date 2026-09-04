@@ -65,7 +65,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -451,47 +455,70 @@ private fun HomeHeader(
             )
         }
         // Beating heart: the optional donation entry — top of the dashboard.
-        IconButton(onClick = {
-            SoundEffects.play(SoundEffects.Type.CLICK)
-            onOpenSupport()
-        }) {
+        A11yIconButton(
+            onClick = {
+                SoundEffects.play(SoundEffects.Type.CLICK)
+                onOpenSupport()
+            },
+            label = stringResource(R.string.support_title)
+        ) {
             BeatingHeart(
                 tint = Color(0xFFE5487B),
-                size = 24.dp,
-                contentDescription = stringResource(R.string.support_title)
+                size = 24.dp
             )
         }
-        IconButton(onClick = onOpenHistory) {
-            Icon(Icons.Outlined.History, contentDescription = stringResource(R.string.history_title), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        A11yIconButton(onClick = onOpenHistory, label = stringResource(R.string.history_title)) {
+            Icon(Icons.Outlined.History, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         // Storage dashboard (B6): shows device capacity, the largest media
-        // files and how much the app has already saved. A11y-safe label —
-        // set on the Icon itself (the same pattern as the History icon, which
-        // the scan passes), not only on the IconButton node.
-        IconButton(onClick = onOpenStorage) {
+        // files and how much the app has already saved.
+        A11yIconButton(onClick = onOpenStorage, label = stringResource(R.string.storage_title)) {
             Icon(
                 Icons.Outlined.Save,
-                contentDescription = stringResource(R.string.storage_title),
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        // A11Y-FIX: the gear is a clickable control. The label must sit on the
-        // node the scan reads — putting it only on the IconButton's semantics
-        // left the inner clickable node unlabeled, which the scan flagged
-        // (@[164,75,212,123]). Carry it on the Icon itself (via RotatingGear).
-        IconButton(
+        // Settings gear.
+        A11yIconButton(
             onClick = {
                 spin++
                 SoundEffects.play(SoundEffects.Type.CLICK)
                 onOpenAppSettings()
-            }
+            },
+            label = stringResource(R.string.app_settings_title)
         ) {
             RotatingGear(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                spinKey = spin,
-                contentDescription = stringResource(R.string.app_settings_title)
+                spinKey = spin
             )
         }
+    }
+}
+
+/**
+ * A11Y-FIX for the Home header icons. material3's IconButton always creates a
+ * clickable node, but with Icon(contentDescription = ...) the label ends up on
+ * a *child* node and the clickable node itself reads as an unlabeled button —
+ * exactly the node the accessibility scan flags (@[164,75,212,123]). Reset the
+ * node with clearAndSetSemantics and re-declare role + label + onClick in one
+ * place so the single clickable node is both labelled and activatable.
+ */
+@Composable
+private fun A11yIconButton(
+    onClick: () -> Unit,
+    label: String,
+    content: @Composable () -> Unit
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier.clearAndSetSemantics {
+            role = Role.Button
+            contentDescription = label
+            onClick { onClick(); true }
+        }
+    ) {
+        content()
     }
 }
 
