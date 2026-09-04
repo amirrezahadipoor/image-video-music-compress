@@ -373,6 +373,7 @@ fun HomeScreen(
 @Composable
 private fun FolderPickRow(onClick: () -> Unit) {
     val context = LocalContext.current
+    val folderPickTitle = stringResource(R.string.folder_pick_title)
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -391,7 +392,7 @@ private fun FolderPickRow(onClick: () -> Unit) {
                 // A11Y: label the folder row on its clickable node.
                 .clearAndSetSemantics {
                     role = Role.Button
-                    contentDescription = stringResource(R.string.folder_pick_title)
+                    contentDescription = folderPickTitle
                     onClick { onClick(); true }
                 }
                 .padding(horizontal = 16.dp, vertical = 14.dp),
@@ -893,6 +894,7 @@ private fun Thumbnail(entry: HistoryEntry) {
 private fun PremiumBanner(onBuy: () -> Unit) {
     val primary = MaterialTheme.colorScheme.primary
     val onPrimary = MaterialTheme.colorScheme.onPrimary
+    val premiumTitle = stringResource(R.string.premium_title)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -903,7 +905,7 @@ private fun PremiumBanner(onBuy: () -> Unit) {
             // A11Y: label the banner on its clickable node.
             .clearAndSetSemantics {
                 role = Role.Button
-                contentDescription = stringResource(R.string.premium_title)
+                contentDescription = premiumTitle
                 onClick { onBuy(); true }
             }
             .padding(horizontal = 16.dp, vertical = 14.dp),
