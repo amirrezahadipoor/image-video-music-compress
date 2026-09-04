@@ -12,19 +12,19 @@ plugins {
 
 android {
     namespace = "ir.siliksama.hajmino"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "ir.siliksama.hajmino"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         // VERSION-NAME-FIX: versionName used to be frozen at "1.0.0" forever,
         // which is fine for install ordering (Android keys on versionCode) but
         // confusing for users and release notes — every build advertised the
         // same version. It is now derived from versionCode so it is always a
         // visible, increasing, unique string ("1.0.7", "1.0.8", …) while
         // versionCode stays the only real upgrade signal.
-        versionCode = 7
+        versionCode = 8
         versionName = "1.0.${versionCode}"
 
         // Keep only the two bundled locales -> smaller resources.
