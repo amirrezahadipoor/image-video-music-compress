@@ -67,14 +67,13 @@ jobs:
             # app automatically (macrobenchmark issue history) — install the
             # bazaar debug APK explicitly first.
             ./gradlew :app:installBazaarDebug --no-daemon
-            # A cold-start measurement on a CI emulator is inherently noisy:
-            # a single flaked sample (device-wait timeout, boot/thermal jitter)
-            # costs the whole trend point. This is a TREND, not a pass/fail gate,
-            # so retry the measurement once before giving up on the sample.
-            if ! ./gradlew :benchmark:connectedBazaarDebugAndroidTest --no-daemon; then
-              echo "== macrobenchmark measurement flaked; retrying once =="
-              ./gradlew :benchmark:connectedBazaarDebugAndroidTest --no-daemon
-            fi
+            # A cold-start measurement on a CI emulator is inherently noisy: a
+            # single flaked sample (device-wait timeout, boot/thermal jitter)
+            # costs the whole trend point. It is a TREND, not a pass/fail gate,
+            # so retry once. NOTE: the emulator-runner action collapses the
+            # multi-line script, so keep this a SINGLE line (no \ continuations,
+            # no multi-line if/fi) — else sh gets an unterminated block.
+            ./gradlew :benchmark:connectedBazaarDebugAndroidTest --no-daemon || ./gradlew :benchmark:connectedBazaarDebugAndroidTest --no-daemon
 
       - name: Upload raw benchmark results
         if: always()
