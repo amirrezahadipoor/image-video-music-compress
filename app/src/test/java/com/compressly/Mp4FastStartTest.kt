@@ -33,17 +33,17 @@ class Mp4FastStartTest {
     }
 
     private fun writeInt(out: ByteArrayOutputStream, v: Int) {
-        out.write((v ushr 24) and 0xFF); out.write((v ushr 16) and 0xFF)
-        out.write((v ushr 8) and 0xFF); out.write(v and 0xFF)
+        out.write(v ushr 24); out.write(v ushr 16)
+        out.write(v ushr 8); out.write(v)
     }
 
     private fun writeLong(out: ByteArrayOutputStream, v: Long) {
-        for (k in 0 until 8) out.write(((v ushr (56 - 8 * k)) and 0xFF).toInt())
+        for (k in 0 until 8) out.write(((v ushr (56 - 8 * k)) and 0xFFL).toInt())
     }
 
     private fun readInt(b: ByteArray, i: Int): Int =
-        ((b[i] and 0xFF) shl 24) or ((b[i + 1] and 0xFF) shl 16) or
-            ((b[i + 2] and 0xFF) shl 8) or (b[i + 3] and 0xFF)
+        ((b[i].toInt() and 0xFF) shl 24) or ((b[i + 1].toInt() and 0xFF) shl 16) or
+            ((b[i + 2].toInt() and 0xFF) shl 8) or (b[i + 3].toInt() and 0xFF)
 
     private fun findBox(b: ByteArray, type: String): Pair<Int, Int>? {
         var pos = 0
