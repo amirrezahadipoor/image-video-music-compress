@@ -14,7 +14,9 @@ import com.compressly.core.engine.model.PhotoFormat
 import com.compressly.core.engine.model.PhotoSettings
 import com.compressly.core.engine.photo.PhotoCompressionException
 import com.compressly.core.engine.photo.PhotoCompressor
+import com.compressly.core.engine.video.GifToMp4Converter
 import com.compressly.core.engine.video.MediaCodecTranscoder
+import com.compressly.core.engine.video.GifConversionException
 import com.compressly.core.engine.video.VideoCompressionException
 import com.compressly.core.data.OutputStore
 import com.compressly.core.util.Storage
@@ -146,6 +148,10 @@ class Compressor(private val context: Context) {
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
         val mime = context.contentResolver.getType(item.uri)
+        // GIF-FIX: an animated GIF is not a static photo — flattening it to a
+        // single JPEG/WebP frame loses the animation. Convert it to a playable
+        // MP4 instead (and never modify the source GIF).
+        if (mime == "image/gif") return compressGif(item, control, onProgress)
         val photoEngine = PhotoCompressor(context)
         val temp = photoEngine.compress(item.uri, mime, settings, control) {
             onProgress(ItemPhase.COMPRESSING, it)
@@ -233,6 +239,29 @@ class Compressor(private val context: Context) {
      * entry in the user's photo app. The input URI is already a stable,
      * readable, shareable content URI, so it is returned directly.
      */
+    private suspend fun compressGif(
+        item: InputItem,
+        control: JobControl,
+        onProgress: (ItemPhase, Float) -> Unit
+    ): EngineOutput {
+        val temp = File.createTempFile("out_", ".mp4", context.cacheDir)
+        try {
+            GifToMp4Converter(context).convert(item.uri, temp.absolutePath, control) {
+                onProgress(ItemPhase.COMPRESSING, it)
+            }
+            // Deliberate conversion (GIF -> MP4), so publish the MP4 even if
+            // it happens to be a byte or two larger than the source.
+            val uri = OutputStore.publishTempFile(
+                context, MediaType.VIDEO, temp, item.displayName, "video/mp4"
+            )
+            return EngineOutput(uri, sizeOf(uri), context.getString(ir.siliksama.hajmino.R.string.gif_to_mp4))
+        } catch (e: VideoCompressionException) {
+            throw e
+        } finally {
+            Storage.deleteQuietly(temp)
+        }
+    }
+
     private suspend fun keepOriginal(
         item: InputItem,
         mediaType: MediaType,
@@ -275,6 +304,7 @@ class Compressor(private val context: Context) {
 /** Maps engine failures to a stable, user-facing error key. */
 fun errorKeyOf(t: Throwable): String = when (t) {
     is CompressionCancelledException -> "cancelled"
+    is GifConversionException -> t.key
     is PhotoCompressionException -> t.key
     is VideoCompressionException -> t.key
     is AudioCompressionException -> t.key
