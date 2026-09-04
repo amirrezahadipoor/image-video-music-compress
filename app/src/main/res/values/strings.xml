@@ -39,6 +39,7 @@
     <string name="home_tap_to_choose">یک نوع را انتخاب کنید</string>
 
     <!-- File picking --><string name="pick_error_too_large">یک یا چند فایل بیشتر از حد مجاز (۲ گیگابایت) هستند.</string>
+    <string name="pick_processing">در حال آماده‌سازی فایل‌ها… لطفاً منتظر بمانید.</string>
     <!-- Compression settings -->
     <string name="settings_title_photo">تنظیمات عکس</string>
     <string name="settings_title_video">تنظیمات ویدیو</string>

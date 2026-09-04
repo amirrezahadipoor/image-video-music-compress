@@ -39,6 +39,7 @@
     <string name="home_tap_to_choose">Choose a type to start</string>
 
     <!-- File picking --><string name="pick_error_too_large">One or more files are over the 2 GB limit.</string>
+    <string name="pick_processing">Preparing files… please wait.</string>
     <!-- Compression settings -->
     <string name="settings_title_photo">Photo settings</string>
     <string name="settings_title_video">Video settings</string>

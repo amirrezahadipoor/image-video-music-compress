@@ -45,10 +45,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.rememberCoroutineScope
 import com.compressly.core.data.FolderMediaScanner
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -120,8 +124,15 @@ fun HomeScreen(
 
     val scope = rememberCoroutineScope()
 
+    // BATCH-LOADING: preparing a large batch (e.g. 1000 files from a folder)
+    // does one ContentResolver query per file (size + name) before we can open
+    // the compression screen. That takes visible seconds, so we show a blocking
+    // overlay with a spinner instead of a frozen screen.
+    var preparingBatch by remember { mutableStateOf(false) }
+
     fun acceptPicked(type: MediaType, uris: List<Uri>) {
         if (uris.isEmpty()) return
+        preparingBatch = true
 
         // No takePersistableUriPermission here: PhotoPicker / document-picker
         // URIs don't carry a persistable grant, so the call could only fail
@@ -132,24 +143,37 @@ fun HomeScreen(
         
         val maxSizeBytes = 2L * 1024 * 1024 * 1024 // 2 GB limit
         scope.launch {
-            // PICK-IO-FIX: size + name is one MediaStore query per URI, up to
-            // 50 of them — that used to run on the main thread and janked the
-            // UI for well over 100 ms on a big batch. The validation now
-            // happens on IO; only the navigation stays on the main thread.
+            // PICK-IO-FIX: size + name is one ContentResolver query per URI. On
+            // a big batch (e.g. 1000 files from a folder) that used to run
+            // SEQUENTIALLY on the main thread and freeze the screen for tens of
+            // seconds. Validation now runs on IO in bounded-parallel chunks
+            // (max 64 concurrent queries at a time, never thousands of
+            // coroutines), preserving order, so a huge folder is ready in a few
+            // seconds — and the BATCH-LOADING overlay keeps the user informed.
             val (validItems, skippedTooLarge) = withContext(Dispatchers.IO) {
+                data class Sized(val uri: Uri, val name: String, val size: Long)
+                val results = uris.chunked(64).flatMap { chunk ->
+                    coroutineScope {
+                        chunk.map { uri ->
+                            async(Dispatchers.IO) {
+                                val size = Uris.sizeOf(context, uri).takeIf { it > 0 } ?: -1L
+                                Sized(uri, Uris.displayNameOf(context, uri), size)
+                            }
+                        }.awaitAll()
+                    }
+                }
                 val valid = mutableListOf<InputItem>()
                 var skipped = false
-                uris.forEachIndexed { index, uri ->
-                    val size = Uris.sizeOf(context, uri).takeIf { it > 0 } ?: -1L
-                    if (size > maxSizeBytes) {
+                results.forEach { r ->
+                    if (r.size > maxSizeBytes) {
                         skipped = true
                     } else {
                         valid.add(
                             InputItem(
-                                itemId = System.nanoTime() + index,
-                                uri = uri,
-                                displayName = Uris.displayNameOf(context, uri),
-                                sizeBytes = size,
+                                itemId = System.nanoTime() + valid.size.toLong(),
+                                uri = r.uri,
+                                displayName = r.name,
+                                sizeBytes = r.size,
                                 mediaType = type
                             )
                         )
@@ -162,8 +186,12 @@ fun HomeScreen(
                 Toast.makeText(context, context.getString(R.string.pick_error_too_large), Toast.LENGTH_LONG).show()
             }
 
-            if (validItems.isEmpty()) return@launch
+            if (validItems.isEmpty()) {
+                preparingBatch = false
+                return@launch
+            }
 
+            preparingBatch = false
             container.selection.set(Selection(type, validItems))
             onOpenSettings(type)
         }
@@ -309,6 +337,32 @@ fun HomeScreen(
                 }
             }
         } // end LazyColumn
+
+        // BATCH-LOADING: full-screen blocking overlay with a spinner while the
+        // large batch is being validated/prepared before the compression screen
+        // opens. Without this a 1000-file pick hangs on a blank-on-frozen screen.
+        if (preparingBatch) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background.copy(alpha = 0.85f)
+            ) {
+                androidx.compose.foundation.layout.Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(androidx.compose.foundation.layout.PaddingValues(24.dp)),
+                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(52.dp))
+                    Spacer(Modifier.height(20.dp))
+                    Text(
+                        text = stringResource(R.string.pick_processing),
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
+        }
         } // end Box (AnimatedBlobs container)
 
             // Folder scan result: choose what to compress.
