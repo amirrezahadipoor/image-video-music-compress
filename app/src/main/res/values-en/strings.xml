@@ -422,4 +422,5 @@
     <string name="folder_start">Start</string>
     <string name="share_mixed_skipped">%1$d file(s) of a different media type were skipped — share one type of media at a time.</string>
     <string name="privacy_oss_title">Open-source license notices</string>
+    <string name="perm_storage_denied">Without storage permission the compressed file cannot be saved on this Android version. Try again and allow the permission.</string>
 </resources>

@@ -144,7 +144,7 @@ fun HomeScreen(
     val msgPickerLimit = stringResource(R.string.home_picker_limit_hint, PICKER_MAX_ITEMS)
     val msgFolderEmpty = stringResource(R.string.folder_empty)
 
-    fun acceptPicked(type: MediaType, uris: List<Uri>) {
+    fun acceptPicked(type: MediaType, uris: List<Uri>, cappedPicker: Boolean = false) {
         if (uris.isEmpty()) return
         preparingBatch = true
 
@@ -203,8 +203,9 @@ fun HomeScreen(
             // PickMultipleVisualMedia's maxItems and explains nothing, so someone
             // who meant "my whole camera folder" got 50 files and no clue why.
             // Naming the limit, and the flow without one, turns a mystery into a
-            // choice.
-            if (uris.size >= PICKER_MAX_ITEMS) {
+            // choice. cappedPicker: the documents picker has NO cap, so a
+            // 50-file docs selection must not be told it hit one.
+            if (cappedPicker && uris.size >= PICKER_MAX_ITEMS) {
                 Toast.makeText(context, msgPickerLimit, Toast.LENGTH_LONG).show()
             }
 
@@ -223,11 +224,11 @@ fun HomeScreen(
 
     val photoPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia(PICKER_MAX_ITEMS)
-    ) { uris -> acceptPicked(MediaType.PHOTO, uris) }
+    ) { uris -> acceptPicked(MediaType.PHOTO, uris, cappedPicker = true) }
 
     val videoPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia(PICKER_MAX_ITEMS)
-    ) { uris -> acceptPicked(MediaType.VIDEO, uris) }
+    ) { uris -> acceptPicked(MediaType.VIDEO, uris, cappedPicker = true) }
 
     val docsPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments()

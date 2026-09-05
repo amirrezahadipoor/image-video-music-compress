@@ -247,7 +247,36 @@ fun CompressionSettingsScreen(
         permissionTick += 1
     }
 
+    // LEGACY-STORAGE-FIX (API 26-28): publishing the compressed output into
+    // MediaStore on Android 8/9 inserts into the legacy EXTERNAL_CONTENT_URI,
+    // which requires the WRITE_EXTERNAL_STORAGE runtime grant. The manifest
+    // declares it (maxSdkVersion=28) but it was never requested anywhere, so
+    // every job on those devices failed at publish time with a SecurityException
+    // the error mapper labelled "file not found". Unlike notifications this
+    // grant is REQUIRED for the default output path, so a refusal stops the
+    // start with an explanation instead of a doomed job.
+    val legacyStorageLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            permissionTick += 1 // re-enters requestCompression through the effect
+        } else {
+            Toast.makeText(context, R.string.perm_storage_denied, Toast.LENGTH_LONG).show()
+        }
+    }
+
     fun requestCompression() {
+        // Same door for every start path (compress / "compress anyway" /
+        // notification-permission return): the legacy grant comes first because
+        // without it nothing can be saved on those devices at all.
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P &&
+            ContextCompat.checkSelfPermission(
+                context, Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            legacyStorageLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            return
+        }
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {

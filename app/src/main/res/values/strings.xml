@@ -427,4 +427,5 @@
 
     <string name="share_mixed_skipped">‏%1$d فایل از نوع رسانهٔ دیگری نادیده گرفته شد؛ هر بار فقط یک نوع رسانه را بفرستید.</string>
     <string name="privacy_oss_title">پروانه‌های مؤلفان اجزای متن‌باز</string>
+    <string name="perm_storage_denied">‏بدون اجازهٔ نوشتن در حافظه، فایل فشرده‌شده روی این نسخهٔ اندروید قابل ذخیره نیست. دوباره تلاش کنید و اجازه را تأیید کنید.</string>
 </resources>
