@@ -46,6 +46,7 @@ import com.compressly.core.engine.model.ItemPhase
 import com.compressly.core.engine.model.JobStatus
 import com.compressly.ui.components.GhostButton
 import com.compressly.core.util.SoundEffects
+import com.compressly.ui.components.AdSlot
 import com.compressly.ui.components.InlineProgress
 import com.compressly.ui.components.LoadingState
 import com.compressly.ui.components.ProgressRing
@@ -191,57 +192,78 @@ fun ProgressScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // ---- Big ring ----
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                ProgressRing(
-                    progress = current.overallFraction,
-                    label = statusLabel(current.status, current.isPaused)
-                )
-            }
+            Spacer(Modifier.height(12.dp))
 
-            Spacer(Modifier.height(14.dp))
-            ElapsedEta(job = current)
+            // ---- Boxed status card: ring + elapsed + controls in a framed
+            // card so the "در حال فشردهسازی" screen no longer reads as a bare
+            // column of unstyled text (UI-FRAME-FIX).
+            androidx.compose.material3.Surface(
+                shape = RoundedCornerShape(26.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 26.dp)) {
+                    // Big ring
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        ProgressRing(
+                            progress = current.overallFraction,
+                            label = statusLabel(current.status, current.isPaused)
+                        )
+                    }
 
-            Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(16.dp))
+                    ElapsedEta(job = current)
 
-            // ---- Controls ----
-            if (current.status == JobStatus.RUNNING || current.status == JobStatus.PAUSED) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    GhostButton(
-                        text = if (current.isPaused) stringResource(R.string.action_resume)
-                        else stringResource(R.string.action_pause),
-                        onClick = { if (current.isPaused) viewModel.resume() else viewModel.pause() },
-                        modifier = Modifier.weight(1f)
-                    )
-                    GhostButton(
-                        text = stringResource(R.string.action_cancel),
-                        onClick = { showCancelDialog = true },
-                        modifier = Modifier.weight(1f)
+                    Spacer(Modifier.height(20.dp))
+
+                    // ---- Controls ----
+                    if (current.status == JobStatus.RUNNING || current.status == JobStatus.PAUSED) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            GhostButton(
+                                text = if (current.isPaused) stringResource(R.string.action_resume)
+                                else stringResource(R.string.action_pause),
+                                onClick = { if (current.isPaused) viewModel.resume() else viewModel.pause() },
+                                modifier = Modifier.weight(1f)
+                            )
+                            GhostButton(
+                                text = stringResource(R.string.action_cancel),
+                                onClick = { showCancelDialog = true },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    } else if (current.status == JobStatus.CANCELLING) {
+                        Text(
+                            text = stringResource(R.string.progress_cancelling),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    if (isTerminal) {
+                        Spacer(Modifier.height(20.dp))
+                        TerminalSummary(current, onHistory)
+                    }
+
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        text = stringResource(R.string.progress_will_keep_running),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
-            } else if (current.status == JobStatus.CANCELLING) {
-                Text(
-                    text = stringResource(R.string.progress_cancelling),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
 
-            if (isTerminal) {
-                Spacer(Modifier.height(20.dp))
-                TerminalSummary(current, onHistory)
-            }
-
-            Spacer(Modifier.height(24.dp))
-            Text(
-                text = stringResource(R.string.progress_will_keep_running),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            // UI-ADS-FIX: the progress screen previously had no ad slot at all;
+            // add one between the status card and the file list, in the same
+            // style as the rest of the app (hidden for premium / offline).
+            Spacer(Modifier.height(16.dp))
+            AdSlot(modifier = Modifier.padding(horizontal = 4.dp))
+            Spacer(Modifier.height(16.dp))
 
             // ---- Per-item rows ----
-            Spacer(Modifier.height(16.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(current.items) { item ->
                     val itemBusy = item.phase == ItemPhase.QUEUED ||
@@ -255,6 +277,7 @@ fun ProgressScreen(
                     )
                 }
             }
+            Spacer(Modifier.height(28.dp))
         }
     }
 

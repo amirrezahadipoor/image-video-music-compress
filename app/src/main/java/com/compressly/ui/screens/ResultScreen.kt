@@ -152,6 +152,103 @@ private fun SuccessContent(
     onCompressAnother: () -> Unit,
     onHistory: () -> Unit
 ) {
+    // BATCH-RESULT-FIX: after a folder/batch (more than one file) the result
+    // must NOT single out one file with its own preview and reduction — the
+    // user asked for the whole job's total before/after change. A batch shows
+    // an aggregate summary instead; a single file keeps the full preview.
+    if (siblings.size > 1) {
+        BatchResultContent(siblings, viewModel, context, onHistory)
+        return
+    }
+    SingleResultContent(entry, viewModel, context, onCompressAnother, onHistory)
+}
+
+@Composable
+private fun BatchResultContent(
+    siblings: List<HistoryEntry>,
+    viewModel: ResultViewModel,
+    context: android.content.Context,
+    onHistory: () -> Unit
+) {
+    val totalCount  = siblings.size
+    val doneCount   = siblings.count { it.status == HistoryEntry.STATUS_DONE }
+    val totalBefore = siblings.sumOf { it.inputSize }
+    val totalAfter  = siblings.sumOf { it.outputSize }
+    val totalSaved  = siblings.sumOf { it.savedBytes }
+    val reduction   = if (totalBefore > 0)
+        (totalSaved.toDouble() / totalBefore).coerceIn(0.0, 1.0)
+    else 0.0
+    val shownReduction by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = reduction.toFloat(),
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 850),
+        label = "batch_reduction_countup"
+    )
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Success badge
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .size(96.dp)
+                .background(Brush.linearGradient(GradientSuccess), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Check,
+                contentDescription = stringResource(R.string.result_title_success),
+                tint = androidx.compose.ui.graphics.Color.White,
+                modifier = Modifier.size(48.dp)
+            )
+        }
+
+        Spacer(Modifier.height(18.dp))
+
+        Text(
+            text = stringResource(R.string.result_reduction, Formats.percent(shownReduction.toDouble())),
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = stringResource(R.string.result_items_success, doneCount, totalCount),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Aggregate before / after totals of the WHOLE batch, plus the total
+        // reduction — the only numbers that matter after a folder job.
+        Spacer(Modifier.height(22.dp))
+        BatchSummaryCard(siblings)
+
+        Spacer(Modifier.height(24.dp))
+        ActionButton(
+            text = stringResource(R.string.result_share_batch, doneCount),
+            onClick = { viewModel.shareAll(context, siblings) },
+            icon = Icons.Outlined.Share
+        )
+        Spacer(Modifier.height(10.dp))
+        GhostButton(
+            text = stringResource(R.string.result_view_history),
+            onClick = onHistory
+        )
+        Spacer(Modifier.height(20.dp))
+        AdSlot()
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun SingleResultContent(
+    entry: HistoryEntry,
+    viewModel: ResultViewModel,
+    context: android.content.Context,
+    onCompressAnother: () -> Unit,
+    onHistory: () -> Unit
+) {
     Column(modifier = Modifier.fillMaxWidth()) {
         // Success badge
         Box(
@@ -226,13 +323,6 @@ private fun SuccessContent(
             )
         }
 
-        // Batch summary: when this entry is part of a multi-file job show a
-        // compact summary card so the user knows the full picture at a glance.
-        if (siblings.size > 1) {
-            Spacer(Modifier.height(12.dp))
-            BatchSummaryCard(siblings)
-        }
-
         // Settings summary chip (codec, quality, duration…)
         if (entry.settingsSummary.isNotBlank()) {
             Spacer(Modifier.height(10.dp))
@@ -251,16 +341,9 @@ private fun SuccessContent(
 
         Spacer(Modifier.height(24.dp))
 
-        // BATCH-SHARE: in a multi-file job the share button shares every
-        // compressed output of the folder/batch, not just the file this screen
-        // happens to be showing.
         ActionButton(
-            text = if (siblings.size > 1) stringResource(R.string.result_share_batch, siblings.size)
-            else stringResource(R.string.result_share_output),
-            onClick = {
-                if (siblings.size > 1) viewModel.shareAll(context, siblings)
-                else viewModel.share(context, entry)
-            },
+            text = stringResource(R.string.result_share_output),
+            onClick = { viewModel.share(context, entry) },
             icon = Icons.Outlined.Share
         )
         Spacer(Modifier.height(10.dp))

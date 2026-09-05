@@ -219,10 +219,16 @@ fun HomeScreen(
         ActivityResultContracts.OpenDocumentTree()
     ) { tree ->
         if (tree != null) {
+            // REPLACE-ORIGINAL: persist BOTH read AND write on the folder tree.
+            // Writing into the source document is how replaceOriginal avoids a
+            // duplicate (see OutputStore.replaceInPlace), and a read-only grant
+            // that expires with the process would make the write fail so the
+            // fallback publishes a NEW copy instead — leaving the original.
             runCatching {
                 context.contentResolver.takePersistableUriPermission(
                     tree,
-                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 )
             }
             // BATCH-LOADING: scanning a folder with up to 10k photos is a

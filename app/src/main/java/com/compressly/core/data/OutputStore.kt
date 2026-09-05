@@ -89,8 +89,14 @@ object OutputStore {
         tempFile: File
     ): Uri? {
         return try {
-            val out = runCatching { context.contentResolver.openOutputStream(sourceUri, "w") }.getOrNull()
-                ?: return null
+            // Try the standard truncate mode first; some SAF document providers
+            // only accept the explicit write modes. A source that can't be
+            // written at all (read-only picker grant) falls through to null and
+            // the caller publishes a new copy + deletes the original instead.
+            var out = runCatching { context.contentResolver.openOutputStream(sourceUri, "w") }.getOrNull()
+            if (out == null) out = runCatching { context.contentResolver.openOutputStream(sourceUri, "wt") }.getOrNull()
+            if (out == null) out = runCatching { context.contentResolver.openOutputStream(sourceUri, "rwt") }.getOrNull()
+            if (out == null) return null
             out.use { os -> tempFile.inputStream().use { it.copyTo(os, 256 * 1024) } }
             Storage.deleteQuietly(tempFile)
             sourceUri

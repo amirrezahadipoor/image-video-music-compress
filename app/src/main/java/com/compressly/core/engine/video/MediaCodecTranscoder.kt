@@ -162,7 +162,19 @@ class MediaCodecTranscoder(private val context: Context) {
                 )
             } catch (t: Throwable) {
                 if (t is com.compressly.core.engine.CompressionCancelledException) throw t
-                val retryable = (t is VideoCompressionException && (t.key == ERR_ENCODE || t.key == ERR_DECODE))
+                // HW-CODEC-FIX: a vendored hardware encoder that fails mid-pass
+                // can surface as ANY codec-state exception, not just our wrapped
+                // keys — the classic is the raw
+                //   IllegalStateException: Invalid to call at released state;
+                //   only valid in Executing states
+                // thrown out of dequeueOutputBuffer()/getOutputFormat() when the
+                // codec has already errored. That raw exception slipped past the
+                // (key-matched) retry guard, so the software fallback never ran
+                // and the job just failed. Treat every codec-state failure from a
+                // HARDWARE encode as retryable.
+                val wrappedKeyed = t is VideoCompressionException && (t.key == ERR_ENCODE || t.key == ERR_DECODE)
+                val codecStateFailure = t is IllegalStateException || t is android.media.MediaCodec.CodecException
+                val retryable = wrappedKeyed || codecStateFailure
                 val hwFailed = lastChosenEncoderSoftware == false
                 val softwareChoices = encoderChoices.filter { it.software }
                 if (retryable && hwFailed && softwareChoices.isNotEmpty()) {
@@ -572,6 +584,17 @@ class MediaCodecTranscoder(private val context: Context) {
                 // still processing, all three dequeue calls return -1 and we spin
                 // the CPU at 100% doing nothing. A 1 ms yield gives the encoder
                 // time to finish a frame without measurably slowing the pipeline.
+                // CODEC-STATE-FIX: the whole decode->encode loop is wrapped so
+                // that a vendored hardware encoder throwing a raw codec-state
+                // IllegalStateException (the "Invalid to call at released state"
+                // crash) from ANY call — dequeueOutputBuffer, getOutputFormat via
+                // muxer.addTrack, releaseOutputBuffer, signalEndOfInputStream —
+                // becomes a clean VideoCompressionException(ERR_ENCODE) that the
+                // transcode retry logic can catch and re-run on a software
+                // encoder. Before this, only getInputBuffer/getOutputBuffer were
+                // guarded; the crash escaped through the unguarded dequeue call
+                // and was never retried.
+                try {
                 while (!encEos) {
                 control.checkActive()
                 var didWork = false
@@ -703,6 +726,18 @@ class MediaCodecTranscoder(private val context: Context) {
                 if (!didWork && !encEos) {
                     kotlinx.coroutines.delay(1)
                 }
+                }
+                } catch (t: Throwable) {
+                    if (t is com.compressly.core.engine.CompressionCancelledException) throw t
+                    if (t is IllegalStateException || t is android.media.MediaCodec.CodecException) {
+                        Log.e(
+                            TAG_ENCODER,
+                            "codec entered a bad state mid-pass (${t.message}); surfacing as a retryable encode failure",
+                            t
+                        )
+                        throw VideoCompressionException(ERR_ENCODE, t.message)
+                    }
+                    throw t
                 }
                 // VIDEO-FIX-2: no frame ever reached the muxer (the encoder only
                 // emitted CODEC_CONFIG then EOS). This is a failed encode, not a
