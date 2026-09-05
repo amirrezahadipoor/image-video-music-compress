@@ -44,6 +44,9 @@ class MediaCodecTranscoder(private val context: Context) {
         const val ERR_DECODE = "decode_failed"
 
         private const val TAG_AUDIO = "VideoAudioPass"
+        private const val TAG_ENCODER = "VideoEncoder"
+        private const val TAG_DECODER = "VideoDecoder"
+        private const val TAG_MUX = "VideoMuxer"
     }
 
     data class Stats(
@@ -344,6 +347,18 @@ class MediaCodecTranscoder(private val context: Context) {
                 codecTag
             )
         } catch (t: Throwable) {
+            // DIAG-FIX: identify the failing STAGE so the log tells the whole
+            // story: which codec request, what config, and the exception. The
+            // inner passes already logged the per-candidate detail; this is the
+            // top-level marker (video pass / audio pass / merge / faststart).
+            if (t is com.compressly.core.engine.CompressionCancelledException) throw t
+            Log.e(
+                TAG_DECODER,
+                "transcode failed [codec=${requestedMimeFor(settings.codec)} ${plan.width}x${plan.height} " +
+                    "@${plan.fps}fps ${plan.bitrate}bps, audioMode=${settings.audioMode}] " +
+                    "${t::class.java.simpleName}: ${t.message}",
+                t
+            )
             Storage.deleteQuietly(tempVideo, tempAudio)
             throw t
         } finally {
@@ -415,6 +430,10 @@ class MediaCodecTranscoder(private val context: Context) {
             // ── Pick a working encoder across the candidate list ──────────
             var encoder: MediaCodec? = null
             var inputSurface: android.view.Surface? = null
+            // DIAG-FIX: every candidate failure is recorded (name + mime + the
+            // reason) so the log says EXACTLY which encoder rejected which
+            // config and why, instead of ending in a silent ERR_NO_ENCODER.
+            val candidateFailures = mutableListOf<String>()
             for (candidate in choices) {
                 var enc: MediaCodec? = null
                 try {
@@ -432,13 +451,21 @@ class MediaCodecTranscoder(private val context: Context) {
                     // and any previously committed instance (if this candidate
                     // reused it) — never leak a codec while probing.
                     if (t is com.compressly.core.engine.CompressionCancelledException) throw t
+                    candidateFailures += "${candidate.name} [${candidate.mime}] @${outW}x${outH}/${targetBitrate}bps/${targetFps}fps: ${t::class.java.simpleName} — ${t.message}"
                     runCatching { enc?.release() }
                     runCatching { encoder?.release() }
                     encoder = null
                     inputSurface = null
                 }
             }
-            val enc = encoder ?: throw VideoCompressionException(ERR_NO_ENCODER)
+            val enc = encoder ?: run {
+                Log.e(
+                    TAG_ENCODER,
+                    "no working ${requestedMimeFor(settings.codec)} encoder for ${outW}x${outH}@${targetFps}fps ${targetBitrate}bps. " +
+                        "Tried ${choices.size} candidate(s):\n" + candidateFailures.joinToString("\n")
+                )
+                throw VideoCompressionException(ERR_NO_ENCODER)
+            }
             val inputSurfaceFinal = inputSurface ?: throw VideoCompressionException(ERR_NO_ENCODER)
 
             // ── Configure the decoder onto the encoder's input surface ─────
@@ -719,16 +746,37 @@ class MediaCodecTranscoder(private val context: Context) {
             )
             return enc
         } catch (t: Throwable) {
+            if (t is com.compressly.core.engine.CompressionCancelledException) throw t
             // Optional keys rejected — drop them and retry once with the
-            // minimal format before giving up on this candidate.
+            // minimal format before giving up on this candidate. Log exactly
+            // which attempt failed and why, with the full config, so a picky
+            // vendor encoder is not a silent black box.
+            Log.w(
+                TAG_ENCODER,
+                "configure(full) failed for ${choice.name} [${choice.mime}] @${outW}x${outH}/${targetFps}fps ${safeRate}bps: " +
+                    "${t::class.java.simpleName} — ${t.message}; retrying minimal",
+                t
+            )
             runCatching { enc.release() }
         }
         enc = MediaCodec.createByCodecName(choice.name)
-        enc.configure(
-            buildFormat(full = false), null, null,
-            MediaCodec.CONFIGURE_FLAG_ENCODE
-        )
-        return enc
+        try {
+            enc.configure(
+                buildFormat(full = false), null, null,
+                MediaCodec.CONFIGURE_FLAG_ENCODE
+            )
+            return enc
+        } catch (t: Throwable) {
+            if (t is com.compressly.core.engine.CompressionCancelledException) throw t
+            Log.e(
+                TAG_ENCODER,
+                "configure(minimal) also failed for ${choice.name} [${choice.mime}]: " +
+                    "${t::class.java.simpleName} — ${t.message}",
+                t
+            )
+            runCatching { enc.release() }
+            throw t
+        }
     }
 
     // ------------------------------------------------------------------
