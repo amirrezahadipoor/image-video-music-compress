@@ -815,4 +815,30 @@ class VideoPlannerTest {
         // A source that is NOT av1 but the user asked for AV1 must re-encode.
         assertFalse(VideoPlanner.isNoOpTranscode(uhd.copy(mimeType = "video/avc"), VideoSettings(codec = VideoCodec.AV1), CompressionPreset.BALANCED))
     }
+
+    // ---- silent-video honesty -------------------------------------------
+
+    @Test
+    fun noAudioTrackContributesNothingToTheBudget() {
+        // A video with no audio track must not be priced as if it carried a
+        // 128 kbps soundtrack (the old phantom that inflated estimates and
+        // under-priced a size-target budget).
+        val silent = messenger720.copy(hasAudio = false, audioBitrate = 0)
+        assertEquals(
+            0,
+            VideoPlanner.audioBitrateBps(silent, VideoSettings(audioMode = VideoAudioMode.KEEP), CompressionPreset.BALANCED)
+        )
+        assertEquals(
+            0,
+            VideoPlanner.audioBitrateBps(silent, VideoSettings(audioMode = VideoAudioMode.COMPRESS), CompressionPreset.MAXIMUM_COMPRESSION)
+        )
+        assertEquals(
+            0,
+            VideoPlanner.audioBitrateBps(silent, VideoSettings(audioMode = VideoAudioMode.STRIP), CompressionPreset.MAXIMUM_COMPRESSION)
+        )
+        // And a file that DOES carry audio still falls back to the default rate.
+        assertTrue(
+            VideoPlanner.audioBitrateBps(messenger720, VideoSettings(audioMode = VideoAudioMode.KEEP), CompressionPreset.BALANCED) > 0
+        )
+    }
 }

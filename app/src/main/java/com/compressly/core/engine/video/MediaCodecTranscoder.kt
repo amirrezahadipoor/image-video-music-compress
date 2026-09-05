@@ -8,6 +8,7 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.net.Uri
+import android.util.Log
 import com.compressly.core.engine.JobControl
 import com.compressly.core.engine.model.MediaInfo
 import com.compressly.core.engine.model.VideoAudioMode
@@ -41,6 +42,8 @@ class MediaCodecTranscoder(private val context: Context) {
         const val ERR_NO_ENCODER = "no_encoder"
         const val ERR_ENCODE = "encode_failed"
         const val ERR_DECODE = "decode_failed"
+
+        private const val TAG_AUDIO = "VideoAudioPass"
     }
 
     data class Stats(
@@ -167,37 +170,69 @@ class MediaCodecTranscoder(private val context: Context) {
             )
             if (correction != null) {
                 control.checkActive()
-                Storage.deleteQuietly(tempVideo)
-                // The corrective pass re-encodes from scratch, so the first
-                // kept frame can land at a different PTS — re-measure.
-                firstPass = videoPass(
-                    inputUri = inputUri,
-                    outputPath = tempVideo.absolutePath,
-                    info = plannedInfo,
-                    settings = settings,
-                    // Re-use the encoder the first pass proved working; never
-                    // re-negotiate between passes (a different choice could
-                    // change the bitstream behaviour halfway through).
-                    choices = listOf(firstPass.choice),
-                    // The key-frame interval has to follow the corrected rate:
-                    // the GOP that fitted the first pass is too short for the
-                    // lower one, and short GOPs are exactly what eats the budget.
-                    plan = plan.copy(
-                        bitrate = correction,
-                        iFrameInterval = VideoPlanner.iFrameIntervalSeconds(correction, plan.width, plan.height, plan.fps)
-                    ),
-                    rotation = rotation,
-                    trimStartUs = trimStartUs,
-                    trimEndUs = trimEndUs,
-                    control = control,
-                    onProgress = { p -> onProgress(0.50f + p * 0.30f) }
-                )
-                videoStartUs = if (trimStartUs > 0) firstPass.firstKeptPtsUs else 0L
+                // CORRECTIVE-FIX: the corrective pass used to delete the first
+                // pass's output BEFORE re-encoding, so if the second pass threw
+                // (a vendor encoder failing at the lower rate) the whole job
+                // died — and there was no first-pass result left to fall back
+                // to. Now it writes to a SECOND temp file and only replaces the
+                // first pass when the corrected result is genuinely smaller. A
+                // failed corrective pass silently keeps the first-pass result.
+                val secondTemp = File(context.cacheDir, "tmp_${System.nanoTime()}_video2.mp4")
+                try {
+                    val secondPass = videoPass(
+                        inputUri = inputUri,
+                        outputPath = secondTemp.absolutePath,
+                        info = plannedInfo,
+                        settings = settings,
+                        // Re-use the encoder the first pass proved working; never
+                        // re-negotiate between passes (a different choice could
+                        // change the bitstream behaviour halfway through).
+                        choices = listOf(firstPass.choice),
+                        // The key-frame interval has to follow the corrected rate:
+                        // the GOP that fitted the first pass is too short for the
+                        // lower one, and short GOPs are exactly what eats the budget.
+                        plan = plan.copy(
+                            bitrate = correction,
+                            iFrameInterval = VideoPlanner.iFrameIntervalSeconds(correction, plan.width, plan.height, plan.fps)
+                        ),
+                        rotation = rotation,
+                        trimStartUs = trimStartUs,
+                        trimEndUs = trimEndUs,
+                        control = control,
+                        onProgress = { p -> onProgress(0.50f + p * 0.30f) }
+                    )
+                    // Only adopt the corrected file when it is strictly smaller
+                    // than the first pass; otherwise keep the existing result.
+                    if (secondTemp.length() in 1 until tempVideo.length()) {
+                        Storage.deleteQuietly(tempVideo)
+                        if (!secondTemp.renameTo(tempVideo)) {
+                            secondTemp.copyTo(tempVideo, overwrite = true)
+                            Storage.deleteQuietly(secondTemp)
+                        }
+                        firstPass = secondPass
+                        // The corrective pass re-encodes from scratch, so the first
+                        // kept frame can land at a different PTS — re-measure.
+                        videoStartUs = if (trimStartUs > 0) firstPass.firstKeptPtsUs else 0L
+                        onProgress(0.80f)
+                    } else {
+                        Storage.deleteQuietly(secondTemp)
+                        onProgress(0.80f)
+                    }
+                } catch (t: Throwable) {
+                    if (t is com.compressly.core.engine.CompressionCancelledException) throw t
+                    Storage.deleteQuietly(secondTemp)
+                    android.util.Log.e(
+                        "MediaCodecTranscoder",
+                        "corrective pass failed; keeping the first-pass result: " + t.message,
+                        t
+                    )
+                    onProgress(0.80f)
+                }
             } else {
                 onProgress(0.80f)
             }
 
-            val wantsAudio = settings.audioMode != VideoAudioMode.STRIP && plannedInfo.hasAudio
+            var wantsAudio = settings.audioMode != VideoAudioMode.STRIP && plannedInfo.hasAudio
 
             // 2. Audio: passthrough or transcode.
             var audioAlreadyTrimmed = false
@@ -220,7 +255,14 @@ class MediaCodecTranscoder(private val context: Context) {
                     tempAudio = File(context.cacheDir, "tmp_${System.nanoTime()}_audio.m4a")
                     // Shared with the estimate, and capped at the source rate.
                     val audioBitrate = VideoPlanner.audioBitrateBps(plannedInfo, settings, preset)
-                    audioTranscodePass(
+                    // AUDIO-DEGRADE-FIX: re-encoding the soundtrack used to
+                    // throw and kill the whole video job when the AAC encoder
+                    // rejected the config (the High and Maximum tiers always
+                    // re-encode). A failed soundtrack must never cost the user
+                    // their video: first fall back to passing the original
+                    // audio through, then to dropping it — the video always
+                    // succeeds.
+                    val audioOk = audioTranscodePass(
                         inputUri = inputUri,
                         outputPath = tempAudio.absolutePath,
                         bitrate = audioBitrate,
@@ -233,13 +275,30 @@ class MediaCodecTranscoder(private val context: Context) {
                         control = control,
                         onProgress = { p -> onProgress(0.80f + p * 0.12f) }
                     )
-                    tempAudioUri = Uri.fromFile(tempAudio)
-                    audioAlreadyTrimmed = true
+                    if (audioOk) {
+                        tempAudioUri = Uri.fromFile(tempAudio)
+                        audioAlreadyTrimmed = true
+                    } else {
+                        // Engine could not re-encode the audio. Degrade, never fail.
+                        Storage.deleteQuietly(tempAudio)
+                        tempAudio = null
+                        if (audioMimeIs(inputUri, MIME_AAC)) {
+                            // Original track is AAC — copy it through untouched.
+                            Log.w(TAG_AUDIO, "audio re-encode failed; passing original soundtrack through")
+                            tempAudioUri = inputUri
+                        } else {
+                            // Can't re-encode and can't pass a non-AAC track into
+                            // MP4 — the video goes out silent rather than failing.
+                            Log.w(TAG_AUDIO, "audio re-encode failed and source is not AAC; output will be silent")
+                            tempAudioUri = null
+                            wantsAudio = false
+                        }
+                    }
                 }
             }
 
             // 3. Merge (or move straight to final when there is no audio).
-            if (!wantsAudio) {
+            if (!wantsAudio || tempAudioUri == null) {
                 val done = tempVideo.renameTo(File(outputPath))
                 if (!done) {
                     tempVideo.copyTo(File(outputPath), overwrite = true)
@@ -589,9 +648,16 @@ class MediaCodecTranscoder(private val context: Context) {
         plan: VideoPlanner.Plan,
         hdr: HdrInfo?
     ): MediaCodec {
+        // BITRATE-FLOOR-FIX: a source thinner than the encoder floor is handed
+        // back to the planner at its own (sub-floor) rate, and encoder
+        // configure() on some SoCs rejects rates below their advertised range.
+        // Clamp the bitrate the encoder is actually configured with to the
+        // safe floor; the estimator and the no-gain guard already handle the
+        // "tiny file" decision, so this only steers a truly forced encode.
+        val safeRate = targetBitrate.coerceAtLeast(com.compressly.core.engine.video.VideoPlanner.MIN_BITRATE)
         fun buildFormat(full: Boolean): MediaFormat =
             MediaFormat.createVideoFormat(choice.mime, outW, outH).apply {
-                setInteger(MediaFormat.KEY_BIT_RATE, targetBitrate)
+                setInteger(MediaFormat.KEY_BIT_RATE, safeRate)
                 setInteger(MediaFormat.KEY_FRAME_RATE, targetFps)
                 setInteger(
                     MediaFormat.KEY_COLOR_FORMAT,
@@ -669,6 +735,12 @@ class MediaCodecTranscoder(private val context: Context) {
     // Audio pass (decode -> AAC encode -> m4a)
     // ------------------------------------------------------------------
 
+    /**
+     * @return true when a usable audio file was written. false means the
+     *         soundtrack could not be re-encoded (no working encoder, no
+     *         decoder, nothing written); the caller degrades gracefully
+     *         instead of failing the video.
+     */
     private suspend fun audioTranscodePass(
         inputUri: Uri,
         outputPath: String,
@@ -677,9 +749,10 @@ class MediaCodecTranscoder(private val context: Context) {
         trimEndUs: Long,
         control: JobControl,
         onProgress: (Float) -> Unit
-    ) {
+    ): Boolean {
         // Shared, battle-tested decode -> AAC -> M4A pipeline (see AacTranscoder).
-        val ok = com.compressly.core.engine.audio.AacTranscoder.transcode(
+        // It never throws for an audio-specific failure — it returns false.
+        return com.compressly.core.engine.audio.AacTranscoder.transcode(
             context = context,
             inputUri = inputUri,
             outputPath = outputPath,
@@ -689,9 +762,6 @@ class MediaCodecTranscoder(private val context: Context) {
             control = control,
             onProgress = onProgress
         )
-        // false = no audio track found or nothing was written; a video that
-        // was analysed as having audio must not silently come out muted.
-        if (!ok) throw VideoCompressionException(ERR_ENCODE)
     }
 
     // ------------------------------------------------------------------

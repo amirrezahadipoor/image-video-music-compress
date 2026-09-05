@@ -3,10 +3,12 @@ package com.compressly.core.engine.audio
 import android.content.Context
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
+import android.media.MediaCodecList
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.net.Uri
+import android.util.Log
 import com.compressly.core.engine.JobControl
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -19,11 +21,23 @@ import java.nio.ByteOrder
  *
  * Key fix: PCM data is never dropped when the encoder has no free input
  * buffer — a pending buffer holds the PCM and retries on the next iteration.
+ *
+ * ENGINE-ROBUST-FIX: this used to create one AAC encoder by type and configure
+ * it once, with no fallback. A vendor encoder that rejects the requested
+ * sample-rate / channel config threw out of configure(), and because the video
+ * pipeline calls this to re-encode the soundtrack (the High and Maximum
+ * tiers), the whole video job died as a cryptic "encode_failed". Now:
+ *  - the encoder is picked from EVERY available AAC encoder, hardware/vendor
+ *    first then software, and each is configured twice (full, then minimal);
+ *  - if no encoder works, or the decoder cannot be created, the method returns
+ *    false (never throws), so the caller can degrade to passthrough or drop
+ *    the soundtrack instead of losing the video.
  */
 object AacTranscoder {
 
     private const val MIME_AAC = "audio/mp4a-latm"
     private const val TIMEOUT_US = 10_000L
+    private const val TAG = "AacTranscoder"
 
     /**
      * @return false when the source has no audio track; otherwise transcodes
@@ -52,26 +66,41 @@ object AacTranscoder {
             val inputFormat = extractor.getTrackFormat(audioIndex)
             val inputMime = inputFormat.getString(MediaFormat.KEY_MIME) ?: return false
 
-            decoder = MediaCodec.createDecoderByType(inputMime)
-            decoder.configure(inputFormat, null, null, 0)
-            decoder.start()
-
+            // Decoder: created/configured defensively. If this track's codec
+            // cannot be decoded on this device (e.g. Opus/Vorbis with no
+            // decoder) the job must not fail — the caller degrades gracefully.
             val srcChannels = inputFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
             val sampleRate = inputFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+            try {
+                val d = MediaCodec.createDecoderByType(inputMime)
+                try {
+                    d.configure(inputFormat, null, null, 0)
+                    d.start()
+                    decoder = d
+                } catch (t: Throwable) {
+                    if (t is com.compressly.core.engine.CompressionCancelledException) throw t
+                    runCatching { d.release() }
+                    Log.w(TAG, "audio decoder configure failed for $inputMime @${sampleRate}Hz", t)
+                    return false
+                }
+            } catch (t: Throwable) {
+                if (t is com.compressly.core.engine.CompressionCancelledException) throw t
+                Log.w(TAG, "no audio decoder for $inputMime", t)
+                return false
+            }
+
             val channels = if (srcChannels <= 2) srcChannels else 2
             // AAC-FLOAT: Android 8+ FLAC/WAV decoders often emit PCM_FLOAT.
             // convertPcmToEncoder reads 16-bit shorts, so float frames were
             // interpreted as garbage. Track the real encoding from the decoder.
             var pcmFloat = false
 
-            encoder = MediaCodec.createEncoderByType(MIME_AAC)
-            val encFormat = MediaFormat.createAudioFormat(MIME_AAC, sampleRate, channels).apply {
-                setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
-                setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
-                setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 16 * 1024)
+            val enc = createConfiguredAacEncoder(bitrate, sampleRate, channels)
+            if (enc == null) {
+                Log.w(TAG, "no working AAC encoder for ${sampleRate}Hz/$channels ch; caller will degrade")
+                return false
             }
-            encoder.configure(encFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-            encoder.start()
+            encoder = enc
 
             muxer = MediaMuxer(outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
             var audioMuxerTrack = -1
@@ -257,6 +286,14 @@ object AacTranscoder {
             // failure instead so the caller surfaces an encode error.
             if (!muxerStarted) return false
             return true
+        } catch (t: Throwable) {
+            // ENGINE-ROBUST-FIX: any failure in the re-encode pipeline must be
+            // reported as "could not encode audio" (false) so the video job can
+            // degrade gracefully, not as an exception that loses the video.
+            // User cancellation still propagates — it is never a "failure".
+            if (t is com.compressly.core.engine.CompressionCancelledException) throw t
+            Log.e(TAG, "audio re-encode failed", t)
+            return false
         } finally {
             runCatching { extractor.release() }
             runCatching { decoder?.stop() }
@@ -270,6 +307,63 @@ object AacTranscoder {
             runCatching { muxer?.release() }
         }
     }
+
+    /**
+     * Every AAC encoder this device advertises, hardware/vendor first then
+     * software, so a vendor encoder that rejects the config never prevents the
+     * search from reaching the software one.
+     */
+    private fun aacEncoderCandidates(): List<String> {
+        val hardware = mutableListOf<String>()
+        val software = mutableListOf<String>()
+        runCatching {
+            for (ci in MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos) {
+                if (!ci.isEncoder || !ci.supportedTypes.contains(MIME_AAC)) continue
+                val name = ci.name.lowercase()
+                val isSoft = name.startsWith("omx.google.") || name.startsWith("c2.android.")
+                (if (isSoft) software else hardware).add(ci.name)
+            }
+        }
+        return hardware + software
+    }
+
+    /**
+     * Creates, configures and starts a working AAC-LC encoder, or null when
+     * none accepts the config. Each candidate is tried twice — with the
+     * optional profile/size keys, then a minimal format — mirroring the video
+     * pipeline's two-attempt strategy, so one picky encoder cannot abort the
+     * re-encode.
+     */
+    private fun createConfiguredAacEncoder(bitrate: Int, sampleRate: Int, channels: Int): MediaCodec? {
+        for (name in aacEncoderCandidates()) {
+            for (minimal in listOf(false, true)) {
+                var enc: MediaCodec? = null
+                try {
+                    enc = MediaCodec.createByCodecName(name)
+                    enc.configure(
+                        aacFormat(bitrate, sampleRate, channels, minimal),
+                        null, null,
+                        MediaCodec.CONFIGURE_FLAG_ENCODE
+                    )
+                    enc.start()
+                    return enc
+                } catch (t: Throwable) {
+                    if (t is com.compressly.core.engine.CompressionCancelledException) throw t
+                    runCatching { enc?.release() }
+                }
+            }
+        }
+        return null
+    }
+
+    private fun aacFormat(bitrate: Int, sampleRate: Int, channels: Int, minimal: Boolean): MediaFormat =
+        MediaFormat.createAudioFormat(MIME_AAC, sampleRate, channels).apply {
+            setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
+            if (!minimal) {
+                setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
+                setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 16 * 1024)
+            }
+        }
 
     private fun findTrack(extractor: MediaExtractor, prefix: String): Int? =
         com.compressly.core.engine.MediaUtil.findTrack(extractor, prefix)

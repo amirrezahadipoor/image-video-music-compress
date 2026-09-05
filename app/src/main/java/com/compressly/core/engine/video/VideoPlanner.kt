@@ -518,12 +518,21 @@ object VideoPlanner {
     fun audioBitrateBps(info: MediaInfo, settings: VideoSettings, preset: CompressionPreset): Int =
         when (settings.audioMode) {
             VideoAudioMode.STRIP -> 0
+            // NO-AUDIO-FIX: a file with no audio track must contribute 0 to the
+            // size budget/estimate. Previously KEEP fell back to a 128 kbps
+            // phantom — a silent video was priced as if it carried audio, so
+            // the live estimate overshot and a size-target budget under-priced
+            // the video stream.
             VideoAudioMode.KEEP ->
-                info.audioBitrate.takeIf { it > 0 } ?: DEFAULT_KEEP_AUDIO_BPS
+                if (!info.hasAudio) 0
+                else info.audioBitrate.takeIf { it > 0 } ?: DEFAULT_KEEP_AUDIO_BPS
             VideoAudioMode.COMPRESS -> {
-                val requested = PresetDefaults.videoDefaults[preset]?.audioKbps ?: 112
-                com.compressly.core.engine.audio.AudioPlanner
-                    .targetBitrateKbps(requested, info.audioBitrate) * 1000
+                if (!info.hasAudio) 0
+                else {
+                    val requested = PresetDefaults.videoDefaults[preset]?.audioKbps ?: 112
+                    com.compressly.core.engine.audio.AudioPlanner
+                        .targetBitrateKbps(requested, info.audioBitrate) * 1000
+                }
             }
         }
 

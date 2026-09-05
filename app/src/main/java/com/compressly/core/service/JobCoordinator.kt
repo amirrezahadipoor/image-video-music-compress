@@ -184,6 +184,16 @@ class JobCoordinator(
                     }
                 } catch (t: Throwable) {
                     val key = errorKeyOf(t)
+                    // DIAG-FIX: the error key is deliberately coarse (the UI
+                    // maps it to one string), but the REAL cause must be
+                    // logged with its stack so a device-specific MediaCodec
+                    // failure is not a black box. Log.e keeps it in the
+                    // release build too, so a user report can be diagnosed.
+                    android.util.Log.e(
+                        "CompressJob",
+                        "item failed (${settings.mediaType()}, key=$key): " + t::class.java.simpleName + " — " + t.message,
+                        t
+                    )
                     updateItem(jobId, item.itemId) { it.copy(phase = ItemPhase.FAILED, error = key) }
                     CompressionResult(
                         itemId = item.itemId, jobId = jobId, fileName = item.displayName,
