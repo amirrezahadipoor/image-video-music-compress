@@ -166,27 +166,6 @@ fun StatCard(
 }
 
 /** Small pill used for chips / status badges. */
-@Composable
-fun Pill(
-    text: String,
-    modifier: Modifier = Modifier,
-    background: Color = MaterialTheme.colorScheme.surfaceVariant,
-    contentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant
-) {
-    Box(
-        modifier = modifier
-            .background(background, RoundedCornerShape(50))
-            .padding(horizontal = 10.dp, vertical = 4.dp)
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = contentColor,
-            textAlign = TextAlign.Center
-        )
-    }
-}
-
 /** The "Compress" gradient bar with file count and estimated size. */
 @Composable
 fun GradientSummaryBar(

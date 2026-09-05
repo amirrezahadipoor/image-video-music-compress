@@ -198,7 +198,15 @@ class JobCoordinator(
                 val result = try {
                     itemControl.checkActive()
                     compressor.compressItem(jobId, item, settings, itemControl) { phase: ItemPhase, frac: Float ->
-                        updateItem(jobId, item.itemId) { it.copy(phase = phase, fraction = frac) }
+                        // MONOTONIC-FIX: a retry pass restarts its own fraction at
+                        // zero — the transcoder maps its second attempt into the
+                        // same 0..1 range — so the bar used to jump backwards in
+                        // the middle of a file. Progress of one item is a promise
+                        // that only moves forward; terminal phases still win.
+                        updateItem(jobId, item.itemId) {
+                            val forward = if (phase == ItemPhase.COMPRESSING) maxOf(it.fraction, frac) else frac
+                            it.copy(phase = phase, fraction = forward)
+                        }
                     }
                 } catch (e: CompressionCancelledException) {
                     if (isItemCancelled(item.itemId)) {

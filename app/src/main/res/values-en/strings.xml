@@ -39,6 +39,7 @@
     <string name="home_tap_to_choose">Choose a type to start</string>
 
     <!-- File picking --><string name="pick_error_too_large">One or more files are over the 2 GB limit.</string>
+    <string name="home_picker_limit_hint">Up to %1$d files can be picked at a time. For a whole folder, use “Pick folder” instead.</string>
     <string name="pick_processing">Preparing files… please wait.</string>
     <string name="replace_original_title">Replace original file</string>
     <string name="output_location_default">Default folder</string>
@@ -113,6 +114,13 @@
     <string name="video_resolution_720">720p (HD)</string>
     <string name="video_resolution_480">480p (SD)</string>
     <string name="video_resolution_custom">Custom</string>
+    <string name="video_bitrate">Video bitrate</string>
+    <string name="video_bitrate_auto">Auto (from the compression level)</string>
+    <string name="video_bitrate_value">%1$d kbps</string>
+    <string name="video_bitrate_overridden">The size budget is on and overrides the manual bitrate.</string>
+    <string name="video_resolution_custom_hint">This frame is used exactly as typed, so the aspect ratio may change. Odd numbers are rounded to an even size and everything is clamped to 64-8000.</string>
+    <string name="video_custom_width_hint">Width (px)</string>
+    <string name="video_custom_height_hint">Height (px)</string>
     <string name="video_fps">Frame rate</string>
     <string name="video_fps_original">Original</string>
     <string name="video_fps_60">60 fps</string>
@@ -150,6 +158,11 @@
     <string name="audio_bitrate_192">192 kbps</string>
     <string name="audio_bitrate_256">256 kbps</string>
     <string name="audio_bitrate_320">320 kbps</string>
+    <string name="audio_bitrate_mode">Bitrate mode</string>
+    <string name="audio_bitrate_mode_vbr">Variable (VBR)</string>
+    <string name="audio_bitrate_mode_cbr">Constant (CBR)</string>
+    <string name="audio_bitrate_mode_vbr_desc">Size follows quality: the number above is only an anchor, so the file usually comes out smaller.</string>
+    <string name="audio_bitrate_mode_cbr_desc">Exact, predictable size; better when the output must fit a fixed budget.</string>
     <string name="audio_output_format">Output format</string>
     <string name="audio_format_m4a">AAC (M4A) - best quality per size</string>
     <string name="audio_format_mp3">MP3 - widest compatibility</string>
@@ -272,6 +285,8 @@
     <!-- Notification -->
     <string name="notif_channel_name">Compression jobs</string>
     <string name="notif_channel_desc">Progress and controls for running compression jobs</string>
+    <string name="notif_channel_name_results">Compression results</string>
+    <string name="notif_channel_desc_results">Sent when a job finishes; tap it to open the result</string>
     <string name="notif_title">Compressing %1$s</string>
     <string name="notif_item">%1$d of %2$d</string>
     <string name="notif_file">File: %1$s</string>

@@ -25,6 +25,13 @@ object NotificationHelper {
     // another job was still running. 1002 is reserved for results.
     const val NOTIF_RESULT_ID = 1002
 
+    /**
+     * CHANNEL-NAMES-FIX: both channels used to be called "Compressions", so in
+     * Android's own settings the user saw two identical switches and could not
+     * silence the finished-job alerts without killing the live progress bar.
+     * createNotificationChannel() updates the title of an existing channel, so an
+     * install that already has them is corrected on the next launch.
+     */
     fun createChannels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
@@ -37,9 +44,9 @@ object NotificationHelper {
         nm.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_RESULTS,
-                context.getString(R.string.notif_channel_name),
+                context.getString(R.string.notif_channel_name_results),
                 NotificationManager.IMPORTANCE_DEFAULT
-            ).apply { description = context.getString(R.string.notif_channel_desc) }
+            ).apply { description = context.getString(R.string.notif_channel_desc_results) }
         )
     }
 

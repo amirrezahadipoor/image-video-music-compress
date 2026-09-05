@@ -102,6 +102,12 @@ import com.compressly.ui.theme.GradientPhoto
 import com.compressly.ui.theme.GradientVideo
 import com.compressly.ui.viewmodels.HomeViewModel
 
+/**
+ * How many files the system picker accepts in one go. One constant for both the
+ * launcher and the notice, so the number shown can never drift from the real cap.
+ */
+private const val PICKER_MAX_ITEMS = 50
+
 @Composable
 fun HomeScreen(
     onOpenSettings: (MediaType) -> Unit,
@@ -185,6 +191,18 @@ fun HomeScreen(
             if (skippedTooLarge) {
                 Toast.makeText(context, context.getString(R.string.pick_error_too_large), Toast.LENGTH_LONG).show()
             }
+            // PICKER-CAP-FIX: the system photo picker hard-stops at
+            // PickMultipleVisualMedia's maxItems and explains nothing, so someone
+            // who meant "my whole camera folder" got 50 files and no clue why.
+            // Naming the limit, and the flow without one, turns a mystery into a
+            // choice.
+            if (uris.size >= PICKER_MAX_ITEMS) {
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.home_picker_limit_hint, PICKER_MAX_ITEMS),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
 
             if (validItems.isEmpty()) {
                 preparingBatch = false
@@ -200,11 +218,11 @@ fun HomeScreen(
     var pendingDocsType by remember { mutableStateOf<MediaType?>(null) }
 
     val photoPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickMultipleVisualMedia(50)
+        ActivityResultContracts.PickMultipleVisualMedia(PICKER_MAX_ITEMS)
     ) { uris -> acceptPicked(MediaType.PHOTO, uris) }
 
     val videoPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickMultipleVisualMedia(50)
+        ActivityResultContracts.PickMultipleVisualMedia(PICKER_MAX_ITEMS)
     ) { uris -> acceptPicked(MediaType.VIDEO, uris) }
 
     val docsPicker = rememberLauncherForActivityResult(

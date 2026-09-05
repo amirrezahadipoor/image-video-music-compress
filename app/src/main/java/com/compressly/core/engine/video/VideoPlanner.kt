@@ -176,8 +176,12 @@ object VideoPlanner {
             VideoResolution.R1080 -> longEdgeCap(1920, displayW, displayH)
             VideoResolution.R720 -> longEdgeCap(1280, displayW, displayH)
             VideoResolution.R480 -> longEdgeCap(854, displayW, displayH)
-            VideoResolution.CUSTOM ->
-                settings.customWidth.coerceAtLeast(64) to settings.customHeight.coerceAtLeast(64)
+            // CUSTOM-FIX: the user's numbers are honoured exactly, but made
+            // encoder-safe first. H.264/HEVC encoders reject odd dimensions
+            // (the 4:2:0 plane needs even), and a size below 64 or above 8000
+            // fails configure() — so the value is clamped and rounded here, in
+            // the one place the transcoder and the live estimate both read from.
+            VideoResolution.CUSTOM -> encoderSize(settings.customWidth) to encoderSize(settings.customHeight)
         }
         if (preset == CompressionPreset.SMART) {
             val longEdge = maxOf(displayW, displayH)
@@ -635,6 +639,20 @@ object VideoPlanner {
      */
     /** High enough that CBR is safe for the hardware encoder. Below this, CBR */
     private const val CBR_SAFE_BITRATE = 3_000_000
+
+    /** Bounds of a custom frame edge, shared by the UI field and the planner. */
+    const val MIN_EDGE = 64
+    const val MAX_EDGE = 8000
+
+    /**
+     * A dimension an on-device encoder will actually accept: within 64..8000 and
+     * even. Public so the rule is unit-testable on the JVM and so the settings
+     * screen can clamp its input fields to exactly the same bounds.
+     */
+    fun encoderSize(value: Int): Int {
+        val v = value.coerceIn(MIN_EDGE, MAX_EDGE)
+        return if (v % 2 == 0) v else v - 1
+    }
 
     fun plan(info: MediaInfo, settings: VideoSettings, preset: CompressionPreset): Plan {
         val (w, h) = outputDims(info, settings, preset)

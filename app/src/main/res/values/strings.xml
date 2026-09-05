@@ -40,6 +40,7 @@
     <string name="home_tap_to_choose">یک نوع را انتخاب کنید</string>
 
     <!-- File picking --><string name="pick_error_too_large">یک یا چند فایل بیشتر از حد مجاز (۲ گیگابایت) هستند.</string>
+    <string name="home_picker_limit_hint">انتخاب هم‌زمان تا %1$d فایل ممکن است. برای کل پوشه از «انتخاب پوشه» استفاده کنید.</string>
     <string name="pick_processing">در حال آماده‌سازی فایل‌ها… لطفاً منتظر بمانید.</string>
     <string name="replace_original_title">جایگزینی فایل اصلی</string>
     <string name="output_location_default">پوشه پیش‌فرض</string>
@@ -114,6 +115,13 @@
     <string name="video_resolution_720">۷۲۰p (اچ‌دی)</string>
     <string name="video_resolution_480">۴۸۰p (اس‌دی)</string>
     <string name="video_resolution_custom">دلخواه</string>
+    <string name="video_bitrate">بیت‌ریت ویدیو</string>
+    <string name="video_bitrate_auto">خودکار (بر پایهٔ سطح فشرده‌سازی)</string>
+    <string name="video_bitrate_value">%1$d کیلوبیت</string>
+    <string name="video_bitrate_overridden">سقف حجم فعال است و بیت‌ریت دستی را کنار می‌گذارد.</string>
+    <string name="video_resolution_custom_hint">این کادر دقیقاً اعمال می‌شود، پس نسبت تصویر ممکن است تغییر کند. اعداد فرد به نزدیک‌ترین اندازهٔ زوج و همه در بازهٔ ۶۴ تا ۸۰۰۰ تبدیل می‌شوند.</string>
+    <string name="video_custom_width_hint">پهنا (پیکسل)</string>
+    <string name="video_custom_height_hint">بلا (پیکسل)</string>
     <string name="video_fps">نرخ فریم</string>
     <string name="video_fps_original">اصلی</string>
     <string name="video_fps_60">۶۰ فریم بر ثانیه</string>
@@ -151,6 +159,11 @@
     <string name="audio_bitrate_192">۱۹۲ کیلوبیت</string>
     <string name="audio_bitrate_256">۲۵۶ کیلوبیت</string>
     <string name="audio_bitrate_320">۳۲۰ کیلوبیت</string>
+    <string name="audio_bitrate_mode">حالت بیت‌ریت</string>
+    <string name="audio_bitrate_mode_vbr">متغیر (VBR)</string>
+    <string name="audio_bitrate_mode_cbr">ثابت (CBR)</string>
+    <string name="audio_bitrate_mode_vbr_desc">حجم بر پایهٔ کیفیت تنظیم می‌شود؛ عدد بالا فقط هدف است و فایل معمولاً کوچک‌تر از آن درمی‌آید.</string>
+    <string name="audio_bitrate_mode_cbr_desc">حجم دقیق و قابل پیش‌بینی؛ وقتی خروجی باید در یک سقف ثابت جا شود بهتر است.</string>
     <string name="audio_output_format">فرمت خروجی</string>
     <string name="audio_format_m4a">AAC (M4A) - بهترین کیفیت نسبت به حجم</string>
     <string name="audio_format_mp3">MP3 - بیشترین سازگاری</string>
@@ -273,6 +286,8 @@
     <!-- Notification -->
     <string name="notif_channel_name">فشرده‌سازی‌ها</string>
     <string name="notif_channel_desc">پیشرفت و کنترل فشرده‌سازی‌های در حال اجرا</string>
+    <string name="notif_channel_name_results">نتایج فشرده‌سازی</string>
+    <string name="notif_channel_desc_results">پیام پایان هر کار؛ با فشردن آن نتیجه را باز می‌کنید</string>
     <string name="notif_title">در حال فشرده‌سازی %1$s</string>
     <string name="notif_item">%1$d از %2$d</string>
     <string name="notif_file">فایل: %1$s</string>

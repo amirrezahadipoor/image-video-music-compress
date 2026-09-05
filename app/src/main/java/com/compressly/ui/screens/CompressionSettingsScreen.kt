@@ -65,10 +65,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.compressly.CompresslyApp
 import com.compressly.core.data.MediaStoreConsent
+import com.compressly.core.engine.video.VideoPlanner
 import ir.siliksama.hajmino.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.compressly.core.engine.model.AudioBitrateMode
 import com.compressly.core.engine.model.AudioFormat
 import com.compressly.core.engine.model.InputItem
 import com.compressly.core.engine.model.CompressionPreset
@@ -744,7 +746,12 @@ private fun VideoAdvanced(
     ChipSelector(
         options = listOf(
             VideoResolution.ORIGINAL, VideoResolution.R2160,
-            VideoResolution.R1080, VideoResolution.R720, VideoResolution.R480
+            VideoResolution.R1080, VideoResolution.R720, VideoResolution.R480,
+            // CUSTOM-FIX: `VideoResolution.CUSTOM` and both customWidth/Height
+            // fields were honoured by the planner all along — the chip that sets
+            // them was simply never in the list, so the whole feature was
+            // unreachable from the UI (and the label string was dead).
+            VideoResolution.CUSTOM
         ),
         selected = state.video.resolution,
         labelOf = { res ->
@@ -761,6 +768,26 @@ private fun VideoAdvanced(
         },
         onSelect = { res -> viewModel.setVideoSettings { it.copy(resolution = res) } }
     )
+    if (state.video.resolution == VideoResolution.CUSTOM) {
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = stringResource(R.string.video_resolution_custom_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(8.dp))
+        EdgeField(
+            label = stringResource(R.string.video_custom_width_hint),
+            committed = state.video.customWidth,
+            onCommit = { v -> viewModel.setVideoSettings { it.copy(customWidth = v) } }
+        )
+        Spacer(Modifier.height(8.dp))
+        EdgeField(
+            label = stringResource(R.string.video_custom_height_hint),
+            committed = state.video.customHeight,
+            onCommit = { v -> viewModel.setVideoSettings { it.copy(customHeight = v) } }
+        )
+    }
     Spacer(Modifier.height(14.dp))
 
     SectionHeader(stringResource(R.string.video_fps))
@@ -838,6 +865,31 @@ private fun VideoAdvanced(
     // Size-target: "compress this under X MB" instead of a quality tier.
     SectionHeader(stringResource(R.string.video_size_target))
     SizeTargetSection(state, viewModel)
+    Spacer(Modifier.height(14.dp))
+
+    // BITRATE-FIX: VideoPlanner has always honoured an explicit `bitrate` ahead
+    // of its own pricing; there was no way to set it. The override rule is
+    // stated next to it, because a size budget wins over a manual rate.
+    SectionHeader(stringResource(R.string.video_bitrate))
+    ChipSelector(
+        options = listOf(null, 1_000, 2_500, 5_000, 10_000),
+        selected = state.video.bitrate?.let { it / 1000 },
+        labelOf = { kbps ->
+            if (kbps == null) stringResource(R.string.video_bitrate_auto)
+            else stringResource(R.string.video_bitrate_value, kbps)
+        },
+        onSelect = { kbps ->
+            viewModel.setVideoSettings { it.copy(bitrate = kbps?.let { k -> k * 1000 }) }
+        }
+    )
+    if (state.video.bitrate != null && state.video.sizeTargetMb != null) {
+        Text(
+            text = stringResource(R.string.video_bitrate_overridden),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+    }
     Spacer(Modifier.height(14.dp))
 
     SectionHeader(stringResource(R.string.video_video_hdr))
@@ -986,6 +1038,31 @@ private fun AudioAdvanced(
         },
         onSelect = { bps -> viewModel.setAudioSettings { it.copy(bitrate = bps) } }
     )
+    Spacer(Modifier.height(10.dp))
+
+    // MODE-FIX: Mp3Writer switches LAME to quality-based VBR when
+    // `bitrateMode == VBR` and the estimator prices it accordingly, but nothing
+    // in the UI could ever change the default — the kbps row was the only knob.
+    ChipSelector(
+        options = listOf(AudioBitrateMode.VBR, AudioBitrateMode.CBR),
+        selected = state.audio.bitrateMode,
+        labelOf = { mode ->
+            stringResource(
+                if (mode == AudioBitrateMode.VBR) R.string.audio_bitrate_mode_vbr
+                else R.string.audio_bitrate_mode_cbr
+            )
+        },
+        onSelect = { mode -> viewModel.setAudioSettings { it.copy(bitrateMode = mode) } }
+    )
+    Text(
+        text = stringResource(
+            if (state.audio.bitrateMode == AudioBitrateMode.VBR) R.string.audio_bitrate_mode_vbr_desc
+            else R.string.audio_bitrate_mode_cbr_desc
+        ),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 6.dp)
+    )
     Spacer(Modifier.height(14.dp))
 
     ToggleRow(
@@ -1078,4 +1155,45 @@ private fun OutputLocationSelector(
             )
         }
     }
+}
+
+/**
+ * A width/height input for the custom video frame. Keeps a local draft (a field
+ * bound straight to a clamped setting snaps "1" to "64" and cannot be typed
+ * into), commits live while the number is in range, and on Done rounds through
+ * `VideoPlanner.encoderSize` so an odd value never reaches the encoder.
+ */
+@Composable
+private fun EdgeField(
+    label: String,
+    committed: Int,
+    onCommit: (Int) -> Unit
+) {
+    var draft by remember { mutableStateOf(committed.toString()) }
+    val keyboard = LocalSoftwareKeyboardController.current
+    OutlinedTextField(
+        value = draft,
+        onValueChange = { raw ->
+            val digits = raw.filter(Char::isDigit).take(5)
+            draft = digits
+            digits.toIntOrNull()
+                ?.takeIf { it in VideoPlanner.MIN_EDGE..VideoPlanner.MAX_EDGE }
+                ?.let(onCommit)
+        },
+        label = { Text(label) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        keyboardActions = KeyboardActions(onDone = {
+            keyboard?.hide()
+            val parsed = draft.trim().toIntOrNull()
+            if (parsed == null) {
+                draft = committed.toString()
+            } else {
+                val safe = VideoPlanner.encoderSize(parsed)
+                onCommit(safe)
+                draft = safe.toString()
+            }
+        }),
+        modifier = Modifier.fillMaxWidth()
+    )
 }

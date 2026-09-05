@@ -165,35 +165,3 @@ fun ShimmerBox(
 }
 
 /** Error state with a retry action. */
-@Composable
-fun ErrorState(
-    title: String,
-    message: String,
-    modifier: Modifier = Modifier,
-    onRetry: (() -> Unit)? = null
-) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 32.dp, vertical = 40.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.error,
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-        if (onRetry != null) {
-            Spacer(Modifier.height(18.dp))
-            GhostButton(text = stringResource(R.string.action_retry), onClick = onRetry)
-        }
-    }
-}

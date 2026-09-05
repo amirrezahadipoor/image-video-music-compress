@@ -26,12 +26,7 @@ object Formats {
     }
 
     /** 0.0..1.0 fraction as a whole percent. */
-    fun percentFraction(fraction: Float): String {
-        val raw = "${(fraction * 100).toInt().coerceIn(0, 100)}%"
-        return if (Locale.getDefault().language == "fa") toPersianDigits(raw) else raw
-    }
-
-    fun humanDuration(ms: Long): String {
+        fun humanDuration(ms: Long): String {
         if (ms <= 0) return "0:00"
         val totalSec = ms / 1000
         val h = totalSec / 3600

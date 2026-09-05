@@ -3,7 +3,6 @@ package com.compressly.core.engine.estimate
 import com.compressly.core.engine.model.AudioSettings
 import com.compressly.core.engine.model.CompressionPreset
 import com.compressly.core.engine.model.MediaInfo
-import com.compressly.core.engine.model.PresetDefaults
 import com.compressly.core.engine.model.PhotoFormat
 import com.compressly.core.engine.model.PhotoResize
 import com.compressly.core.engine.model.PhotoSettings
@@ -148,8 +147,4 @@ object SizeEstimator {
         )
     }
 
-    // ---- Preset-only helpers for the gauge ------------------------------
-
-    fun estimatedSavingRange(preset: CompressionPreset, mediaType: com.compressly.core.engine.model.MediaType): Pair<Int, Int> =
-        PresetDefaults.reductionRange(preset, mediaType)
 }

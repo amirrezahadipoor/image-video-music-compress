@@ -48,6 +48,14 @@ object FolderMediaScanner {
         val videos = ArrayList<InputItem>()
         val audios = ArrayList<InputItem>()
         var truncated = false
+        // PER-TYPE-CAP-FIX: one shared `truncated` flag used to stop the WHOLE
+        // walk, so a folder holding more than MAX_VIDEOS videos ended the scan
+        // the moment the video list was full and the user got zero photos (or
+        // zero of whichever type was scanned after the full one). A full type now
+        // only stops that type.
+        var photosFull = false
+        var videosFull = false
+        var audiosFull = false
 
         fun capOf(type: MediaType): Int = when (type) {
             MediaType.PHOTO -> MAX_PHOTOS
@@ -58,6 +66,11 @@ object FolderMediaScanner {
         fun add(file: DocumentFile, type: MediaType, list: MutableList<InputItem>) {
             if (list.size >= capOf(type)) {
                 truncated = true
+                when (type) {
+                    MediaType.PHOTO -> photosFull = true
+                    MediaType.VIDEO -> videosFull = true
+                    MediaType.AUDIO -> audiosFull = true
+                }
                 return
             }
             val size = file.length()
@@ -71,16 +84,19 @@ object FolderMediaScanner {
         }
 
         fun walk(dir: DocumentFile, depth: Int) {
-            if (depth > MAX_DEPTH || truncated) return
+            if (depth > MAX_DEPTH) return
+            if (photosFull && videosFull && audiosFull) return
             dir.listFiles().forEach { file ->
-                if (truncated) return@forEach
+                if (photosFull && videosFull && audiosFull) return@forEach
                 if (file.isDirectory) {
                     walk(file, depth + 1)
                 } else {
+                    // A type that is already full is skipped without even
+                    // naming the file, so the other two keep being collected.
                     when (typeOf(file)) {
-                        MediaType.PHOTO -> add(file, MediaType.PHOTO, photos)
-                        MediaType.VIDEO -> add(file, MediaType.VIDEO, videos)
-                        MediaType.AUDIO -> add(file, MediaType.AUDIO, audios)
+                        MediaType.PHOTO -> if (!photosFull) add(file, MediaType.PHOTO, photos)
+                        MediaType.VIDEO -> if (!videosFull) add(file, MediaType.VIDEO, videos)
+                        MediaType.AUDIO -> if (!audiosFull) add(file, MediaType.AUDIO, audios)
                         null -> Unit
                     }
                 }
@@ -96,7 +112,11 @@ object FolderMediaScanner {
         val dot = name.lastIndexOf('.')
         if (dot < 0) return null
         return when (name.substring(dot + 1)) {
-            "jpg", "jpeg", "png", "webp", "heic", "heif" -> MediaType.PHOTO
+            // GIF-FIX: the engine converts an animated GIF to MP4 (and refuses to
+            // flatten it into a still photo), but the scanner never classified a
+            // .gif — so the feature was unreachable from a folder, which is the
+            // only place a stack of GIFs actually lives.
+            "jpg", "jpeg", "png", "webp", "heic", "heif", "gif" -> MediaType.PHOTO
             "mp4", "mov", "mkv", "webm", "3gp", "3gpp", "m4v", "avi" -> MediaType.VIDEO
             "mp3", "wav", "flac", "aac", "m4a", "ogg", "opus", "amr" -> MediaType.AUDIO
             else -> null

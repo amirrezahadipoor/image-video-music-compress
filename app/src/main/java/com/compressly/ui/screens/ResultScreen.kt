@@ -59,6 +59,7 @@ import ir.siliksama.hajmino.R
 import com.compressly.core.data.db.HistoryEntry
 import com.compressly.core.util.Bidi
 import com.compressly.core.util.Formats
+import com.compressly.core.util.JobTotals
 import com.compressly.ui.components.ActionButton
 import com.compressly.ui.components.GhostButton
 import com.compressly.ui.components.LoadingState
@@ -185,16 +186,17 @@ private fun BatchResultContent(
     context: android.content.Context,
     onHistory: () -> Unit
 ) {
-    val totalCount  = all.size
-    val doneCount   = done.size
-    // Only finished rows carry real byte counts; the count line above still
-    // names the failures so the total is never presented as the whole job.
-    val totalBefore = done.sumOf { it.inputSize }
-    val totalAfter  = done.sumOf { it.outputSize }
-    val totalSaved  = done.sumOf { it.savedBytes }
-    val reduction   = if (totalBefore > 0)
-        (totalSaved.toDouble() / totalBefore).coerceIn(0.0, 1.0)
-    else 0.0
+    // ONE-RULE-FIX: the headline and the card used to disagree (the percentage
+    // summed each file's own saving while the cards summed raw sizes, so a batch
+    // could read "1.0 GB → 1.1 GB, saved 200 MB"). Both read JobTotals now, which
+    // is unit-tested: bytes only from finished rows, every row counted in "x of y".
+    val totals      = JobTotals.of(all)
+    val totalCount  = totals.total
+    val doneCount   = totals.done
+    val totalBefore = totals.before
+    val totalAfter  = totals.after
+    val totalSaved  = totals.saved
+    val reduction   = totals.reduction
     val shownReduction by androidx.compose.animation.core.animateFloatAsState(
         targetValue = reduction.toFloat(),
         animationSpec = androidx.compose.animation.core.tween(durationMillis = 850),
@@ -411,10 +413,13 @@ private fun SingleResultContent(
 
 @Composable
 private fun BatchSummaryCard(all: List<HistoryEntry>, done: List<HistoryEntry>) {
-    val doneCount   = done.size
-    val totalBefore = done.sumOf { it.inputSize }
-    val totalAfter  = done.sumOf { it.outputSize }
-    val totalSaved  = done.sumOf { it.savedBytes }
+    val totals      = JobTotals.of(all)
+    val doneCount   = totals.done
+    val totalBefore = totals.before
+    val totalAfter  = totals.after
+    // Never a negative size in the UI: when a batch did grow, the card shows the
+    // honest 0 and the before/after pair above tells the story.
+    val totalSaved  = totals.saved.coerceAtLeast(0L)
     val surface     = MaterialTheme.colorScheme.surface
     val primary     = MaterialTheme.colorScheme.primary
     val onSurface   = MaterialTheme.colorScheme.onSurface
@@ -463,8 +468,7 @@ private fun BatchSummaryCard(all: List<HistoryEntry>, done: List<HistoryEntry>) 
                     color = onSurface
                 )
                 val shownPct by androidx.compose.animation.core.animateFloatAsState(
-                    targetValue = (totalSaved.toDouble() / totalBefore.coerceAtLeast(1))
-                        .coerceIn(0.0, 1.0).toFloat(),
+                    targetValue = totals.reduction.toFloat(),
                     animationSpec = androidx.compose.animation.core.tween(durationMillis = 850),
                     label = "pct_countup"
                 )

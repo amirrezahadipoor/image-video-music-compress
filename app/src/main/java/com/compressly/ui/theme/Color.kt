@@ -5,8 +5,6 @@ import androidx.compose.ui.graphics.Color
 // ---- Brand palette (indigo/violet identity, teal accent) ---------------
 
 val Indigo = Color(0xFF5B5FEF)
-val IndigoLight = Color(0xFF8F93FF)
-val IndigoDeep = Color(0xFF2E2C6B)
 val Violet = Color(0xFF9D5BEF)
 val Teal = Color(0xFF2DD4BF)
 val Amber = Color(0xFFF5A524)

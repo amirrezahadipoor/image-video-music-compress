@@ -6,6 +6,16 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Concurrency: a push to main that also has an open PR used to start two full
+# builds of the same commit at once, and both were allowed to run to the end —
+# double minutes for one identical result. Grouping on the SHA serialises them.
+# cancel-in-progress stays false on purpose: the run that finishes uploads the
+# signed APK that the Bazaar release is made from, and a cancelled run leaves
+# nothing behind.
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.sha }}
+  cancel-in-progress: false
+
 env:
   # One place to change the JVM sizing for every job.
   GRADLE_OPTS: >-
