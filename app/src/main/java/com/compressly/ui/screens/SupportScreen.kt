@@ -71,6 +71,9 @@ fun SupportScreen(onBack: () -> Unit) {
     val cardNumber = BuildConfig.SUPPORT_CARD_NUMBER
     val cardHolder = BuildConfig.SUPPORT_CARD_HOLDER
     val cardConfigured = cardNumber.isNotBlank()
+    // LINT-RESOURCE-FIX: resolved during composition so the copy callback never
+    // queries resources through LocalContext.
+    val cardCopiedMsg = stringResource(R.string.support_card_copied)
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         Column(
@@ -219,11 +222,7 @@ fun SupportScreen(onBack: () -> Unit) {
                             text = stringResource(R.string.support_card_copy),
                             onClick = {
                                 copyCard(context, cardNumber)
-                                Toast.makeText(
-                                    context,
-                                    context.getString(R.string.support_card_copied),
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                Toast.makeText(context, cardCopiedMsg, Toast.LENGTH_SHORT).show()
                             },
                             icon = Icons.Outlined.CreditCard,
                             gradient = listOf(Color(0xFFB22A5C), Color(0xFFE5487B))

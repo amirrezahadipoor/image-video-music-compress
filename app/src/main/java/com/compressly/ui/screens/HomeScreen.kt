@@ -137,6 +137,13 @@ fun HomeScreen(
     // overlay with a spinner instead of a frozen screen.
     var preparingBatch by remember { mutableStateOf(false) }
 
+    // LINT-RESOURCE-FIX (LocalContextGetResourceValueCall): the toast texts are
+    // resolved ONCE during composition with stringResource and captured, so no
+    // resource query runs through LocalContext inside the composable body.
+    val msgTooLarge = stringResource(R.string.pick_error_too_large)
+    val msgPickerLimit = stringResource(R.string.home_picker_limit_hint, PICKER_MAX_ITEMS)
+    val msgFolderEmpty = stringResource(R.string.folder_empty)
+
     fun acceptPicked(type: MediaType, uris: List<Uri>) {
         if (uris.isEmpty()) return
         preparingBatch = true
@@ -190,7 +197,7 @@ fun HomeScreen(
             }
 
             if (skippedTooLarge) {
-                Toast.makeText(context, context.getString(R.string.pick_error_too_large), Toast.LENGTH_LONG).show()
+                Toast.makeText(context, msgTooLarge, Toast.LENGTH_LONG).show()
             }
             // PICKER-CAP-FIX: the system photo picker hard-stops at
             // PickMultipleVisualMedia's maxItems and explains nothing, so someone
@@ -198,11 +205,7 @@ fun HomeScreen(
             // Naming the limit, and the flow without one, turns a mystery into a
             // choice.
             if (uris.size >= PICKER_MAX_ITEMS) {
-                Toast.makeText(
-                    context,
-                    context.getString(R.string.home_picker_limit_hint, PICKER_MAX_ITEMS),
-                    Toast.LENGTH_LONG
-                ).show()
+                Toast.makeText(context, msgPickerLimit, Toast.LENGTH_LONG).show()
             }
 
             if (validItems.isEmpty()) {
@@ -262,11 +265,7 @@ fun HomeScreen(
                 }
                 preparingBatch = false
                 if (snap.total == 0) {
-                    Toast.makeText(
-                        context,
-                        context.getString(R.string.folder_empty),
-                        Toast.LENGTH_LONG
-                    ).show()
+                    Toast.makeText(context, msgFolderEmpty, Toast.LENGTH_LONG).show()
                 } else {
                     folderSnapshot = snap
                 }

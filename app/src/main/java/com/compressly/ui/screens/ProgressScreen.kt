@@ -120,8 +120,11 @@ fun ProgressScreen(
     val live = job
     val stillWorking = live != null &&
         (live.status == JobStatus.RUNNING || live.status == JobStatus.PAUSED)
+    // LINT-RESOURCE-FIX: resolve the toast text during composition; the
+    // BackHandler callback then shows the captured string.
+    val keepRunningMsg = stringResource(R.string.progress_will_keep_running)
     BackHandler(enabled = stillWorking) {
-        Toast.makeText(context, context.getString(R.string.progress_will_keep_running), Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, keepRunningMsg, Toast.LENGTH_SHORT).show()
         onBack()
     }
 
