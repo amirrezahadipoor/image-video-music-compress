@@ -86,7 +86,7 @@
 | T2 | job `security` فقط HEAD را می‌پاید → باید **تاریخچه** را هم بپاید (keystore در history) | `[x]` — `security` حالا با `fetch-depth: 0` تاریخچه را هم می‌پاید (مرحلهٔ «Scan git history for signing material»؛ advisory تا پاک‌سازی تاریخچه، بعدش `exit 1`). روی همین ریپو آزمایش شد: ۲ keystore در تاریخچه، هیچ‌کدام در HEAD |
 
 | T3 | ۱۰ تست instrumented هیچ‌جا اجرا نمی‌شود → یا job emulator برگردد یا در README صادقانه نوشته شود | `[!]` وابسته به U13/تصمیم زمان CI |
-| T4 | `disable`های ۱۵تایی lint (کرش ابزار با AGP 8.7) → ارتقا به AGP ≥ 8.8.2 و حذفشان | `[~]` — 1.0.9 — AGP→8.8.2 و ۱۷ detector دوباره فعال شد؛ اعتبار نهایی = ران CI همین دور (اگر قرمز شد، revert تک-کامیتی) |
+| T4 | `disable`های ۱۵تایی lint (کرش ابزار با AGP 8.7) → ارتقا به AGP ≥ 8.8.2 و حذفشان | `[x]` — 1.0.9 — AGP→8.8.2، ۱۷ detector فعال؛ دو دور قرمزی CI (فراخوانی object با پرانتز + ۵ مورد `LocalContextGetResourceValueCall`) فیکس و ران `fae53d2` کاملاً سبز شد (هر سه job + APK امضاشده) |
 | T5 | دو ران دوبل روی هر push (push + dispatch) → افزودن `concurrency` در سطح workflow | `[x]` — eeb0766 — `concurrency` سطح workflow با cancel-in-progress: false |
 
 | T6 | Room: `version=1` بدون هیچ Migration و بدون تست schema → تلهٔ کرش در اولین تغییر schema | `[!]` نیازمند تولید schema با بیلد واقعی (نمی‌توان hash را دستی نوشت) |
@@ -239,4 +239,8 @@ lint، T6 مهاجرت Room، S4 «۱۰۰٪ آفلاین» در بیلد باز�
 
 همچنین: S2/S3/X3/X6/S6/U7/T4 (بالا) + مجوزهای LGPL درون‌اپ (KNOWN #8) + شمارش
 تست‌های داکس (۲۵۱ در ۲۳ فایل). پاریتهٔ fa/en: ۳۶۳ کلید.
-**اعتبار:** مثل همیشه فقط GitHub Actions؛ هیچ بیلد محلی‌ای اجرا نشد.
+**اعتبار:** مثل همیشه فقط GitHub Actions؛ سه ران لازم شد — ران ۱ قرمز
+(فراخوانی `data object` با پرانتز)، ران ۲ فقط گیتِ lint قرمز (۵ مورد
+`LocalContextGetResourceValueCall` از خانوادهٔ تازه‌فعال‌شده؛ گزارش کامل از
+artifact خوانده شد) و ران ۳ روی `fae53d2` **کاملاً سبز**: هر سه job + APK
+امضاشدهٔ bazaar. هیچ بیلد محلی‌ای اجرا نشد.
