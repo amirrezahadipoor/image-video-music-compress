@@ -53,7 +53,7 @@
 | U7 | `SizeEstimator.estimatedSavingRange` یتیم → یا وصل شود یا حذف | `[ ]` |
 | U8/U9/U12 | کد مرده: `Formats.percentFraction`, `NoopBillingManager.simulatePurchase`, `AnimatedGradientBar`, `ShimmerPlaceholder`, `ErrorState`, `Pill`, `IndigoDeep/Light` | `[x]` — eeb0766 — `estimatedSavingRange`(wrapper)، `percentFraction`، `AnimatedGradientBar`، `ShimmerPlaceholder`، `ErrorState`، `Pill`، `IndigoDeep/Light` حذف شدند؛ `simulatePurchase` و `NoopBillingManager` واقعاً استفاده می‌شوند پس ماندند |
 
-| U13 | Baseline Profile یتیم شده (جاب CI حذف شده، ادعای «measured» بدون داده، `docs/BENCHMARK.md` جدول خالی، دو فایل بایت‌به‌بایت یکسان ۱٫۷۸MB) | `[!]` نیازمند تصمیم: یا جاب emulator برگردد یا ادعا و فایل‌ها حذف شوند |
+| U13 | Baseline Profile یتیم شده (job CI حذف شده، ادعای «measured» بدون داده، `docs/BENCHMARK.md` جدول خالی، دو فایل بایت‌به‌بایت یکسان ۱٫۷۸MB) | `[!]` نیازمند تصمیم: یا job emulator برگردد یا ادعا و فایل‌ها حذف شوند |
 | U14 | نبود `LICENSE` + نبود NOTICE برای jump3r (LGPL) و jaudiotagger (LGPL) | `[~]` — `NOTICE` + `docs/THIRD_PARTY_NOTICES.md` نوشته شد (با پیوندهای راست و دو مورد «تأیید شود»); فایل `LICENSE` تصمیم شماست — هنوز اضافه نشده |
 
 | U15 | `gradlew` بدون bit اجرایی (شعار README روی کلون تازه می‌شکند) | `[x]` — eeb0766 — `git update-index --chmod=+x gradlew` |
@@ -81,9 +81,9 @@
 |---|---|---|
 | T1 | صفر تست روی `OutputStore`/`JobCoordinator`/`Compressor` — افزودن تست خالص برای: scoping دسته‌ها، جمع‌های DONE-only، یکتایی jobId، الگوریتم نام یکتا، resolve وضعیت | `[~]` — `ResultMathTest` با ۱۱ تست (جمع‌های نتیجه، نشانهٔ retain، یکتایی نام، `encoderSize`) اضافه شد؛ تست مستقیم روی `JobCoordinator`/`Compressor` به Robolectric/emulator نیاز دارد |
 
-| T2 | جاب `security` فقط HEAD را می‌پاید → باید **تاریخچه** را هم بپاید (keystore در history) | `[x]` — `security` حالا با `fetch-depth: 0` تاریخچه را هم می‌پاید (مرحلهٔ «Scan git history for signing material»؛ advisory تا پاک‌سازی تاریخچه، بعدش `exit 1`). روی همین ریپو آزمایش شد: ۲ keystore در تاریخچه، هیچ‌کدام در HEAD |
+| T2 | job `security` فقط HEAD را می‌پاید → باید **تاریخچه** را هم بپاید (keystore در history) | `[x]` — `security` حالا با `fetch-depth: 0` تاریخچه را هم می‌پاید (مرحلهٔ «Scan git history for signing material»؛ advisory تا پاک‌سازی تاریخچه، بعدش `exit 1`). روی همین ریپو آزمایش شد: ۲ keystore در تاریخچه، هیچ‌کدام در HEAD |
 
-| T3 | ۱۰ تست instrumented هیچ‌جا اجرا نمی‌شود → یا جاب emulator برگردد یا در README صادقانه نوشته شود | `[!]` وابسته به U13/تصمیم زمان CI |
+| T3 | ۱۰ تست instrumented هیچ‌جا اجرا نمی‌شود → یا job emulator برگردد یا در README صادقانه نوشته شود | `[!]` وابسته به U13/تصمیم زمان CI |
 | T4 | `disable`های ۱۵تایی lint (کرش ابزار با AGP 8.7) → ارتقا به AGP ≥ 8.8.2 و حذفشان | `[!]` ریسک بالا، نیازمند یک چرخهٔ CI جدا |
 | T5 | دو ران دوبل روی هر push (push + dispatch) → افزودن `concurrency` در سطح workflow | `[x]` — eeb0766 — `concurrency` سطح workflow با cancel-in-progress: false |
 
@@ -106,7 +106,7 @@
 
 | R2 | README/داکس: «۱۲ صفحه» (واقعاً ۱۱)؛ «۲۲۸ تست» (۲۳۱)؛ «نسخه ۱.۰.۱/versionCode 2» (۱٫۰٫۸→۱٫۰٫۹) | `[x]` — ۱۱ صفحه / ۲۴۲ تست JVM / ۲۱ فایل تست در داکس اصلاح شد؛ نسخهٔ ۱.۰.۸ با یادداشت «برای انتشار بعدی versionCode=9» در `CHANGELOG.md` (بامپ نکردن = تصمیم شما) |
 
-| R3 | `docs/COMPRESSLY_CAPABILITIES.md` و `COMPRESSLY_SCORECARD.md` به `instrumented.yml` ارجاع می‌دهند که وجود ندارد | `[x]` — ارجاع‌های `instrumented.yml` در CAPABILITIES/SCORECARD با واقعیت (سه جاب، هیچ ایمولاتور) عوض شد + یادداشت درست در خود workflow |
+| R3 | `docs/COMPRESSLY_CAPABILITIES.md` و `COMPRESSLY_SCORECARD.md` به `instrumented.yml` ارجاع می‌دهند که وجود ندارد | `[x]` — ارجاع‌های `instrumented.yml` در CAPABILITIES/SCORECARD با واقعیت (سه job، هیچ ایمولاتور) عوض شد + یادداشت درست در خود workflow |
 
 | R4 | `docs/UPGRADE_ROADMAP.md`: «۵۰۰ فایل» در مقابل `MAX_PHOTOS=10_000` | `[x]` — سقف‌های واقعی اسکنر در UPGRADE_ROADMAP نوشته شد |
 
@@ -167,7 +167,7 @@
 `docs/KNOWN_ISSUES.md`، `docs/SETTINGS_CONSUMERS.md` + اصلاح پنج ادعای نامدرست
 در داکس قدیمی. **۱۱ تست JVM تازه** (مجموع ۲۴۲).
 
-**راستی‌آزماییِ همین دور:** برخلاف یادداشت بازبینی، `build.yml` هیچ جاب
+**راستی‌آزماییِ همین دور:** برخلاف یادداشت بازبینی، `build.yml` هیچ job
 ایمولاتوری ندارد (`grep -ci instrumented` روی `ec3eaa5` = ۰)؛ پس ۱۰ تست
 `androidTest` در CI اجرا نمی‌شوند و این در `docs/KNOWN_ISSUES.md` شمارهٔ ۱۱ ثبت شد.
 دو مورد دیگر هم «باگ» گزارش شده بودند ولی در کد رفع شده بودند: X2 (کپی no-op در
@@ -198,7 +198,7 @@ lint، T6 مهاجرت Room، S4 «۱۰۰٪ آفلاین» در بیلد باز�
 **گیت‌های تازه‌ای که همین دور اضافه شد** (تا این کلاس خطا دیگر پنج پوشش نخورد):
 
 - `tools/kt_grammar_check.py` + گیت «Kotlin lexer + resource reference gate» در ابتدای
-  جاب `lint`، بدون JDK/Gradle: تودرتویی کامنت‌ها، تراز بودن `{}/()/[]` خارج از
+  job `lint`، بدون JDK/Gradle: تودرتویی کامنت‌ها، تراز بودن `{}/()/[]` خارج از
   رشته‌ها، رشته‌های بسته‌نشده، و اینکه هر `R.<type>.<name>` به یک منبع واقعی
   (در **همهٔ** پوشه‌های `res/` شامل `drawable-nodpi/`) وصل می‌شود. با تست منفی
   ثابت شد: اگر همان `schemas/*.json` برگردد، گیت rc=1 می‌دهد و دقیقاً می‌گوید چرا.

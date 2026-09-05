@@ -78,14 +78,14 @@ Home، Onboarding، History، Result، Progress، تنظیمات فشردهسا�
   که `moov` را قبل از `mdat` می‌نهد و `stco`/`co64` را با delta اصلاح می‌کند؛ بدون باز-کدینگ، استریمِ
   حجیم با محدودسازی read به اندازهٔ باقی‌مانده. در `MediaCodecTranscoder` بلافاصله بعد از mux شدن اعمال می‌شود.
 - **targetSdk = 36 و compileSdk = 36؛ Compose BOM 2026.04.01 (1.11):** ارتقا یافته؛ edge-to-edge و predictive back فعال.
-- **سیگنال runtime MediaCodec:** دیگر وجود ندارد. جاب‌های ایمولاتور (`c2f198f`،
-  `70fd845`) از `build.yml` حذف شده‌اند؛ امروز سه جاب داریم: `build`، `security`،
+- **سیگنال runtime MediaCodec:** دیگر وجود ندارد. job‌های ایمولاتور (`c2f198f`،
+  `70fd845`) از `build.yml` حذف شده‌اند؛ امروز سه job داریم: `build`، `security`،
   `lint`. یعنی `VideoTranscodeSmokeTest` و ۹ تست instrumented دیگر هیچ‌گاه در CI
   اجرا نمی‌شوند (فقط با `./gradlew connectedBazaarDebugAndroidTest` روی دستگاه).
   هر چیزی که رفتار واقعی MediaCodec را می‌سنجد، در این پروژه «تست‌شده روی دستگاه»
   است، نه «سبز در CI».
 
 ## نکته‌های صادقانه (همچنان deferred)
-- **ایمولاتور سه‌پاس visual-diff:** طبق درخواست حذف شد؛ بازگردانده نمی‌شود (و جاب
+- **ایمولاتور سه‌پاس visual-diff:** طبق درخواست حذف شد؛ بازگردانده نمی‌شود (و job
   مینیمال MediaCodec هم بعداً حذف شد، پس امروز سیگنال runtime ای در CI نیست).
 - **پردازش موازی/parallel encode ویدیو و دوپاس کاملاً پویا/فیدبک-loop:** هنوز به‌صورت دسته‌ای است.

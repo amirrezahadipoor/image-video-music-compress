@@ -122,7 +122,7 @@
 
 > هیچ APK مخصوص گوگل‌پلی (flavor «play») در CI ساخته یا آپلود نمی‌شود؛ flavor «play» فقط برای دیباگ محلی است.
 
-تست‌ها در CI **بدون امولاتور** اجرا می‌شوند (پرهیز از ناپایداری و کندی امولاتور). ورک‌فلو `build.yml` در گام «تست» کل مجموعه تست‌های JVM را برای **هر چهار واریانت** اجرا می‌کند — flavor `play` و `bazaar` × buildType `debug` و `release` — با `--continue` تا شکست یک واریانت بقیه را پنهان نکند، و سپس لینت (`lintBazaarDebug`) را به‌عنوان دروازه‌ی کیفیت اجرا می‌کند. جاب‌های وابسته به امولاتور (`instrumented.yml`، `benchmark.yml`، `generate-baseline-profile.yml` و جاب `baseline-profile`) برداشته شده‌اند.
+تست‌ها در CI **بدون امولاتور** اجرا می‌شوند (پرهیز از ناپایداری و کندی امولاتور). ورک‌فلو `build.yml` در گام «تست» کل مجموعه تست‌های JVM را برای **هر چهار واریانت** اجرا می‌کند — flavor `play` و `bazaar` × buildType `debug` و `release` — با `--continue` تا شکست یک واریانت بقیه را پنهان نکند، و سپس لینت (`lintBazaarDebug`) را به‌عنوان دروازه‌ی کیفیت اجرا می‌کند. job‌های وابسته به امولاتور (`instrumented.yml`، `benchmark.yml`، `generate-baseline-profile.yml` و job `baseline-profile`) برداشته شده‌اند.
 
 ## حمایت مالی (اختیاری)
 
