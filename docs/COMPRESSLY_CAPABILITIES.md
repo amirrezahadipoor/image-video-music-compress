@@ -1,7 +1,7 @@
 # Compressly (پیادهسازی «حجمنو») — فهرست کامل امکانات
 
 سند بر اساس کاوش عمیقِ مستقیم از کد (نه تست runtime) تهیه شده است.
-وضعیت معتبرسازی: کامپایل سبز + گیت lint (hard gate) + ۲۲۸ تست JVM در CI سبز.
+وضعیت معتبرسازی: کامپایل سبز + گیت lint (hard gate) + ۲۴۲ تست JVM در CI سبز.
 
 ---
 
@@ -78,10 +78,14 @@ Home، Onboarding، History، Result، Progress، تنظیمات فشردهسا�
   که `moov` را قبل از `mdat` می‌نهد و `stco`/`co64` را با delta اصلاح می‌کند؛ بدون باز-کدینگ، استریمِ
   حجیم با محدودسازی read به اندازهٔ باقی‌مانده. در `MediaCodecTranscoder` بلافاصله بعد از mux شدن اعمال می‌شود.
 - **targetSdk = 36 و compileSdk = 36؛ Compose BOM 2026.04.01 (1.11):** ارتقا یافته؛ edge-to-edge و predictive back فعال.
-- **سیگنال runtime MediaCodec:** یک job ایزوله و مینیمال در CI (`instrumented.yml`) که فقط
-  `VideoTranscodeSmokeTest` را روی یک ایمولاتور API 35 اجرا می‌کند (continue-on-error، بدون قرمز کردن commit).
+- **سیگنال runtime MediaCodec:** دیگر وجود ندارد. جاب‌های ایمولاتور (`c2f198f`،
+  `70fd845`) از `build.yml` حذف شده‌اند؛ امروز سه جاب داریم: `build`، `security`،
+  `lint`. یعنی `VideoTranscodeSmokeTest` و ۹ تست instrumented دیگر هیچ‌گاه در CI
+  اجرا نمی‌شوند (فقط با `./gradlew connectedBazaarDebugAndroidTest` روی دستگاه).
+  هر چیزی که رفتار واقعی MediaCodec را می‌سنجد، در این پروژه «تست‌شده روی دستگاه»
+  است، نه «سبز در CI».
 
 ## نکته‌های صادقانه (همچنان deferred)
-- **ایمولاتور سه‌پاس visual-diff:** طبق درخواست حذف شد؛ بازگردانده نمی‌شود. سیگنال runtime
-  اکنون همان تست مینیمال MediaCodec بالا است.
+- **ایمولاتور سه‌پاس visual-diff:** طبق درخواست حذف شد؛ بازگردانده نمی‌شود (و جاب
+  مینیمال MediaCodec هم بعداً حذف شد، پس امروز سیگنال runtime ای در CI نیست).
 - **پردازش موازی/parallel encode ویدیو و دوپاس کاملاً پویا/فیدبک-loop:** هنوز به‌صورت دسته‌ای است.

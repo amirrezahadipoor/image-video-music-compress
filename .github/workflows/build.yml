@@ -96,8 +96,10 @@ jobs:
           retention-days: 7
 
       # i18n key parity: every FA key has an EN counterpart and vice versa,
-      # no blanks, no duplicate keys (static check on the real source files;
-      # the I18nSanityTest covers the runtime side).
+      # no blanks, no duplicate keys (static check on the real source files).
+      # NOTE: I18nSanityTest also exists, but it is an *instrumented* test and
+      # CI has no emulator job, so this static gate is the only i18n check that
+      # actually runs on a push.
       - name: i18n key parity (fa <-> en)
         run: |
           python3 - <<'PY'

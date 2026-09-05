@@ -1,8 +1,10 @@
 # 🧭 نقشه راه رفع نواقص — حجمینو (Compressly)
 
 > این فایل **تنها مرجع پیگیری** رفع نواقص است. هر فاز که تمام شد، تیک می‌خورد و
-> همین فایل به‌روز کامیت می‌شود. مبدأ: گزارش `REVIEW_2026-09-05_HAJMINO.md`
-> (۱۵ مورد سیم‌کشی‌نشده + ۱۳ باگ منطقی + ریسک‌های امنیتی/بازاری).
+> همین فایل به‌روز کامیت می‌شود. مبدأ: گزارش بازبینی ۲۰۲۶-۰۹-۰۵
+> (`REVIEW_2026-09-05_HAJMINO.md` — عمداً در ریپو کامیت نشده، چون رمزهای keystore و
+> جزئیات امنیتی داخلش است). هر سطر همین جدول **خودکفا** است: فایل/نماد و رفتار
+> موردانتظار را نوشته، پس بدون آن گزارش هم قابل پیگیری و بازبینی است.
 >
 > علامت‌ها: `[x]` انجام‌شده و push‌شده · `[~]` نیمه‌تمام (ادامه در دور بعد) · `[ ]` باز · `[!]` بلوکه/تصمیم کاربر
 > قانون کار: هیچ بیلدی در محیط محلی اجرا نمی‌شود — دروازهٔ اعتبار، **GitHub Actions** است.
@@ -26,7 +28,8 @@
 |---|---|---|---|
 | D1 | `replaceInPlace` منبع را truncate می‌کند و اگر کپی نیمه‌کاره بمیرد، **اصلی نابود می‌شود** → اعتبارسنجی طول + نگه‌داشتن temp | `core/data/OutputStore.kt:86-108` | `[x]` |
 | D2 | `runJob` بدون `catch` سراسری → کرش + کار معلق + نوتیفیکیشن چسبان | `core/service/JobCoordinator.kt:236-322` | `[x]` |
-| D3 | `FolderMediaScanner`: پر شدن سهمیهٔ یک نوع، کل اسکن را می‌بندد | `core/data/FolderMediaScanner.kt:75-80` | `[ ]` |
+| D3 | `FolderMediaScanner`: پر شدن سهمیهٔ یک نوع، کل اسکن را می‌بندد | `core/data/FolderMediaScanner.kt:75-80` | `[x]` — eeb0766 — سهمیهٔ هر نوع مستقل شد |
+
 | D4 | تپ روی نوتیفیکیشن در استارت سرد گم می‌شود (`replay=0`) | `CompresslyApp.kt:135` | `[x]` |
 | D5 | `OutputStore.delete()` درخت سراسری را می‌پاید، نه درخت همان job | `OutputStore.kt:265` | `[x]` |
 | D6 | publish بی‌صدا از پوشهٔ انتخابی به پیش‌فرض می‌افتد → باید اعلام شود | `OutputStore.kt:134-152` | `[x]` |
@@ -34,40 +37,53 @@
 ## فاز ۲ — باز کردن قابلیت‌های سیم‌کشی‌نشده ⚡
 | # | مورد | وضعیت |
 |---|---|---|
-| U1 | **VBR/CBR صدا** — چیپ انتخاب در `AudioAdvanced` (موتور از قبل پیاده است: `Mp3Writer.kt:73`, `AudioCompressor.kt:144`) | `[ ]` |
-| U2 | **بیت‌ریت دستی ویدیو** — چیپ/اسلایدر در `VideoAdvanced` (`VideoPlanner.kt:251` آن را honor می‌کند) | `[ ]` |
-| U3 | **رزولوشن دلخواه ویدیو** — `VideoResolution.CUSTOM` + دو فیلد `customWidth/Height` (`VideoPlanner.kt:179`) | `[ ]` |
+| U1 | **VBR/CBR صدا** — چیپ انتخاب در `AudioAdvanced` (موتور از قبل پیاده است: `Mp3Writer.kt:73`, `AudioCompressor.kt:144`) | `[x]` — eeb0766 — چیپ VBR/CBR در AudioAdvanced؛ `Mp3Writer` و `SizeEstimator` همان را می‌خوانند |
+
+| U2 | **بیت‌ریت دستی ویدیو** — چیپ/اسلایدر در `VideoAdvanced` (`VideoPlanner.kt:251` آن را honor می‌کند) | `[x]` — eeb0766 — چیپ‌های ۱۰۰۰/۲۵۰۰/۵۰۰۰/۱۰۰۰۰ kbps + پیام مقدم بودن سقف حجم |
+
+| U3 | **رزولوشن دلخواه ویدیو** — `VideoResolution.CUSTOM` + دو فیلد `customWidth/Height` (`VideoPlanner.kt:179`) | `[x]` — eeb0766 — چیپ CUSTOM + دو فیلد پهنا/بلا؛ `VideoPlanner.encoderSize` مرز ۶۴..۸۰۰۰ و زوج‌بودن را تضمین می‌کند |
+
 | U4 | `JobStatus.PAUSED` هیچ‌جا نوشته نمی‌شود → ست کردن واقعی وضعیت | `[x]` |
-| U10 | `gif` در پسوندهای اسکن فولهر نبود → قابلیت GIF→MP4 از مسیر فولدر دست‌نیافتنی | `[ ]` |
-| U11 | سقف ۵۰تایی photo picker بدون هیچ پیامی → آگاه‌سازی کاربر | `[ ]` |
+| U10 | `gif` در پسوندهای اسکن فولهر نبود → قابلیت GIF→MP4 از مسیر فولدر دست‌نیافتنی | `[x]` — eeb0766 — `gif` در `typeOf` اضافه شد |
+
+| U11 | سقف ۵۰تایی photo picker بدون هیچ پیامی → آگاه‌سازی کاربر | `[x]` — eeb0766 — `PICKER_MAX_ITEMS` تنها منبع + Toast آگاهی‌بخش |
+
 | U5 | `MediaInspector.videoFrame` یتیم → بندانگشتی ویدیو در تاریخچه/نتیجه | `[ ]` |
 | U6 | `Mime.*Extension` مرده و منطقش در `OutputStore` تکرار شده → یکسان‌سازی | `[x]` |
 | U7 | `SizeEstimator.estimatedSavingRange` یتیم → یا وصل شود یا حذف | `[ ]` |
-| U8/U9/U12 | کد مرده: `Formats.percentFraction`, `NoopBillingManager.simulatePurchase`, `AnimatedGradientBar`, `ShimmerPlaceholder`, `ErrorState`, `Pill`, `IndigoDeep/Light` | `[ ]` |
+| U8/U9/U12 | کد مرده: `Formats.percentFraction`, `NoopBillingManager.simulatePurchase`, `AnimatedGradientBar`, `ShimmerPlaceholder`, `ErrorState`, `Pill`, `IndigoDeep/Light` | `[x]` — eeb0766 — `estimatedSavingRange`(wrapper)، `percentFraction`، `AnimatedGradientBar`، `ShimmerPlaceholder`، `ErrorState`، `Pill`، `IndigoDeep/Light` حذف شدند؛ `simulatePurchase` و `NoopBillingManager` واقعاً استفاده می‌شوند پس ماندند |
+
 | U13 | Baseline Profile یتیم شده (جاب CI حذف شده، ادعای «measured» بدون داده، `docs/BENCHMARK.md` جدول خالی، دو فایل بایت‌به‌بایت یکسان ۱٫۷۸MB) | `[!]` نیازمند تصمیم: یا جاب emulator برگردد یا ادعا و فایل‌ها حذف شوند |
-| U14 | نبود `LICENSE` + نبود NOTICE برای jump3r (LGPL) و jaudiotagger (LGPL) | `[ ]` |
-| U15 | `gradlew` بدون bit اجرایی (شعار README روی کلون تازه می‌شکند) | `[ ]` |
+| U14 | نبود `LICENSE` + نبود NOTICE برای jump3r (LGPL) و jaudiotagger (LGPL) | `[~]` — `NOTICE` + `docs/THIRD_PARTY_NOTICES.md` نوشته شد (با پیوندهای راست و دو مورد «تأیید شود»); فایل `LICENSE` تصمیم شماست — هنوز اضافه نشده |
+
+| U15 | `gradlew` بدون bit اجرایی (شعار README روی کلون تازه می‌شکند) | `[x]` — eeb0766 — `git update-index --chmod=+x gradlew` |
+
 
 ## فاز ۳ — رفتار و کیفیت UI/UX
 | # | مورد | وضعیت |
 |---|---|---|
-| X1 | پیشرفت در مسیر retry انکودر نرم‌افزاری به عقب می‌پرد (مونوتونیک مثل عکس) | `[ ]` |
+| X1 | پیشرفت در مسیر retry انکودر نرم‌افزاری به عقب می‌پرد (مونوتونیک مثل عکس) | `[x]` — eeb0766 — کسر آیتم در `JobCoordinator` مونوتونیک شد (همهٔ مسیرهای retry) |
+
 | X2 | موتور در حالت no-op کل فایل را به کش کپی می‌کند و دور می‌ریزد | `[x]` |
 | X3 | مدل فضا فایل‌های میانی (تا ۳× خروجی) را نمی‌شمارد | `[ ]` |
-| X4 | دو کانال نوتیفیکیشن با نام یکسان | `[ ]` |
+| X4 | دو کانال نوتیفیکیشن با نام یکسان | `[x]` — eeb0766 — نام/توضیح جدا برای کانال نتایج |
+
 | X5 | `try { } catch (t) { throw t }` بی‌معنی در `Compressor.compressItem` | `[x]` |
 | X6 | AdSlot در صفحهٔ «حمایت مالی» و صفحهٔ «در حال فشرده‌سازی» (تصمیم محصول: حذف از حمایت مالی) | `[ ]` |
-| X7 | برچسب‌های `video_resolution_custom` و … در شاخه‌های مرده → بعد از U3 زنده شد | `[ ]` |
+| X7 | برچسب‌های `video_resolution_custom` و … در شاخه‌های مرده → بعد از U3 زنده شد | `[x]` — با زنده‌شدن U3 برچسب `video_resolution_custom` قابل دسترس است |
+
 | X8 | بک‌باتن: برگشت از Progress حین کار فعال نباید حس «لغو» بدهد؛ توضیح «ادامه در پس‌زمینه» روی snackbar | `[ ]` |
 
 ## فاز ۴ — تست و CI
 | # | مورد | وضعیت |
 |---|---|---|
-| T1 | صفر تست روی `OutputStore`/`JobCoordinator`/`Compressor` — افزودن تست خالص برای: scoping دسته‌ها، جمع‌های DONE-only، یکتایی jobId، الگوریتم نام یکتا، resolve وضعیت | `[ ]` |
+| T1 | صفر تست روی `OutputStore`/`JobCoordinator`/`Compressor` — افزودن تست خالص برای: scoping دسته‌ها، جمع‌های DONE-only، یکتایی jobId، الگوریتم نام یکتا، resolve وضعیت | `[~]` — `ResultMathTest` با ۱۱ تست (جمع‌های نتیجه، نشانهٔ retain، یکتایی نام، `encoderSize`) اضافه شد؛ تست مستقیم روی `JobCoordinator`/`Compressor` به Robolectric/emulator نیاز دارد |
+
 | T2 | جاب `security` فقط HEAD را می‌پاید → باید **تاریخچه** را هم بپاید (keystore در history) | `[ ]` |
 | T3 | ۱۰ تست instrumented هیچ‌جا اجرا نمی‌شود → یا جاب emulator برگردد یا در README صادقانه نوشته شود | `[!]` وابسته به U13/تصمیم زمان CI |
 | T4 | `disable`های ۱۵تایی lint (کرش ابزار با AGP 8.7) → ارتقا به AGP ≥ 8.8.2 و حذفشان | `[!]` ریسک بالا، نیازمند یک چرخهٔ CI جدا |
-| T5 | دو ران دوبل روی هر push (push + dispatch) → افزودن `concurrency` در سطح workflow | `[ ]` |
+| T5 | دو ران دوبل روی هر push (push + dispatch) → افزودن `concurrency` در سطح workflow | `[x]` — eeb0766 — `concurrency` سطح workflow با cancel-in-progress: false |
+
 | T6 | Room: `version=1` بدون هیچ Migration و بدون تست schema → تلهٔ کرش در اولین تغییر schema | `[!]` نیازمند تولید schema با بیلد واقعی (نمی‌توان hash را دستی نوشت) |
 
 ## فاز ۵ — امنیت و انتشار
@@ -83,14 +99,22 @@
 ## فاز ۶ — بدهی مستندات
 | # | مورد | وضعیت |
 |---|---|---|
-| R1 | README: جدول artifact می‌گوید «دو APK (play+bazaar)» ولی CI فقط bazaar را آپلود می‌کند | `[ ]` |
-| R2 | README/داکس: «۱۲ صفحه» (واقعاً ۱۱)؛ «۲۲۸ تست» (۲۳۱)؛ «نسخه ۱.۰.۱/versionCode 2» (۱٫۰٫۸→۱٫۰٫۹) | `[ ]` |
-| R3 | `docs/COMPRESSLY_CAPABILITIES.md` و `COMPRESSLY_SCORECARD.md` به `instrumented.yml` ارجاع می‌دهند که وجود ندارد | `[ ]` |
-| R4 | `docs/UPGRADE_ROADMAP.md`: «۵۰۰ فایل» در مقابل `MAX_PHOTOS=10_000` | `[ ]` |
-| R5 | `docs/review-rounds/FINAL_REPORT.md` «نمره ۱۰۰۰/۱۰۰۰ ✅» → دروغ‌سنجی را می‌کُند؛ باید «نسخهٔ بایگانی‌شده و نامعتبر» شود | `[ ]` |
-| R6 | `docs/MASTER_ROADMAP.md` BUG-6: استدلال درون‌جدولی و نتیجهٔ «بدون تغییر» → تمیز شود | `[ ]` |
-| R7 | افزودن `docs/KNOWN_ISSUES.md` از موارد بازِ همین فایل (S1, U13, T3, T4, T6, S4, S5) | `[ ]` |
-| R8 | جدول صریح «هر کلید تنظیم → کدام موتور مصرفش می‌کند» تا این نوع باگ دوباره تکرار نشود | `[ ]` |
+| R1 | README: جدول artifact می‌گوید «دو APK (play+bazaar)» ولی CI فقط bazaar را آپلود می‌کند | `[x]` — جدول artifact به «یک APK بازار» + نام واقعی فایل CI اصلاح شد |
+
+| R2 | README/داکس: «۱۲ صفحه» (واقعاً ۱۱)؛ «۲۲۸ تست» (۲۳۱)؛ «نسخه ۱.۰.۱/versionCode 2» (۱٫۰٫۸→۱٫۰٫۹) | `[x]` — ۱۱ صفحه / ۲۴۲ تست JVM / ۲۱ فایل تست در داکس اصلاح شد؛ نسخهٔ ۱.۰.۸ با یادداشت «برای انتشار بعدی versionCode=9» در `CHANGELOG.md` (بامپ نکردن = تصمیم شما) |
+
+| R3 | `docs/COMPRESSLY_CAPABILITIES.md` و `COMPRESSLY_SCORECARD.md` به `instrumented.yml` ارجاع می‌دهند که وجود ندارد | `[x]` — ارجاع‌های `instrumented.yml` در CAPABILITIES/SCORECARD با واقعیت (سه جاب، هیچ ایمولاتور) عوض شد + یادداشت درست در خود workflow |
+
+| R4 | `docs/UPGRADE_ROADMAP.md`: «۵۰۰ فایل» در مقابل `MAX_PHOTOS=10_000` | `[x]` — سقف‌های واقعی اسکنر در UPGRADE_ROADMAP نوشته شد |
+
+| R5 | `docs/review-rounds/FINAL_REPORT.md` «نمره ۱۰۰۰/۱۰۰۰ ✅» → دروغ‌سنجی را می‌کُند؛ باید «نسخهٔ بایگانی‌شده و نامعتبر» شود | `[x]` — بنر «بایگانی‌شده و نامعتبر» روی FINAL_REPORT + رد کردن نمرهٔ ۱۰۰۰/۱۰۰۰ |
+
+| R6 | `docs/MASTER_ROADMAP.md` BUG-6: استدلال درون‌جدولی و نتیجهٔ «بدون تغییر» → تمیز شود | `[x]` — سطر BUG-MASTER_ROADMAP بازنویسی شد: تناقض «فرمول غلط است / درست است» حذف و وضعیت امروز کد نوشته شد |
+
+| R7 | افزودن `docs/KNOWN_ISSUES.md` از موارد بازِ همین فایل (S1, U13, T3, T4, T6, S4, S5) | `[x]` — `docs/KNOWN_ISSUES.md` (۱۲ مورد) نوشته شد |
+
+| R8 | جدول صریح «هر کلید تنظیم → کدام موتور مصرفش می‌کند» تا این نوع باگ دوباره تکرار نشود | `[x]` — `docs/SETTINGS_CONSUMERS.md`: جدول هر کلید تنظیم ← مصرف‌کننده + تستش |
+
 
 ---
 
@@ -122,5 +146,33 @@
 **رسانهٔ i18n:** ۹ کلید تازه در هر دو `values/` و `values-en/` (دروازة parity در CI با ۳۴۵ کلید سبز است).
 
 > نکتهٔ صریح: **هیچ بیلدی در این محیط اجرا نشد.** اعتبار این دور را فقط GitHub Actions
-> (`.github/workflows/build.yml` → compile + ۲۳۱ تست JVM + parity + lint) تعیین می‌کند.
+> (`.github/workflows/build.yml` → compile + ۲۴۲ تست JVM + parity + lint) تعیین می‌کند.
 > دو مورد که بازبینی گزارش کرده بود ولی در کد موجود بود: X2 و «نوع exception در compressGif».
+
+---
+
+## ثبت دور ۲ — commit `eeb0766` + این commit مستندات
+
+**قابلیت‌های وصل‌شده:** VBR/CBR صدا، بیت‌ریت دستی ویدیو، رزولوشن دلخواه ویدیو
+(با clamp مشترک UI↔موتور)، آگاهی سقف ۵۰ فایل، نام‌های جداکانال نوتیفیکیشن.
+
+**باگ‌های ریشه‌ای:** اسکن فولدر که با پر شدن ویدیو صفر عکس می‌داد (D3)، GIF که از
+مسیر فولدر دست‌نیافتنی بود (U10)، پرش به عقب نوار پیشرفت در retry (X1)، دو
+تضاد در آمار نتیجه که حالا در `JobTotals` یک‌جا و تست‌شده‌اند.
+
+**افزوده‌های مستند:** `CHANGELOG.md`، `NOTICE`، `docs/THIRD_PARTY_NOTICES.md`،
+`docs/KNOWN_ISSUES.md`، `docs/SETTINGS_CONSUMERS.md` + اصلاح پنج ادعای نامدرست
+در داکس قدیمی. **۱۱ تست JVM تازه** (مجموع ۲۴۲).
+
+**راستی‌آزماییِ همین دور:** برخلاف یادداشت بازبینی، `build.yml` هیچ جاب
+ایمولاتوری ندارد (`grep -ci instrumented` روی `ec3eaa5` = ۰)؛ پس ۱۰ تست
+`androidTest` در CI اجرا نمی‌شوند و این در `docs/KNOWN_ISSUES.md` شمارهٔ ۱۱ ثبت شد.
+دو مورد دیگر هم «باگ» گزارش شده بودند ولی در کد رفع شده بودند: X2 (کپی no-op در
+موتور) و نوع exception در `compressGif`.
+
+**باقی‌مانده برای دور بعد:** U5 (بندانگشتی ویدیو)، X8 (رفتار بک در Progress)،
+موارد گزارش‌شدهٔ بازبینی که هنوز سطر جدول نشده‌اند (خطای «released state» انکودر،
+`Storage.freeBytes` که فقط `/data` را می‌بیند، و برآورد `firstFile × N` در
+`SettingsViewModel`)،
+و تصمیم‌های `[!]` (S1 تاریخچهٔ keystore، U13 baseline profile، T4 غیرفعال‌سازی
+lint، T6 مهاجرت Room، S4 «۱۰۰٪ آفلاین» در بیلد بازار، S5 minSdk، LICENSE).
