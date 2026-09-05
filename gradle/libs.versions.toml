@@ -1,5 +1,10 @@
 [versions]
-agp = "8.7.3"
+# AGP 8.8.2 (LINT-UNBLOCK / T4): the Compose runtime lint family requires
+# AGP >= 8.8.2 — on the 8.7.3 pin every androidx.compose.runtime detector
+# crashed the lint job with IncompatibleClassChangeError, which forced 17 of
+# them to be disabled. 8.8.2 is the minimum that unblocks them; Gradle
+# 8.11.1 (the wrapper) already satisfies its requirement (>= 8.10.2).
+agp = "8.8.2"
 kotlin = "2.1.0"
 ksp = "2.1.0-1.0.29"
 coreKtx = "1.16.0"

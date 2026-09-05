@@ -44,6 +44,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -180,9 +181,9 @@ fun CompressionSettingsScreen(
     var consentWrite by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var consentDelete by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var consentStage by remember { mutableStateOf(ConsentStage.NONE) }
-    var consentTick by remember { mutableStateOf(0) }
+    var consentTick by remember { mutableIntStateOf(0) }
     var consentOutcome by remember { mutableStateOf(ConsentStage.NONE) }
-    var permissionTick by remember { mutableStateOf(0) }
+    var permissionTick by remember { mutableIntStateOf(0) }
 
     val consentLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()

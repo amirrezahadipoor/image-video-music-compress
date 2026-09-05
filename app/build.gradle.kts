@@ -24,7 +24,9 @@ android {
         // same version. It is now derived from versionCode so it is always a
         // visible, increasing, unique string ("1.0.7", "1.0.8", …) while
         // versionCode stays the only real upgrade signal.
-        versionCode = 8
+        // S6: bumped for the 1.0.9 round (result notifications, mixed-share
+        // fix, GIF output location, space model, in-app OSS notices).
+        versionCode = 9
         versionName = "1.0.${versionCode}"
 
         // Keep only the two bundled locales -> smaller resources.
@@ -56,11 +58,15 @@ android {
                 .replace("\"", "\\\"")
         val supportCardNumber = cfg("SUPPORT_CARD_NUMBER")
         val supportCardHolder = cfg("SUPPORT_CARD_HOLDER")
-        // Adivery ad-unit IDs — not secrets, but they belong in one
-        // configurable place (env / gradle.properties) like every other
-        // external identifier in this file, not hardcoded in Kotlin.
-        val adiveryAppId = cfg("ADIVERY_APP_ID").ifBlank { "4d3dfc77-e8aa-409b-aa24-8f0b1bad9fe3" }
-        val adiveryBannerId = cfg("ADIVERY_BANNER_ID").ifBlank { "28f7964a-6cbf-4f7b-897c-96465a4a72bb" }
+        // Adivery ad-unit IDs — configuration, not code (env / gradle.properties).
+        // ADIDS-DEFAULT-FIX (S2): these used to fall back to UUIDs hardcoded in
+        // this public repo, so any build without the secrets silently served —
+        // and polluted the statistics of — someone else's ad units. There is no
+        // default any more: unset means blank, and a blank id makes the banner
+        // provider disable itself with a loud log (AdiveryAdsProvider) instead
+        // of pretending to be configured.
+        val adiveryAppId = cfg("ADIVERY_APP_ID")
+        val adiveryBannerId = cfg("ADIVERY_BANNER_ID")
         create("play") {
             dimension = "store"
             buildConfigField("String", "STORE", "\"play\"")
@@ -199,39 +205,17 @@ android {
         // "but interface was expected"). This is a lint tooling bug, not a real
         // finding — that check has no bearing on this app (no LiveData is used).
         // Disabled here so lint stays a live gate instead of crashing the job.
+        // NOTE: unlike the Compose family below, this one is a lifecycle-detector
+        // bug that the AGP 8.8.2 bump does not claim to fix, so it stays off
+        // until lifecycle ships a lint build compatible with Kotlin 2.x.
         disable += "NullSafeMutableLiveData"
-        // LINT-8.7-KOTLIN2-CRASH-FIX: the Compose `ComposableFlowOperatorDetector`
-        // also crashes on Kotlin 2.x (IncompatibleClassChangeError in
-        // `isFlowOperator`) because AGP 8.7.x lint is built against an older UAST
-        // ABI. Same tooling bug as above, not a real finding. The check flags a
-        // rare pattern (flow operators used inside composition); this app does
-        // not rely on it, so disable it to keep lint a live gate.
-        disable += "FlowOperatorInvokedInComposition"
-        // LINT-8.7-KOTLIN2-CRASH-FIX (whole family): EVERY androidx.compose.runtime
-        // lint detector crashes under AGP 8.7.x + Kotlin 2.x UAST with
-        // IncompatibleClassChangeError (seen: ComposableFlowOperatorDetector,
-        // FrequentlyChangingValueDetector, AutoboxingStateCreationDetector). Root
-        // cause is documented upstream: Compose lint checks require AGP >= 8.8.2,
-        // which is a tooling-only requirement — not app findings. This app is on
-        // AGP 8.7.3 (deliberate stability pin), so disable the canonical
-        // androidx.compose.runtime lint family to keep lint a live gate for the
-        // checks that DO run (HardcodedText, contentDescription, resources, ...).
-        disable += "AutoboxingStateValueProperty"
-        disable += "AutoboxingStateCreation"
-        disable += "CoroutineCreationDuringComposition"
-        disable += "FlowOperatorInvokedInComposition"
-        disable += "ComposableLambdaParameterNaming"
-        disable += "ComposableLambdaParameterPosition"
-        disable += "ComposableNaming"
-        disable += "StateFlowValueCalledInComposition"
-        disable += "CompositionLocalNaming"
-        disable += "FrequentlyChangingValue"
-        disable += "MutableCollectionMutableState"
-        disable += "ProduceStateDoesNotAssignValue"
-        disable += "RememberReturnType"
-        disable += "RememberInComposition"
-        disable += "OpaqueUnitKey"
-        disable += "UnrememberedMutableState"
+        // LINT-REENABLE (T4): the whole androidx.compose.runtime family used to
+        // be disabled because every one of its detectors crashed under
+        // AGP 8.7.x + Kotlin 2.x UAST (documented upstream: Compose lint checks
+        // require AGP >= 8.8.2). With the AGP bump to 8.8.2 they are live
+        // again — a real gate, not a crash workaround. The known real findings
+        // (three boxed Int states) were fixed with mutableIntStateOf at the
+        // same time.
     }
 }
 

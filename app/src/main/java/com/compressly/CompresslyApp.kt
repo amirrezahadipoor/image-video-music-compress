@@ -110,14 +110,29 @@ class AppContainer(app: Application) {
      * build. Falls back to Noop when the flavor provides nothing.
      */
     val billingManager: BillingManager by lazy {
-        runCatching {
+        // S3 / FAIL-LOUD-FIX: the bazaar build ships PoolakeyBillingManager in
+        // its own source set, so main cannot reference the type — it resolves
+        // the class by name. A silent Noop fallback there would ship a STORE
+        // build whose purchases can never work while everything looks fine, so
+        // in the bazaar flavor a missing provider is a hard initialization
+        // error. Only the play/debug flavor (which deliberately has no store)
+        // may fall back to Noop.
+        val resolved = runCatching {
             val clazz = Class.forName("com.compressly.core.billing.PoolakeyBillingManager")
             val repo = settingsRepository
             // suspend (Boolean) -> Unit erases to kotlin.jvm.functions.Function2.
             val persist: suspend (Boolean) -> Unit = { value -> repo.setPremium(value) }
             val ctor = clazz.getDeclaredConstructor(kotlin.jvm.functions.Function2::class.java)
             ctor.newInstance(persist) as BillingManager
-        }.getOrDefault(NoopBillingManager())
+        }.getOrNull()
+        resolved ?: if (ir.siliksama.hajmino.BuildConfig.STORE == "bazaar") {
+            throw IllegalStateException(
+                "PoolakeyBillingManager is missing in the bazaar build — refusing " +
+                    "to fall back to Noop billing in a store release"
+            )
+        } else {
+            NoopBillingManager()
+        }
     }
 }
 

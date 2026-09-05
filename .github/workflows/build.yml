@@ -22,6 +22,10 @@ env:
     -Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m
     -Dorg.gradle.workers.max=2 -Dfile.encoding=UTF-8
   BAZAAR_RSA_KEY: ${{ secrets.BAZAAR_RSA_KEY }}
+  # Adivery ids are configuration (ADIDS-DEFAULT-FIX): blank unless set, which
+  # disables the banner with a loud log instead of serving someone else's units.
+  ADIVERY_APP_ID: ${{ secrets.ADIVERY_APP_ID }}
+  ADIVERY_BANNER_ID: ${{ secrets.ADIVERY_BANNER_ID }}
   # SIGNING: the release signing keystore + credentials come only from repo
   # secrets (the old committed .jks is COMPROMISED and removed). Exposed to
   # every job so `assembleBazaarRelease` can sign regardless of which job runs;
@@ -167,6 +171,9 @@ jobs:
           grep -q "^Verifies" /tmp/apksigner.txt
           if [ -z "${BAZAAR_RSA_KEY:-}" ]; then
             echo "::warning::BAZAAR_RSA_KEY secret is empty — Poolakey will refuse purchases at runtime (by design)."
+          fi
+          if [ -z "${ADIVERY_APP_ID:-}" ]; then
+            echo "::warning::ADIVERY_APP_ID is not configured — this Bazaar build ships with the banner disabled (quiet placeholder slot)."
           fi
 
       # ── 4. Collect artifacts ───────────────────────────────────────────
