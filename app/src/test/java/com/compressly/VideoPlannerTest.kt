@@ -538,20 +538,23 @@ class VideoPlannerTest {
     }
 
     @Test
-    fun aggressiveTiersAskForCbrAndTighterCorrection() {
+    fun aggressiveTiersKeepTighterCorrectionButOnlyAskForCbrAtSafeBitrate() {
+        // CBR at the ultra-low bitrate the aggressive tiers pick (a few hundred
+        // kbps) pushed hardware encoders into an error state ("invalid to call
+        // at released state"), so we no longer force CBR there — but the tighter
+        // corrective tolerance must stay (it is what enforces the size).
         val max = VideoPlanner.plan(
             uhd,
             PresetDefaults.videoSettingsFor(CompressionPreset.MAXIMUM_COMPRESSION),
             CompressionPreset.MAXIMUM_COMPRESSION
         )
-        assertTrue(max.preferCbr)
+        assertFalse("low-bitrate max must not force CBR", max.preferCbr)
         assertTrue(max.aggressiveCorrection)
         val high = VideoPlanner.plan(
             uhd,
             PresetDefaults.videoSettingsFor(CompressionPreset.HIGH_COMPRESSION),
             CompressionPreset.HIGH_COMPRESSION
         )
-        assertTrue(high.preferCbr)
         assertFalse(high.aggressiveCorrection)
         val balanced = VideoPlanner.plan(
             uhd,
@@ -560,6 +563,10 @@ class VideoPlannerTest {
         )
         assertFalse(balanced.preferCbr)
         assertFalse(balanced.aggressiveCorrection)
+        // At a high-enough target rate CBR is still requested (safe).
+        val manualHigh = VideoSettings(bitrate = 8_000_000)
+        val planHigh = VideoPlanner.plan(uhd, manualHigh, CompressionPreset.MAXIMUM_COMPRESSION)
+        assertTrue(planHigh.preferCbr)
     }
 
     @Test
