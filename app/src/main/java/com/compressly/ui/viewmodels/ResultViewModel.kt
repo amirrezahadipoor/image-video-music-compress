@@ -141,7 +141,7 @@ class ResultViewModel(container: AppContainer, private val entryId: Long) : View
             if (parent != null && launch(
                     context,
                     Intent(Intent.ACTION_VIEW)
-                        .setDataAndType(parent, DocumentsContract.Document.MIME_TYPE_TYPE)
+                        .setDataAndType(parent, DocumentsContract.Document.MIME_TYPE_DIR)
                         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 )
             ) return
