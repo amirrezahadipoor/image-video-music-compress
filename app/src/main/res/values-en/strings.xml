@@ -120,6 +120,7 @@
     <string name="video_codec_av1_desc" formatted="false">Most efficient codec; up to ~50% smaller than H.264. Limited device support.</string>
     <string name="video_codec_unavailable">H.265 encoder not available on this device. Using H.264.</string>
     <string name="video_codec_av1_unavailable">AV1 encoder not available on this device. Using H.264.</string>
+    <string name="video_codec_fell_back">The selected codec is not available on this device and was switched back to H.264.</string>
     <string name="video_size_target">Size target</string>
     <string name="video_size_target_on">Compress under this size</string>
     <string name="video_size_target_desc">Set a concrete size budget in MB instead of a quality tier.</string>

@@ -461,13 +461,22 @@ class SettingsViewModel(private val container: AppContainer, private val context
         )
         MediaType.VIDEO -> {
             // Unavailable codecs (no matching encoder on this device) fall back
-            // to H.264 rather than failing the whole job.
+            // to H.264 rather than failing the whole job. h265FellBack is set so
+            // the UI can tell the user the requested H.265 was not used — it was
+            // a dead state field before.
             val codec = when {
-                !s.h265Available && s.video.codec == com.compressly.core.engine.model.VideoCodec.H265 ->
+                !s.h265Available && s.video.codec == com.compressly.core.engine.model.VideoCodec.H265 -> {
+                    _state.update { it.copy(h265FellBack = true) }
                     com.compressly.core.engine.model.VideoCodec.H264
-                !s.av1Available && s.video.codec == com.compressly.core.engine.model.VideoCodec.AV1 ->
+                }
+                !s.av1Available && s.video.codec == com.compressly.core.engine.model.VideoCodec.AV1 -> {
+                    _state.update { it.copy(h265FellBack = true) }
                     com.compressly.core.engine.model.VideoCodec.H264
-                else -> s.video.codec
+                }
+                else -> {
+                    _state.update { it.copy(h265FellBack = false) }
+                    s.video.codec
+                }
             }
             CompressionSettings.Video(
                 s.video.copy(codec = codec),

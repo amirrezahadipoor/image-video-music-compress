@@ -739,6 +739,17 @@ private fun VideoAdvanced(
             color = MaterialTheme.colorScheme.error
         )
     }
+    // h265FellBack: the requested codec was swapped to H.264 at build time
+    // because this device has no encoder for it — tell the user plainly
+    // instead of letting them assume their H.265/AV1 choice was honoured.
+    if (state.h265FellBack) {
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = stringResource(R.string.video_codec_fell_back),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error
+        )
+    }
     Spacer(Modifier.height(14.dp))
 
     // Size-target: "compress this under X MB" instead of a quality tier.

@@ -120,6 +120,7 @@
     <string name="video_codec_av1_desc">مقرون‌به‌صرفه‌ترین کدک؛ تا ~۵۰٪ کوچک‌تر از H.264. پشتیبانی محدودتر.</string>
     <string name="video_codec_unavailable">رمزگذار H.265 روی این دستگاه موجود نیست. از H.264 استفاده می‌شود.</string>
     <string name="video_codec_av1_unavailable">رمزگذار AV1 روی این دستگاه موجود نیست. از H.264 استفاده می‌شود.</string>
+    <string name="video_codec_fell_back">کدک انتخابی در این دستگاه موجود نبود و به H.264 برگردانده شد.</string>
     <string name="video_size_target">هدف اندازه</string>
     <string name="video_size_target_on">فشرده‌سازی «زیر این حجم»</string>
     <string name="video_size_target_desc">به‌جای سطح کیفیت، یک بودجه‌ی محدود بر حسب مگابایت تعیین کن.</string>
