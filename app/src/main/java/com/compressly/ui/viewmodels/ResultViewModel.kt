@@ -72,10 +72,10 @@ class ResultViewModel(container: AppContainer, private val entryId: Long) : View
      * single file the current screen happens to show.
      *
      * SHARE-SCOPE-FIX: the uris come from the job's own finished rows and are
-     * de-duplicated, and the stream is carried in ClipData with a `*/*` type.
-     * Putting N uris in EXTRA_STREAM with type "video/*" used to hand the
-     * receiver the FIRST one only — and when the job's rows came from a stale
-     * jobId, that "batch" was another folder's files entirely.
+     * de-duplicated, and the stream is carried in ClipData with a wildcard mime
+     * type. Putting N uris in EXTRA_STREAM with a video-only type used to hand
+     * the receiver the FIRST one only — and when the job's rows came from a
+     * stale jobId, that "batch" was another folder's files entirely.
      */
     fun shareAll(context: Context, siblings: List<HistoryEntry>) {
         val uris = siblings

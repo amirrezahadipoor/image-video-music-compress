@@ -31,9 +31,9 @@ data class HistoryEntry(
      * looked like it worked while the gallery kept every original).
      *
      * It rides on the existing free-text [error] column on purpose: a new Room
-     * column would need a hand-written schema + migration, and the identity hash
-     * in `schemas/*.json` can only be produced by a real build. Until a build
-     * can generate it, reusing the column is the safe choice.
+     * column would need a hand-written schema plus migration, and the identity
+     * hash of the exported schema JSON can only be produced by a real build.
+     * Until a build can generate it, reusing the column is the safe choice.
      */
     val originalRetained: Boolean
         get() = status == STATUS_DONE && error == ERROR_ORIGINAL_RETAINED
