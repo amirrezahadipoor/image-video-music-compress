@@ -132,7 +132,35 @@ class MainActivity : ComponentActivity() {
         if (intent?.action == CompressionJobService.ACTION_OPEN_JOB) {
             val jobId = intent.getLongExtra(CompressionJobService.EXTRA_JOB_ID, -1L)
             if (jobId != -1L) {
-                (application as CompresslyApp).container.navigationBus.navigate(NavRequest.OpenJob(jobId))
+                // NOTIF-DEAD-END-FIX: the RESULT notification used to deep-link
+                // into the Progress screen unconditionally, but a finished job
+                // is pruned from the coordinator's memory 3 minutes after it
+                // ends — a later tap then landed on "job not found" with no way
+                // back. Route by reality: a still-live job opens its progress
+                // screen; a terminal (or already pruned) job opens its result
+                // row from history; only when neither exists does the tap fall
+                // back to the history list.
+                lifecycleScope.launch {
+                    val app = application as CompresslyApp
+                    val job = withContext(Dispatchers.Default) {
+                        app.container.jobCoordinator.job(jobId)
+                    }
+                    val terminal = job == null ||
+                        job.status in terminalNotificationStatuses
+                    val request = if (!terminal) {
+                        NavRequest.OpenJob(jobId)
+                    } else {
+                        val entry = withContext(Dispatchers.IO) {
+                            app.container.historyRepository.getFirstDoneByJob(jobId)
+                        }
+                        when {
+                            entry != null -> NavRequest.OpenEntry(entry.id)
+                            job != null -> NavRequest.OpenJob(jobId)
+                            else -> NavRequest.OpenHistory()
+                        }
+                    }
+                    app.container.navigationBus.navigate(request)
+                }
             }
             return
         }
@@ -167,11 +195,14 @@ class MainActivity : ComponentActivity() {
         val app = application as CompresslyApp
         lifecycleScope.launch {
             val items = withContext(Dispatchers.IO) {
-                streams.mapNotNull { uri ->
+                // ITEMID-FIX: the id used to be nanoTime + uri.hashCode(), a
+                // Long that can go negative and is needlessly fragile; the
+                // picker path already uses nanoTime + index — align it here.
+                streams.mapIndexedNotNull { index, uri ->
                     val type = mediaTypeOf(app, uri)
-                    if (type == null) return@mapNotNull null
+                    if (type == null) return@mapIndexedNotNull null
                     com.compressly.core.engine.model.InputItem(
-                        itemId = System.nanoTime() + uri.toString().hashCode(),
+                        itemId = System.nanoTime() + index,
                         uri = uri,
                         displayName = com.compressly.core.util.Uris.displayNameOf(app, uri),
                         sizeBytes = com.compressly.core.util.Uris.sizeOf(app, uri),
@@ -179,9 +210,23 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
-            // Mixed share: use the type of the first resolved item.
+            // MIXED-SHARE-FIX: a share can carry mixed media types (photos next
+            // to a video), but one compression run drives exactly one engine.
+            // Sending the whole list under the FIRST item's type made every
+            // other type fail inside that engine (a video item in a photo run
+            // dies with a decode error). Keep only the items matching the first
+            // item's type and say plainly how many were skipped.
             val type = items.firstOrNull()?.mediaType ?: return@launch
-            app.container.selection.set(com.compressly.Selection(type, items))
+            val sameType = items.filter { it.mediaType == type }
+            val skippedMixed = items.size - sameType.size
+            if (skippedMixed > 0) {
+                android.widget.Toast.makeText(
+                    app,
+                    app.getString(R.string.share_mixed_skipped, skippedMixed),
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+            app.container.selection.set(com.compressly.Selection(type, sameType))
             app.container.navigationBus.navigate(NavRequest.OpenSettings(type))
         }
     }
@@ -201,6 +246,17 @@ class MainActivity : ComponentActivity() {
         /** Debug-only intent extras used by the CI visual-regression pass. */
         const val EXTRA_SNAP_SCREEN = "com.compressly.extra.SNAP_SCREEN"
         const val EXTRA_SNAP_SKIP_ONBOARDING = "com.compressly.extra.SNAP_SKIP_ONBOARDING"
+
+        /**
+         * Statuses after which a job notification tap must never return to the
+         * progress screen (the job is over; show its result instead).
+         */
+        private val terminalNotificationStatuses = setOf(
+            com.compressly.core.engine.model.JobStatus.COMPLETED,
+            com.compressly.core.engine.model.JobStatus.PARTIAL,
+            com.compressly.core.engine.model.JobStatus.FAILED,
+            com.compressly.core.engine.model.JobStatus.CANCELLED
+        )
     }
 }
 
@@ -238,6 +294,9 @@ private fun HandleNavRequests(container: AppContainer, navController: NavHostCon
                 is NavRequest.OpenSettings -> navController.navigate(Routes.settings(req.mediaType.name)) {
                     launchSingleTop = true
                     popUpTo(Routes.HOME) { inclusive = false }
+                }
+                is NavRequest.OpenHistory -> navController.navigate(Routes.HISTORY) {
+                    launchSingleTop = true
                 }
             }
             container.navigationBus.consume(req)

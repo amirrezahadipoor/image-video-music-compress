@@ -208,7 +208,7 @@ fun HistoryScreen(
                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
                     verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)
                 ) {
-                    items(visibleEntries) { entry ->
+                    items(visibleEntries, key = { it.id }) { entry ->
                         HistoryRow(
                             entry = entry,
                             selectionMode = selectionMode,

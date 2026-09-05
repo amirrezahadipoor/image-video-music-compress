@@ -26,6 +26,15 @@ object NotificationHelper {
     const val NOTIF_RESULT_ID = 1002
 
     /**
+     * NOTIF-UNIQUE-FIX: every finished job used to post with the single shared
+     * NOTIF_RESULT_ID, so when two jobs ended close together the second result
+     * notification overwrote the first and only the newest completion was ever
+     * visible. One stable id per job fixes that; base 2000 keeps the range
+     * clear of the live-job id (1001) and the legacy shared result id (1002).
+     */
+    fun resultNotificationId(jobId: Long): Int = 2000 + (jobId % 1_000_000L).toInt()
+
+    /**
      * CHANNEL-NAMES-FIX: both channels used to be called "Compressions", so in
      * Android's own settings the user saw two identical switches and could not
      * silence the finished-job alerts without killing the live progress bar.

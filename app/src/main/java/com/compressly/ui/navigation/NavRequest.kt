@@ -9,4 +9,10 @@ sealed class NavRequest {
 
     /** Open the compression-settings screen for the given media type (share-target). */
     data class OpenSettings(val mediaType: MediaType) : NavRequest()
+
+    /**
+     * Open the history list. Fallback for a notification tap whose job is no
+     * longer in memory and left no result row to show.
+     */
+    data object OpenHistory : NavRequest()
 }

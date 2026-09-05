@@ -156,7 +156,11 @@ class AudioCompressor(private val context: Context) {
                     if (!inputDone) {
                         val inIndex = decoder.dequeueInputBuffer(10_000)
                         if (inIndex >= 0) {
-                            val buf = decoder.getInputBuffer(inIndex)!!
+                            // NULL-GUARD-FIX: map a null buffer to the typed
+                            // decode failure instead of an NPE (which the error
+                            // mapper would only label "generic").
+                            val buf = decoder.getInputBuffer(inIndex)
+                                ?: throw AudioCompressionException(KEY_DECODE)
                             val sz = extractor.readSampleData(buf, 0)
                             if (sz < 0) {
                                 decoder.queueInputBuffer(inIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
@@ -178,7 +182,8 @@ class AudioCompressor(private val context: Context) {
                             ) == android.media.AudioFormat.ENCODING_PCM_FLOAT
                         } else {
                             if (info.size > 0) {
-                                val buf = decoder.getOutputBuffer(outIndex)!!
+                                val buf = decoder.getOutputBuffer(outIndex)
+                                    ?: throw AudioCompressionException(KEY_ENCODE)
                                 buf.position(info.offset)
                                 buf.limit(info.offset + info.size)
                                 if (pcmFloat || srcChannels > 2) {

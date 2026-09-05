@@ -106,17 +106,24 @@ class CompressionJobService : Service() {
                 it.status == JobStatus.PAUSED ||
                 it.status == JobStatus.CANCELLING
         }
-        if (active.isEmpty()) {
-            for (job in jobs.values) {
-                if (job.status in terminalStatuses && job.jobId !in notifiedResults) {
-                    notifiedResults += job.jobId
-                    safeNotify(
-                        NotificationHelper.NOTIF_RESULT_ID,
-                        NotificationHelper.buildResultNotification(this, job)
-                    )
-                }
+        // RESULT-NOTIF-FIX: a finished job must announce itself the MOMENT it
+        // reaches a terminal state — not only once every other job has gone
+        // idle. The old placement (inside the active.isEmpty branch below)
+        // meant that while any sibling job kept running longer than the
+        // 3-minute memory prune, this job's result notification was silently
+        // dropped and the user never learned the batch had finished.
+        for (job in jobs.values) {
+            if (job.status in terminalStatuses && job.jobId !in notifiedResults) {
+                notifiedResults += job.jobId
+                safeNotify(
+                    NotificationHelper.resultNotificationId(job.jobId),
+                    NotificationHelper.buildResultNotification(this, job)
+                )
             }
-            notifiedResults.retainAll(jobs.keys)
+        }
+        notifiedResults.retainAll(jobs.keys)
+
+        if (active.isEmpty()) {
             releaseWakeLock()
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
             isForeground = false

@@ -17,14 +17,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import ir.siliksama.hajmino.R
 
 @Composable
 fun PrivacyPolicyScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         Column(
             modifier = Modifier
@@ -67,6 +71,33 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+
+                // OSS-NOTICES-FIX (KNOWN #8): the LGPL notices for jump3r and
+                // jaudiotagger lived only in the repo (NOTICE + docs/) — a
+                // store-user never sees them, which the licenses require. The
+                // same text now ships inside the APK as an asset and is shown
+                // here, one tap away from wherever the privacy screen opens.
+                val ossNotices = remember {
+                    runCatching {
+                        context.assets.open("THIRD_PARTY_NOTICES.md")
+                            .bufferedReader().use { it.readText() }
+                    }.getOrNull()
+                }
+                if (ossNotices != null) {
+                    Spacer(Modifier.height(28.dp))
+                    Text(
+                        text = stringResource(R.string.privacy_oss_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = ossNotices,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Spacer(Modifier.height(32.dp))
             }
         }

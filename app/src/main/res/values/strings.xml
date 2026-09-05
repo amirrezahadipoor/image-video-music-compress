@@ -425,4 +425,6 @@
     <string name="folder_videos">ویدیوها (%1$d)</string>
     <string name="folder_audios">صوتها (%1$d)</string>
 
+    <string name="share_mixed_skipped">‏%1$d فایل از نوع رسانهٔ دیگری نادیده گرفته شد؛ هر بار فقط یک نوع رسانه را بفرستید.</string>
+    <string name="privacy_oss_title">پروانه‌های مؤلفان اجزای متن‌باز</string>
 </resources>

@@ -47,7 +47,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.compressly.ui.components.ActionButton
-import com.compressly.ui.components.AdSlot
 import com.compressly.ui.components.BeatingHeart
 import com.compressly.ui.theme.GradientPrimary
 import ir.siliksama.hajmino.BuildConfig
@@ -244,7 +243,9 @@ fun SupportScreen(onBack: () -> Unit) {
             )
 
             Spacer(Modifier.height(20.dp))
-            AdSlot()
+            // X6 / SUPPORT-AD-FIX: no ad slot on the support/donation page —
+            // asking for money and flashing an ad in the same breath was the
+            // recorded product decision, and the slot brought no value here.
             Spacer(Modifier.height(24.dp))
         }
     }

@@ -53,13 +53,34 @@ object Mime {
 /** Local storage helpers. Everything stays on-device and offline. */
 object Storage {
 
+    /**
+     * Temp-headroom multiplier for the free-space gate. While a job runs, the
+     * published output is not the only thing on disk: a photo stages a full
+     * source copy plus its encode in cache, a video transcode holds the first
+     * pass AND (when the corrective pass engages) a second temp plus the audio
+     * temp, and the result is then copied out of cache into MediaStore. The
+     * measured worst case is roughly three times the final output alive at
+     * once, so the gate asks for the output plus twice it of scratch room.
+     *
+     * SPACE-MODEL-FIX (X3): the old 1.15x slack counted only the published
+     * bytes, so a big batch on a nearly-full disk started and died mid-way
+     * with an IOException. Over-warning is safe here — the dialog always
+     * offers "continue anyway".
+     */
+    private const val TEMP_HEADROOM_FACTOR = 2.0
+
     fun freeBytes(): Long =
         android.os.Environment.getDataDirectory().let {
             android.os.StatFs(it.path).availableBytes
         }
 
+    /** Pure half of the gate (unit-testable without a filesystem). */
+    fun requiredFreeBytes(neededBytes: Long): Long =
+        if (neededBytes <= 0L) 0L
+        else (neededBytes * (1.0 + TEMP_HEADROOM_FACTOR)).toLong()
+
     fun hasEnoughSpace(neededBytes: Long): Boolean =
-        neededBytes <= 0 || freeBytes() > neededBytes * 1.15
+        neededBytes <= 0 || freeBytes() > requiredFreeBytes(neededBytes)
 
     fun deleteQuietly(vararg files: File?) {
         for (f in files) {

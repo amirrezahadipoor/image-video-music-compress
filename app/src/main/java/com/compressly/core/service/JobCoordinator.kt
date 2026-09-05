@@ -298,8 +298,16 @@ class JobCoordinator(
                 // with another heavy decode. Ordinary photos keep 2-way.
                 val ordered = PhotoBatch.heaviestFirst(items) { it.sizeBytes }
                 val permits = if (parallelPhotos) {
+                    // PIXEL-IO-FIX: pixelCountOf opens and bounds-probes every
+                    // source file — pure I/O that used to run on this coroutine's
+                    // Default dispatcher, parking CPU threads at the start of a
+                    // big photo batch. Probe on IO; only the permit decision
+                    // stays on the compute pool.
+                    val pixelCounts = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                        ordered.map { PhotoBatch.pixelCountOf(context, it.uri) }
+                    }
                     PhotoBatch.concurrencyFor(
-                        ordered.map { PhotoBatch.pixelCountOf(context, it.uri) },
+                        pixelCounts,
                         // MEM-BOUND-FIX: on the 3 GB phone class still common
                         // in the Bazaar market a big photo batch (>= 100
                         // files) falls back to one slot, keeping peak native

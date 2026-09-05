@@ -143,7 +143,9 @@ object AacTranscoder {
                 while (pendingPcm) {
                     val inIndex = encoder.dequeueInputBuffer(TIMEOUT_US)
                     if (inIndex < 0) break // No free buffer; retry next iteration.
-                    val encBuf = encoder.getInputBuffer(inIndex)!!
+                    // NULL-GUARD-FIX: a null buffer on a valid index means the
+                    // codec errored — degrade (false), never an NPE.
+                    val encBuf = encoder.getInputBuffer(inIndex) ?: return false
                     encBuf.clear()
                     val bytesBefore = pendingBuf.remaining()
                     putLimited(encBuf, pendingBuf)
@@ -167,7 +169,7 @@ object AacTranscoder {
                 if (!inputDone) {
                     val inIndex = decoder.dequeueInputBuffer(TIMEOUT_US)
                     if (inIndex >= 0) {
-                        val buf = decoder.getInputBuffer(inIndex)!!
+                        val buf = decoder.getInputBuffer(inIndex) ?: return false
                         val sampleSize = extractor.readSampleData(buf, 0)
                         val pts = if (sampleSize >= 0) extractor.sampleTime else -1L
                         // Stop reading at the end of the trim window. Frames past
@@ -210,7 +212,7 @@ object AacTranscoder {
                             inTrimWindow &&
                             (trimEndUs <= 0 || framePts <= trimEndUs)
                         ) {
-                            val pcm = decoder.getOutputBuffer(decOut)!!
+                            val pcm = decoder.getOutputBuffer(decOut) ?: return false
                             pcm.position(decInfo.offset)
                             pcm.limit(decInfo.offset + decInfo.size)
 
@@ -269,7 +271,7 @@ object AacTranscoder {
                             muxer.start()
                             muxerStarted = true
                         }
-                        val out = encoder.getOutputBuffer(encOut)!!
+                        val out = encoder.getOutputBuffer(encOut) ?: return false
                         out.position(encInfo.offset)
                         out.limit(encInfo.offset + encInfo.size)
                         muxer.writeSampleData(audioMuxerTrack, out, encInfo)

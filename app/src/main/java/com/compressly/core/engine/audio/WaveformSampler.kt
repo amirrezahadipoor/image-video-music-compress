@@ -49,7 +49,11 @@ object WaveformSampler {
             if (track < 0) return@withContext emptyList()
             extractor.selectTrack(track)
             val format = extractor.getTrackFormat(track)
-            decoder = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!)
+            // NULL-GUARD-FIX: a preview must degrade to "no waveform",
+            // never crash the settings screen.
+            val trackMime = format.getString(MediaFormat.KEY_MIME)
+                ?: return@withContext emptyList()
+            decoder = MediaCodec.createDecoderByType(trackMime)
             decoder.configure(format, null, null, 0)
             decoder.start()
 
@@ -63,7 +67,7 @@ object WaveformSampler {
                 if (!inputDone) {
                     val inIdx = decoder.dequeueInputBuffer(10_000)
                     if (inIdx >= 0) {
-                        val buf = decoder.getInputBuffer(inIdx)!!
+                        val buf = decoder.getInputBuffer(inIdx) ?: return@withContext emptyList()
                         val sz = extractor.readSampleData(buf, 0)
                         if (sz < 0) {
                             decoder.queueInputBuffer(inIdx, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
@@ -88,7 +92,7 @@ object WaveformSampler {
 
                         ) == android.media.AudioFormat.ENCODING_PCM_FLOAT
                     } else if (info.size > 0) {
-                        val buf = decoder.getOutputBuffer(outIdx)!!
+                        val buf = decoder.getOutputBuffer(outIdx) ?: return@withContext emptyList()
                         // Set position/limit for this specific output buffer.
                         buf.position(info.offset)
                         buf.limit(info.offset + info.size)

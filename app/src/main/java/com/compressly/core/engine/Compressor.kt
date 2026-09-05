@@ -227,7 +227,7 @@ class Compressor(private val context: Context) {
         // GIF-FIX: an animated GIF is not a static photo — flattening it to a
         // single JPEG/WebP frame loses the animation. Convert it to a playable
         // MP4 instead (and never modify the source GIF).
-        if (mime == "image/gif") return compressGif(item, control, onProgress)
+        if (mime == "image/gif") return compressGif(item, location, outputFolder, control, onProgress)
         val photoEngine = PhotoCompressor(context)
         val temp = photoEngine.compress(item.uri, mime, settings, control) {
             onProgress(ItemPhase.COMPRESSING, it)
@@ -325,6 +325,8 @@ class Compressor(private val context: Context) {
      */
     private suspend fun compressGif(
         item: InputItem,
+        location: com.compressly.core.engine.model.OutputLocation,
+        outputFolder: String?,
         control: JobControl,
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
@@ -335,10 +337,22 @@ class Compressor(private val context: Context) {
             }
             // Deliberate conversion (GIF -> MP4), so publish the MP4 even if
             // it happens to be a byte or two larger than the source.
-            val uri = OutputStore.publishTempFile(
-                context, MediaType.VIDEO, temp, item.displayName, "video/mp4"
+            // GIF-LOCATION-FIX: the output location and the per-job folder used
+            // to be ignored on this path and every conversion landed in the
+            // default folder no matter what the user picked. They are honoured
+            // exactly like every other engine now, including the honest
+            // "default folder" note when the requested folder could not be
+            // used. replaceOriginal deliberately does NOT apply here: the
+            // source GIF is never modified or deleted (an animated original
+            // must survive the conversion), so a new row is always published.
+            val published = OutputStore.publishTempFileDetailed(
+                context, MediaType.VIDEO, temp, item.displayName, "video/mp4",
+                location = location, sourceUri = item.uri, customTreeUri = outputFolder
             )
-            return EngineOutput(uri, sizeOf(uri), context.getString(ir.siliksama.hajmino.R.string.gif_to_mp4))
+            val baseSummary = context.getString(ir.siliksama.hajmino.R.string.gif_to_mp4)
+            val summary = if (published.usedRequestedFolder) baseSummary
+                else "$baseSummary · " + context.getString(ir.siliksama.hajmino.R.string.result_note_default_folder)
+            return EngineOutput(published.uri, sizeOf(published.uri), summary)
         } catch (e: VideoCompressionException) {
             throw e
         } finally {
