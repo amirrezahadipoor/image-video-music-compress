@@ -215,8 +215,13 @@ class Compressor(private val context: Context) {
             )
             // SUMMARY-FIX: report the codec that was ACTUALLY written. If the
             // device has no HEVC encoder the engine falls back to H.264 — that
-            // result must not be presented as an H.265 file.
-            val codecName = if (stats.codec == "h265") "H.265" else "H.264"
+            // result must not be presented as an H.265 file. AV1 is labeled
+            // too, so a software-AV1 output is never shown as H.264.
+            val codecName = when (stats.codec) {
+                "h265" -> "H.265"
+                "av1" -> "AV1"
+                else -> "H.264"
+            }
             // BUG-5 FIX: Integer division of durationMs < 1000 produces "0s".
             // Use humanDuration for a proper "0:XX" display for short clips.
             val durationLabel = com.compressly.core.util.Formats.humanDuration(stats.durationMs)
