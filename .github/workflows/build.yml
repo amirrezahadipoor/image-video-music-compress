@@ -195,7 +195,11 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: false
     steps:
+      # fetch-depth: 0 is required, not optional: the point of this job is to see
+      # material that was *deleted* at HEAD, and a shallow checkout cannot.
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - name: Scan for committed secrets
         shell: bash
         run: |
@@ -220,6 +224,25 @@ jobs:
           # whole step. `if` always returns 0.
           git ls-files | while read -r f; do [ -f "$f" ] || continue; S=$(stat -c%s "$f" 2>/dev/null || echo 0); if [ "$S" -gt 500000 ]; then echo "$f ($S bytes)"; fi; done
           if [ "$FAIL" -eq 0 ]; then echo "SECURITY AUDIT PASSED"; exit 0; else echo "SECURITY AUDIT FAILED"; exit 1; fi
+
+      # HISTORY — advisory on purpose. Everything below is clean at HEAD, but the
+      # two .jks files and the plaintext passwords that signed them are still
+      # reachable in old commits (docs/KNOWN_ISSUES.md #9). Making this a hard gate
+      # today would only ever report a known, user-side task, so it warns; flip the
+      # trailing `exit 0` to `exit 1` right after the history is purged (git
+      # filter-repo / BFG + GitHub's cache purge) so a new key can never leak again.
+      - name: Scan git history for signing material
+        shell: bash
+        run: |
+          HITS=$(git log --all --diff-filter=A --name-only --pretty=format: | grep -Ei '\.(jks|keystore|p12|pfx)$' | sort -u || true)
+          if [ -n "$HITS" ]; then
+            echo "$HITS" | sed 's/^/  found in history: /'
+            echo "::warning::Keystore files are reachable in git history — purge history, rotate the signing key, and confirm the CI secret is the new key (docs/KNOWN_ISSUES.md #9)."
+            printf '%s\n' "$HITS" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "OK: no keystore anywhere in history"
+          fi
+          exit 0
 
   # ── Lint — static quality gate ───────────────────────────────────────
   # Lint is now a HARD gate: abortOnError=true in build.gradle.kts and this

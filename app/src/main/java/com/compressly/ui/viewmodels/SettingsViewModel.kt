@@ -425,7 +425,11 @@ class SettingsViewModel(private val container: AppContainer, private val context
 
     fun compress(): Long? {
         val s = _state.value
-        if (!s.ready || s.items.isEmpty()) return null
+        // DOUBLE-TAP-FIX: `startingJob` used to be written and never read, so a
+        // second tap on the compress bar enqueued the same files a second time —
+        // two jobs over one selection, and the second one writing into files the
+        // first had already moved. The flag is the lock now.
+        if (!s.ready || s.items.isEmpty() || s.startingJob) return null
 
         // SPACE-FIX: estimatedSize is the estimate for the FIRST file only.
         // A 50-file batch needs roughly 50x that — checking one file's worth
@@ -438,8 +442,14 @@ class SettingsViewModel(private val container: AppContainer, private val context
         }
 
         val settings = buildSettings(s)
-        val jobId = container.jobCoordinator.enqueue(s.mediaType, s.items, settings)
+        // Lock before enqueueing; released again only if nothing was queued, since
+        // on success the screen navigates away and this ViewModel is discarded
+        // with its nav entry (a new selection starts unlocked).
         _state.update { it.copy(startingJob = true) }
+        val jobId = runCatching { container.jobCoordinator.enqueue(s.mediaType, s.items, settings) }
+            .onFailure { android.util.Log.e("SettingsViewModel", "enqueue failed", it) }
+            .getOrNull()
+        if (jobId == null) _state.update { it.copy(startingJob = false) }
         return jobId
     }
 
@@ -451,10 +461,13 @@ class SettingsViewModel(private val container: AppContainer, private val context
     fun forceCompress(): Long? {
         _state.update { it.copy(lowSpaceWarning = false) }
         val s = _state.value
-        if (!s.ready || s.items.isEmpty()) return null
+        if (!s.ready || s.items.isEmpty() || s.startingJob) return null
         val settings = buildSettings(s)
-        val jobId = container.jobCoordinator.enqueue(s.mediaType, s.items, settings)
         _state.update { it.copy(startingJob = true) }
+        val jobId = runCatching { container.jobCoordinator.enqueue(s.mediaType, s.items, settings) }
+            .onFailure { android.util.Log.e("SettingsViewModel", "enqueue failed", it) }
+            .getOrNull()
+        if (jobId == null) _state.update { it.copy(startingJob = false) }
         return jobId
     }
 

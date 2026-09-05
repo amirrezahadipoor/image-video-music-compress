@@ -73,13 +73,16 @@
 | X7 | برچسب‌های `video_resolution_custom` و … در شاخه‌های مرده → بعد از U3 زنده شد | `[x]` — با زنده‌شدن U3 برچسب `video_resolution_custom` قابل دسترس است |
 
 | X8 | بک‌باتن: برگشت از Progress حین کار فعال نباید حس «لغو» بدهد؛ توضیح «ادامه در پس‌زمینه» روی snackbar | `[ ]` |
+| X9 | دوتپ روی دکمهٔ فشرده‌سازی، همان فایل‌ها را دوباره enqueue می‌کرد (`startingJob` نوشته می‌شد ولی هیچ‌جا خوانده نمی‌شد) | `[x]` — قفل واقعی شد + `enqueue` در `runCatching` (شکست = آزاد شدن قفل) |
+| X10 | برآورد «≈ حجم خروجی» برای دسته = `firstFile × N` بود (با یک کلیپ ۶۰MB در ابتدا، ۴۰ کلیپ موبایلی ۲٫۴GB نشان داده می‌شد) | `[x]` — نسبت به‌دست‌آمده از فایل تحلیل‌شده روی مجموع واقعی اعمال می‌شود |
 
 ## فاز ۴ — تست و CI
 | # | مورد | وضعیت |
 |---|---|---|
 | T1 | صفر تست روی `OutputStore`/`JobCoordinator`/`Compressor` — افزودن تست خالص برای: scoping دسته‌ها، جمع‌های DONE-only، یکتایی jobId، الگوریتم نام یکتا، resolve وضعیت | `[~]` — `ResultMathTest` با ۱۱ تست (جمع‌های نتیجه، نشانهٔ retain، یکتایی نام، `encoderSize`) اضافه شد؛ تست مستقیم روی `JobCoordinator`/`Compressor` به Robolectric/emulator نیاز دارد |
 
-| T2 | جاب `security` فقط HEAD را می‌پاید → باید **تاریخچه** را هم بپاید (keystore در history) | `[ ]` |
+| T2 | جاب `security` فقط HEAD را می‌پاید → باید **تاریخچه** را هم بپاید (keystore در history) | `[x]` — `security` حالا با `fetch-depth: 0` تاریخچه را هم می‌پاید (مرحلهٔ «Scan git history for signing material»؛ advisory تا پاک‌سازی تاریخچه، بعدش `exit 1`). روی همین ریپو آزمایش شد: ۲ keystore در تاریخچه، هیچ‌کدام در HEAD |
+
 | T3 | ۱۰ تست instrumented هیچ‌جا اجرا نمی‌شود → یا جاب emulator برگردد یا در README صادقانه نوشته شود | `[!]` وابسته به U13/تصمیم زمان CI |
 | T4 | `disable`های ۱۵تایی lint (کرش ابزار با AGP 8.7) → ارتقا به AGP ≥ 8.8.2 و حذفشان | `[!]` ریسک بالا، نیازمند یک چرخهٔ CI جدا |
 | T5 | دو ران دوبل روی هر push (push + dispatch) → افزودن `concurrency` در سطح workflow | `[x]` — eeb0766 — `concurrency` سطح workflow با cancel-in-progress: false |

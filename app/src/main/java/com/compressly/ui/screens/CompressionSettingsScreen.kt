@@ -121,9 +121,19 @@ fun CompressionSettingsScreen(
             state.items.sumOf { it.sizeBytes.takeIf { s -> s > 0 } ?: 0L }
         } else state.originalSize
     }
-    val totalEstimated = remember(state.items.size, state.estimatedSize) {
-        if (state.items.size > 1) state.estimatedSize.coerceAtLeast(0L) * state.items.size
-        else state.estimatedSize
+    val totalEstimated = remember(state.items.size, state.estimatedSize, totalOriginal, state.originalSize) {
+        when {
+            state.items.size <= 1 -> state.estimatedSize
+            // RATIO-ESTIMATE-FIX: scaling the FIRST file's estimate by N promised
+            // a folder whatever the first file happened to be (one 60 MB clip at
+            // the front made 40 phone clips look like 40 × 60 MB). The analysis
+            // only measures one file, so reuse what it actually learned — the
+            // before → after RATIO — and apply it to the real total.
+            state.originalSize > 0 && state.estimatedSize > 0 ->
+                (totalOriginal.toDouble() * (state.estimatedSize.toDouble() / state.originalSize))
+                    .toLong().coerceAtLeast(0L)
+            else -> state.estimatedSize.coerceAtLeast(0L) * state.items.size
+        }
     }
 
     LaunchedEffect(state.ready) {
