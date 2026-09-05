@@ -85,7 +85,11 @@ class CompressionJobService : Service() {
                 coordinator.jobs.collect { jobs -> handleJobs(jobs) }
             }
         }
-        return START_NOT_STICKY
+        // START_STICKY: after the OS transiently reclaims the process (a RAM
+        // cleaner, a memory-pressure kill) it tries to restart the service so
+        // the run can continue. Note that a FULL process kill also destroys the
+        // in-memory job state — that case is honest about being interrupted.
+        return START_STICKY
     }
 
     // NOTIF-DEBOUNCE: one notification per progress tick (every ~0.5 %) is a

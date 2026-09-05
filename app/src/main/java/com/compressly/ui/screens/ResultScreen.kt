@@ -251,9 +251,16 @@ private fun SuccessContent(
 
         Spacer(Modifier.height(24.dp))
 
+        // BATCH-SHARE: in a multi-file job the share button shares every
+        // compressed output of the folder/batch, not just the file this screen
+        // happens to be showing.
         ActionButton(
-            text = stringResource(R.string.result_share_output),
-            onClick = { viewModel.share(context, entry) },
+            text = if (siblings.size > 1) stringResource(R.string.result_share_batch, siblings.size)
+            else stringResource(R.string.result_share_output),
+            onClick = {
+                if (siblings.size > 1) viewModel.shareAll(context, siblings)
+                else viewModel.share(context, entry)
+            },
             icon = Icons.Outlined.Share
         )
         Spacer(Modifier.height(10.dp))
@@ -280,6 +287,8 @@ private fun SuccessContent(
 @Composable
 private fun BatchSummaryCard(siblings: List<HistoryEntry>) {
     val doneCount   = siblings.count { it.status == HistoryEntry.STATUS_DONE }
+    val totalBefore = siblings.sumOf { it.inputSize }
+    val totalAfter  = siblings.sumOf { it.outputSize }
     val totalSaved  = siblings.sumOf { it.savedBytes }
     val surface     = MaterialTheme.colorScheme.surface
     val primary     = MaterialTheme.colorScheme.primary
@@ -290,20 +299,34 @@ private fun BatchSummaryCard(siblings: List<HistoryEntry>) {
         shape = RoundedCornerShape(18.dp),
         color = surface
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = pluralStringResource(R.plurals.result_batch_files, doneCount, doneCount, siblings.size),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = onSurfaceVar
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+            Text(
+                text = pluralStringResource(R.plurals.result_batch_files, doneCount, doneCount, siblings.size),
+                style = MaterialTheme.typography.labelMedium,
+                color = onSurfaceVar
+            )
+            Spacer(Modifier.height(10.dp))
+            // Exact total of the whole folder/batch: before and after, so the
+            // user sees precisely how much the batch shrank, not just one file.
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                StatCard(
+                    label = stringResource(R.string.result_before_size),
+                    value = Formats.humanSize(totalBefore),
+                    modifier = Modifier.weight(1f)
                 )
-                Spacer(Modifier.height(2.dp))
+                StatCard(
+                    label = stringResource(R.string.result_after_size),
+                    value = Formats.humanSize(totalAfter),
+                    modifier = Modifier.weight(1f),
+                    accent = primary
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 val shownSaved by androidx.compose.animation.core.animateFloatAsState(
                     targetValue = totalSaved.toFloat(),
                     animationSpec = androidx.compose.animation.core.tween(durationMillis = 850),
@@ -314,20 +337,18 @@ private fun BatchSummaryCard(siblings: List<HistoryEntry>) {
                     style = MaterialTheme.typography.titleSmall,
                     color = onSurface
                 )
+                val shownPct by androidx.compose.animation.core.animateFloatAsState(
+                    targetValue = (totalSaved.toDouble() / totalBefore.coerceAtLeast(1))
+                        .coerceIn(0.0, 1.0).toFloat(),
+                    animationSpec = androidx.compose.animation.core.tween(durationMillis = 850),
+                    label = "pct_countup"
+                )
+                Text(
+                    text = if (totalBefore > 0) Formats.percent(shownPct.toDouble()) else "0%",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = primary
+                )
             }
-            val shownPct by androidx.compose.animation.core.animateFloatAsState(
-                targetValue = if (siblings.size > 0)
-                    (totalSaved.toDouble() / siblings.sumOf { it.inputSize }.coerceAtLeast(1))
-                        .coerceIn(0.0, 1.0).toFloat()
-                else 0f,
-                animationSpec = androidx.compose.animation.core.tween(durationMillis = 850),
-                label = "pct_countup"
-            )
-            Text(
-                text = if (siblings.size > 0) Formats.percent(shownPct.toDouble()) else "0%",
-                style = MaterialTheme.typography.titleMedium,
-                color = primary
-            )
         }
     }
 }

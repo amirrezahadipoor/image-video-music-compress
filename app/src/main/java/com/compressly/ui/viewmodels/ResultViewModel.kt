@@ -43,6 +43,35 @@ class ResultViewModel(container: AppContainer, private val entryId: Long) : View
         runCatching { context.startActivity(chooser) }
     }
 
+    /**
+     * BATCH-SHARE: shares one file per successfully compressed result in the
+     * same job, so a whole folder/batch is shared with other apps instead of
+     * only the single file the current screen happens to show.
+     */
+    fun shareAll(context: Context, siblings: List<HistoryEntry>) {
+        val uris = siblings
+            .filter { it.status == HistoryEntry.STATUS_DONE && it.outputUri != null }
+            .mapNotNull { it.outputUri?.let { u -> Uri.parse(u) } }
+        if (uris.isEmpty()) return
+        val mime = mimeFor(siblings.first().mediaType)
+        val intent = if (uris.size == 1) {
+            Intent(Intent.ACTION_SEND).apply {
+                type = mime
+                putExtra(Intent.EXTRA_STREAM, uris.first())
+            }
+        } else {
+            Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                type = mime
+                putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
+            }
+        }
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        val chooser = Intent.createChooser(intent, context.getString(R.string.result_share_sheet_title)).apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        runCatching { context.startActivity(chooser) }
+    }
+
     fun open(context: Context, entry: HistoryEntry) {
         val uri = entry.outputUri?.let { Uri.parse(it) } ?: return
         val intent = Intent(Intent.ACTION_VIEW).apply {

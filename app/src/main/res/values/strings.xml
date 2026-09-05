@@ -169,7 +169,7 @@
     <string name="progress_eta">حدود %1$s مانده</string>
     <string name="progress_elapsed">گذشت %1$s</string>
     <string name="progress_stopped_by_user">لغو شد</string>
-    <string name="progress_will_keep_running">فشرده‌سازی در پس‌زمینه ادامه می‌یابد. می‌توانید این صفحه را ترک کنید.</string>
+    <string name="progress_will_keep_running">فشرده‌سازی در پس‌زمینه ادامه می‌یابد و می‌توانید این صفحه را ترک کنید؛ اما اگر فشرده‌سازی را از لیست برنامه‌های اخیر حذف کنید یا برنامه را به‌طور کامل ببندید، عملیات متوقف می‌شود.</string>
     <string name="progress_percent">%1$d٪</string>
 
     <!-- Result -->
@@ -187,6 +187,7 @@
     <string name="result_compress_another">فشرده‌سازی فایل دیگر</string>
     <string name="result_view_history">مشاهده تاریخچه</string>
     <string name="result_share_output">اشتراک‌گذاری</string>
+    <string name="result_share_batch">اشتراک‌گذاری همه (%1$d فایل)</string>
     <string name="result_open_output">باز کردن فایل</string>
     <string name="result_items_success">%1$d از %2$d فایل با موفقیت فشرده شد</string>
     <string name="result_share_sheet_title">اشتراک‌گذاری فایل فشرده</string><string name="result_batch_saved">مجموع صرفه‌جویی: %1$s</string>
@@ -275,7 +276,7 @@
     <string name="advanced_hint">کیفیت، رزولوشن، بیت‌ریت و موارد دیگر را دقیق تنظیم کنید.</string>
     <string name="gif_to_mp4">GIF به MP4 تبدیل شد</string>
     <string name="already_optimized">این فایل از قبل بهینه بود؛ بدون تغییر ذخیره شد</string>
-    <string name="processing_warning_long_video">ویدیوهای بزرگ ممکن است مدتی طول بکشند. می‌توانید این صفحه را ترک کنید؛ فشرده‌سازی ادامه می‌یابد.</string>
+    <string name="processing_warning_long_video">ویدیوهای بزرگ ممکن است مدتی طول بکشند. می‌توانید این صفحه را ترک کنید و فشرده‌سازی در پس‌زمینه ادامه می‌یابد؛ فقط اگر برنامه را به‌طور کامل (با بستن از لیست اخیر) ببندید، عملیات متوقف می‌شود.</string>
     <!-- App language -->
     <string name="settings_language">زبان برنامه</string>
     <string name="language_fa">فارسی</string>

@@ -168,7 +168,7 @@
     <string name="progress_eta">About %1$s left</string>
     <string name="progress_elapsed">Elapsed %1$s</string>
     <string name="progress_stopped_by_user">Cancelled</string>
-    <string name="progress_will_keep_running">Compression continues in the background. You can leave this screen.</string>
+    <string name="progress_will_keep_running">Compression continues in the background and you can leave this screen. It only stops if you fully close the app (remove it from recent apps).</string>
     <string name="progress_percent">%1$d%%</string>
 
     <!-- Result -->
@@ -186,6 +186,7 @@
     <string name="result_compress_another">Compress another</string>
     <string name="result_view_history">View history</string>
     <string name="result_share_output">Share</string>
+    <string name="result_share_batch">Share all (%1$d files)</string>
     <string name="result_open_output">Open file</string>
     <string name="result_items_success">%1$d of %2$d files compressed successfully</string>
     <string name="result_share_sheet_title">Share compressed file</string><string name="result_batch_saved">Total saved: %1$s</string>
@@ -274,7 +275,7 @@
     <string name="advanced_hint">Fine-tune quality, resolution, bitrate and more.</string>
     <string name="gif_to_mp4">Converted GIF to MP4</string>
     <string name="already_optimized">Already optimized - saved unchanged</string>
-    <string name="processing_warning_long_video">Large videos may take a while. You can leave this screen; compression keeps running.</string>
+    <string name="processing_warning_long_video">Large videos may take a while. You can leave this screen; compression keeps running in the background. It only stops if you fully close the app (remove it from recent apps).</string>
     <!-- App language -->
     <string name="settings_language">App language</string>
     <string name="language_fa">Persian (فارسی)</string>

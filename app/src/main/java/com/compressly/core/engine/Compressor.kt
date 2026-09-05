@@ -82,13 +82,14 @@ class Compressor(private val context: Context) {
             // engines, so it is resolved once here and handed to each.
             val location = settings.outputLocation
             val outputFolder = settings.outputFolder
+            val replace = settings.replaceOriginal
             val output = when (settings) {
                 is CompressionSettings.Photo ->
-                    compressPhoto(item, settings.settings, location, outputFolder, control, onProgress)
+                    compressPhoto(item, settings.settings, location, outputFolder, replace, control, onProgress)
                 is CompressionSettings.Video ->
-                    compressVideo(item, settings.settings, settings.preset, location, outputFolder, control, onProgress)
+                    compressVideo(item, settings.settings, settings.preset, location, outputFolder, replace, control, onProgress)
                 is CompressionSettings.Audio ->
-                    compressAudio(item, settings.settings, location, outputFolder, control, onProgress)
+                    compressAudio(item, settings.settings, location, outputFolder, replace, control, onProgress)
             }
             onProgress(ItemPhase.FINALIZING, 1f)
             onProgress(ItemPhase.DONE, 1f)
@@ -129,6 +130,7 @@ class Compressor(private val context: Context) {
         summary: String,
         location: com.compressly.core.engine.model.OutputLocation,
         outputFolder: String?,
+        replaceOriginal: Boolean,
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
         val encoded = temp.length()
@@ -147,6 +149,18 @@ class Compressor(private val context: Context) {
             Storage.deleteQuietly(temp)
             return keepOriginal(item, mediaType, onProgress)
         }
+        // REPLACE-ORIGINAL-FIX: overwrite the SOURCE document in place (same
+        // URI/path) so no duplicate is ever created — this is why the old
+        // "publish a new row + delete the original" produced thousands of
+        // extra photos: contentResolver.delete() silently fails on many SAF
+        // tree / picker URIs, so the original stayed and a new row appeared.
+        // Only falls back to the publish+delete path when the source can't be
+        // written (read-only picker grant).
+        if (replaceOriginal) {
+            OutputStore.replaceInPlace(context, item.uri, temp)?.let { replaced ->
+                return EngineOutput(replaced, sizeOf(replaced, encoded), summary)
+            }
+        }
         // OUTPUT-LOCATION: publish into the requested folder (or the source's
         // own folder when replacing), honoring the per-job custom tree.
         val uri = OutputStore.publishTempFile(
@@ -161,6 +175,7 @@ class Compressor(private val context: Context) {
         settings: PhotoSettings,
         location: com.compressly.core.engine.model.OutputLocation,
         outputFolder: String?,
+        replaceOriginal: Boolean,
         control: JobControl,
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
@@ -192,7 +207,7 @@ class Compressor(private val context: Context) {
                 "${outMime.removePrefix("image/").uppercase()} (lossless)"
             else -> "$realQuality% quality, ${outMime.removePrefix("image/").uppercase()}"
         }
-        return publishOrKeepOriginal(item, MediaType.PHOTO, temp, outMime, summary, location, outputFolder, onProgress)
+        return publishOrKeepOriginal(item, MediaType.PHOTO, temp, outMime, summary, location, outputFolder, replaceOriginal, onProgress)
     }
 
     private suspend fun compressVideo(
@@ -201,6 +216,7 @@ class Compressor(private val context: Context) {
         preset: com.compressly.core.engine.model.CompressionPreset,
         location: com.compressly.core.engine.model.OutputLocation,
         outputFolder: String?,
+        replaceOriginal: Boolean,
         control: JobControl,
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
@@ -245,7 +261,7 @@ class Compressor(private val context: Context) {
             // Use humanDuration for a proper "0:XX" display for short clips.
             val durationLabel = com.compressly.core.util.Formats.humanDuration(stats.durationMs)
             val summary = "$codecName, $durationLabel"
-            return publishOrKeepOriginal(item, MediaType.VIDEO, temp, "video/mp4", summary, location, outputFolder, onProgress)
+            return publishOrKeepOriginal(item, MediaType.VIDEO, temp, "video/mp4", summary, location, outputFolder, replaceOriginal, onProgress)
         } finally {
             Storage.deleteQuietly(temp)
         }
@@ -301,6 +317,7 @@ class Compressor(private val context: Context) {
         settings: com.compressly.core.engine.model.AudioSettings,
         location: com.compressly.core.engine.model.OutputLocation,
         outputFolder: String?,
+        replaceOriginal: Boolean,
         control: JobControl,
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
@@ -318,11 +335,19 @@ class Compressor(private val context: Context) {
         val usedKbps = com.compressly.core.engine.audio.AudioPlanner
             .targetBitrateKbps(settings.bitrate, info.audioBitrate)
         val summary = "$formatName $usedKbps kbps"
-        return publishOrKeepOriginal(item, MediaType.AUDIO, temp, outMime, summary, location, outputFolder, onProgress)
+        return publishOrKeepOriginal(item, MediaType.AUDIO, temp, outMime, summary, location, outputFolder, replaceOriginal, onProgress)
     }
 
     private fun sizeOf(uri: Uri): Long =
-        runCatching {
+        sizeOf(uri, -1L)
+
+    /**
+     * Size of the published output, preferring the known encoded length
+     * (exact) over an asset-file descriptor probe (which can be stale or fail
+     * for some documents).
+     */
+    private fun sizeOf(uri: Uri, known: Long): Long =
+        if (known > 0) known else runCatching {
             context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length }
         }.getOrNull() ?: 0L
 }

@@ -403,7 +403,11 @@ class JobCoordinator(
      * original simply stays, which is safe.
      */
     private fun deleteOriginalOptional(uri: Uri) {
-        runCatching { context.contentResolver.delete(uri, null, null) }
+        // Use the tree-aware delete in OutputStore rather than a bare
+        // contentResolver.delete, which silently fails for SAF tree / picker
+        // documents and was leaving the original behind (the duplicate-photos
+        // bug). The in-place replace normally avoids this entirely.
+        com.compressly.core.data.OutputStore.delete(context, uri)
     }
 
     private fun updateItem(jobId: Long, itemId: Long, transform: (ItemState) -> ItemState) {

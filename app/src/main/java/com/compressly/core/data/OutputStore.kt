@@ -76,6 +76,30 @@ object OutputStore {
     }
 
     /**
+     * REPLACE-IN-PLACE: overwrites the SOURCE document with the compressed
+     * bytes, keeping the same URI/path — the true meaning of "replace". This
+     * is the only replace that cannot create a duplicate: a new MediaStore row
+     * is never inserted, so there is exactly one file left where the source
+     * was. Returns the source URI on success, or null when the source can't be
+     * written (e.g. a read-only picker grant) — the caller then falls back.
+     */
+    fun replaceInPlace(
+        context: Context,
+        sourceUri: Uri,
+        tempFile: File
+    ): Uri? {
+        return try {
+            val out = runCatching { context.contentResolver.openOutputStream(sourceUri, "w") }.getOrNull()
+                ?: return null
+            out.use { os -> tempFile.inputStream().use { it.copyTo(os, 256 * 1024) } }
+            Storage.deleteQuietly(tempFile)
+            sourceUri
+        } catch (t: Throwable) {
+            null
+        }
+    }
+
+    /**
      * Copies [tempFile] into a new MediaStore row and returns the public URI.
      * The temp file is deleted afterwards. Honors a custom output folder and the
      * requested [location]; any failure falls back to the default MediaStore
