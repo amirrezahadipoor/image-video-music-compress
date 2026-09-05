@@ -386,6 +386,17 @@ private fun ItemRow(
                 fraction = if (isDone) 1f else if (failed) 0f else item.fraction,
                 color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
             )
+            // DIAG: for a FAILED item show the real reason (class + message) so
+            // the user can finally see WHY it failed — not just a generic label.
+            if (item.phase == ItemPhase.FAILED && !item.errorDetail.isNullOrBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = Bidi.isolate(item.errorDetail),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                    maxLines = 3
+                )
+            }
         }
     }
 }

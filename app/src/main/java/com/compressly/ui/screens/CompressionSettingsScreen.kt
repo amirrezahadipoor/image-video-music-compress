@@ -330,6 +330,9 @@ fun CompressionSettingsScreen(
                             checked = state.replaceOriginal,
                             onCheckedChange = viewModel::setReplaceOriginal
                         )
+                        // ---- Output location (replace in place / new folder) ----
+                        Spacer(Modifier.height(12.dp))
+                        OutputLocationSelector(state, viewModel)
                     }
                 }
 
@@ -917,3 +920,82 @@ private fun AudioAdvanced(
     )
 }
 
+
+/** OUTPUT-LOCATION: where the compressed result is written. */
+@Composable
+private fun OutputLocationSelector(
+    state: SettingsViewModel.UiState,
+    viewModel: SettingsViewModel
+) {
+    val context = LocalContext.current
+    var folderName by remember { mutableStateOf<String?>(null) }
+    val folderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { tree ->
+        if (tree != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    tree,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            }
+            val name = runCatching {
+                androidx.documentfile.provider.DocumentFile.fromTreeUri(context, tree)?.name
+            }.getOrNull()
+            folderName = name
+            viewModel.setOutputFolder(tree.toString())
+        }
+    }
+
+    val location = state.outputLocation
+    ChipSelector(
+        options = listOf(
+            com.compressly.core.engine.model.OutputLocation.DEFAULT,
+            com.compressly.core.engine.model.OutputLocation.SAME_AS_SOURCE,
+            com.compressly.core.engine.model.OutputLocation.CUSTOM
+        ),
+        selected = location,
+        labelOf = { loc ->
+            stringResource(
+                when (loc) {
+                    com.compressly.core.engine.model.OutputLocation.DEFAULT -> R.string.output_location_default
+                    com.compressly.core.engine.model.OutputLocation.SAME_AS_SOURCE -> R.string.output_location_same_as_source
+                    com.compressly.core.engine.model.OutputLocation.CUSTOM -> R.string.output_location_custom
+                }
+            )
+        },
+        onSelect = { loc -> viewModel.setOutputLocation(loc) }
+    )
+    if (location != com.compressly.core.engine.model.OutputLocation.DEFAULT) {
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = stringResource(
+                when (location) {
+                    com.compressly.core.engine.model.OutputLocation.SAME_AS_SOURCE -> R.string.output_location_same_as_source_desc
+                    else -> R.string.output_location_custom_desc
+                }
+            ),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+    if (location == com.compressly.core.engine.model.OutputLocation.CUSTOM) {
+        Spacer(Modifier.height(8.dp))
+        TextButton(onClick = { folderPicker.launch(null) }) {
+            Text(
+                stringResource(
+                    if (folderName != null || state.outputFolder != null) R.string.output_location_change_folder
+                    else R.string.output_location_pick_folder
+                )
+            )
+        }
+        if (folderName != null) {
+            Text(
+                text = folderName!!,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}

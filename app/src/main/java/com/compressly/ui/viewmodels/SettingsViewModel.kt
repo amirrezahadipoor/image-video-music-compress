@@ -73,7 +73,12 @@ class SettingsViewModel(private val container: AppContainer, private val context
         val recommended: CompressionPreset? = null,
         val gradeEstimates: Map<CompressionPreset, Long> = emptyMap(),
         /** REPLACE-ORIGINAL: delete the source file after a successful compression. */
-        val replaceOriginal: Boolean = false
+        val replaceOriginal: Boolean = false,
+        /** OUTPUT-LOCATION: where the result is written (default / same as source / custom). */
+        val outputLocation: com.compressly.core.engine.model.OutputLocation =
+            com.compressly.core.engine.model.OutputLocation.DEFAULT,
+        /** Per-job custom folder (SAF tree URI) used when outputLocation == CUSTOM. */
+        val outputFolder: String? = null
     )
 
     sealed class PreviewState {
@@ -457,7 +462,9 @@ class SettingsViewModel(private val container: AppContainer, private val context
         MediaType.PHOTO -> CompressionSettings.Photo(
             s.photo.copy(smart = s.smart || s.preset == CompressionPreset.SMART),
             if (s.smart) CompressionPreset.SMART else s.preset,
-            replaceOriginal = s.replaceOriginal
+            replaceOriginal = s.replaceOriginal,
+            outputLocation = s.outputLocation,
+            outputFolder = s.outputFolder
         )
         MediaType.VIDEO -> {
             // Unavailable codecs (no matching encoder on this device) fall back
@@ -481,19 +488,42 @@ class SettingsViewModel(private val container: AppContainer, private val context
             CompressionSettings.Video(
                 s.video.copy(codec = codec),
                 if (s.smart) CompressionPreset.SMART else s.preset,
-                replaceOriginal = s.replaceOriginal
+                replaceOriginal = s.replaceOriginal,
+                outputLocation = s.outputLocation,
+                outputFolder = s.outputFolder
             )
         }
         MediaType.AUDIO -> CompressionSettings.Audio(
             s.audio,
             if (s.smart) CompressionPreset.SMART else s.preset,
-            replaceOriginal = s.replaceOriginal
+            replaceOriginal = s.replaceOriginal,
+            outputLocation = s.outputLocation,
+            outputFolder = s.outputFolder
         )
     }
 
     /** REPLACE-ORIGINAL: toggle whether the source files are deleted on success. */
     fun setReplaceOriginal(value: Boolean) {
-        _state.update { it.copy(replaceOriginal = value) }
+        // When the user ticks "replace", default the result to landing in the
+        // SAME folder as the source (replace in place). They can still switch
+        // to a custom folder below.
+        _state.update {
+            it.copy(
+                replaceOriginal = value,
+                outputLocation = if (value && it.outputLocation == com.compressly.core.engine.model.OutputLocation.DEFAULT)
+                    com.compressly.core.engine.model.OutputLocation.SAME_AS_SOURCE else it.outputLocation
+            )
+        }
+    }
+
+    /** OUTPUT-LOCATION: choose where the compressed result is written. */
+    fun setOutputLocation(location: com.compressly.core.engine.model.OutputLocation) {
+        _state.update { it.copy(outputLocation = location) }
+    }
+
+    /** OUTPUT-LOCATION: set the per-job custom folder (SAF tree URI). */
+    fun setOutputFolder(uri: String?) {
+        _state.update { it.copy(outputFolder = uri, outputLocation = com.compressly.core.engine.model.OutputLocation.CUSTOM) }
     }
 
     override fun onCleared() {

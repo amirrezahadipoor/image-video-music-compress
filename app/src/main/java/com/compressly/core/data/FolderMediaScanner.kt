@@ -17,7 +17,14 @@ import com.compressly.core.engine.model.MediaType
  */
 object FolderMediaScanner {
 
-    private const val MAX_FILES = 500
+    /**
+     * Per-type capacity the user asked for in one folder pass: up to 10 videos,
+     * 50 audio files and 10,000 photos. Beyond a type's cap the folder is
+     * reported as truncated (nothing is dropped silently).
+     */
+    private const val MAX_PHOTOS = 10_000
+    private const val MAX_VIDEOS = 10
+    private const val MAX_AUDIO = 50
     private const val MAX_DEPTH = 3
 
     data class Snapshot(
@@ -41,16 +48,21 @@ object FolderMediaScanner {
         val videos = ArrayList<InputItem>()
         val audios = ArrayList<InputItem>()
         var truncated = false
-        var count = 0
+
+        fun capOf(type: MediaType): Int = when (type) {
+            MediaType.PHOTO -> MAX_PHOTOS
+            MediaType.VIDEO -> MAX_VIDEOS
+            MediaType.AUDIO -> MAX_AUDIO
+        }
 
         fun add(file: DocumentFile, type: MediaType, list: MutableList<InputItem>) {
-            if (count++ >= MAX_FILES) {
+            if (list.size >= capOf(type)) {
                 truncated = true
                 return
             }
             val size = file.length()
             list += InputItem(
-                itemId = System.nanoTime() + count.toLong(),
+                itemId = System.nanoTime() + (photos.size + videos.size + audios.size).toLong(),
                 uri = file.uri,
                 displayName = file.name ?: file.uri.lastPathSegment ?: "file",
                 sizeBytes = size,

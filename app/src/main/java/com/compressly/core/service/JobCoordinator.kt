@@ -189,12 +189,15 @@ class JobCoordinator(
                     // logged with its stack so a device-specific MediaCodec
                     // failure is not a black box. Log.e keeps it in the
                     // release build too, so a user report can be diagnosed.
+                    val detail = t::class.java.simpleName + ": " + (t.message ?: "")
                     android.util.Log.e(
                         "CompressJob",
-                        "item failed (${settings.mediaType()}, key=$key): " + t::class.java.simpleName + " — " + t.message,
+                        "item failed (${settings.mediaType()}, key=$key): " + detail,
                         t
                     )
-                    updateItem(jobId, item.itemId) { it.copy(phase = ItemPhase.FAILED, error = key) }
+                    updateItem(jobId, item.itemId) {
+                        it.copy(phase = ItemPhase.FAILED, error = key, errorDetail = detail)
+                    }
                     CompressionResult(
                         itemId = item.itemId, jobId = jobId, fileName = item.displayName,
                         inputUri = item.uri, inputSize = item.sizeBytes,

@@ -77,10 +77,18 @@ class Compressor(private val context: Context) {
         val startedAt = System.currentTimeMillis()
         onProgress(ItemPhase.PREPARING, 0f)
         try {
+            // OUTPUT-LOCATION: where the result goes (default / same folder as
+            // the source / a per-job chosen folder) applies equally to all
+            // engines, so it is resolved once here and handed to each.
+            val location = settings.outputLocation
+            val outputFolder = settings.outputFolder
             val output = when (settings) {
-                is CompressionSettings.Photo -> compressPhoto(item, settings.settings, control, onProgress)
-                is CompressionSettings.Video -> compressVideo(item, settings.settings, settings.preset, control, onProgress)
-                is CompressionSettings.Audio -> compressAudio(item, settings.settings, control, onProgress)
+                is CompressionSettings.Photo ->
+                    compressPhoto(item, settings.settings, location, outputFolder, control, onProgress)
+                is CompressionSettings.Video ->
+                    compressVideo(item, settings.settings, settings.preset, location, outputFolder, control, onProgress)
+                is CompressionSettings.Audio ->
+                    compressAudio(item, settings.settings, location, outputFolder, control, onProgress)
             }
             onProgress(ItemPhase.FINALIZING, 1f)
             onProgress(ItemPhase.DONE, 1f)
@@ -119,6 +127,8 @@ class Compressor(private val context: Context) {
         temp: File,
         mime: String,
         summary: String,
+        location: com.compressly.core.engine.model.OutputLocation,
+        outputFolder: String?,
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
         val encoded = temp.length()
@@ -137,13 +147,20 @@ class Compressor(private val context: Context) {
             Storage.deleteQuietly(temp)
             return keepOriginal(item, mediaType, onProgress)
         }
-        val uri = OutputStore.publishTempFile(context, mediaType, temp, item.displayName, mime)
+        // OUTPUT-LOCATION: publish into the requested folder (or the source's
+        // own folder when replacing), honoring the per-job custom tree.
+        val uri = OutputStore.publishTempFile(
+            context, mediaType, temp, item.displayName, mime,
+            location = location, sourceUri = item.uri, customTreeUri = outputFolder
+        )
         return EngineOutput(uri, sizeOf(uri), summary)
     }
 
     private suspend fun compressPhoto(
         item: InputItem,
         settings: PhotoSettings,
+        location: com.compressly.core.engine.model.OutputLocation,
+        outputFolder: String?,
         control: JobControl,
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
@@ -175,13 +192,15 @@ class Compressor(private val context: Context) {
                 "${outMime.removePrefix("image/").uppercase()} (lossless)"
             else -> "$realQuality% quality, ${outMime.removePrefix("image/").uppercase()}"
         }
-        return publishOrKeepOriginal(item, MediaType.PHOTO, temp, outMime, summary, onProgress)
+        return publishOrKeepOriginal(item, MediaType.PHOTO, temp, outMime, summary, location, outputFolder, onProgress)
     }
 
     private suspend fun compressVideo(
         item: InputItem,
         settings: com.compressly.core.engine.model.VideoSettings,
         preset: com.compressly.core.engine.model.CompressionPreset,
+        location: com.compressly.core.engine.model.OutputLocation,
+        outputFolder: String?,
         control: JobControl,
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
@@ -226,7 +245,7 @@ class Compressor(private val context: Context) {
             // Use humanDuration for a proper "0:XX" display for short clips.
             val durationLabel = com.compressly.core.util.Formats.humanDuration(stats.durationMs)
             val summary = "$codecName, $durationLabel"
-            return publishOrKeepOriginal(item, MediaType.VIDEO, temp, "video/mp4", summary, onProgress)
+            return publishOrKeepOriginal(item, MediaType.VIDEO, temp, "video/mp4", summary, location, outputFolder, onProgress)
         } finally {
             Storage.deleteQuietly(temp)
         }
@@ -280,6 +299,8 @@ class Compressor(private val context: Context) {
     private suspend fun compressAudio(
         item: InputItem,
         settings: com.compressly.core.engine.model.AudioSettings,
+        location: com.compressly.core.engine.model.OutputLocation,
+        outputFolder: String?,
         control: JobControl,
         onProgress: (ItemPhase, Float) -> Unit
     ): EngineOutput {
@@ -297,7 +318,7 @@ class Compressor(private val context: Context) {
         val usedKbps = com.compressly.core.engine.audio.AudioPlanner
             .targetBitrateKbps(settings.bitrate, info.audioBitrate)
         val summary = "$formatName $usedKbps kbps"
-        return publishOrKeepOriginal(item, MediaType.AUDIO, temp, outMime, summary, onProgress)
+        return publishOrKeepOriginal(item, MediaType.AUDIO, temp, outMime, summary, location, outputFolder, onProgress)
     }
 
     private fun sizeOf(uri: Uri): Long =

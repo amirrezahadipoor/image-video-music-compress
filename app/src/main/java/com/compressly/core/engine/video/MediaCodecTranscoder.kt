@@ -483,9 +483,26 @@ class MediaCodecTranscoder(private val context: Context) {
             // The correct approach is to keep the original inputFormat and override
             // only the rotation key directly on it before passing to configure().
             inputFormat.setInteger(MediaFormat.KEY_ROTATION, 0)
-            val decoder = MediaCodec.createDecoderByType(inputMime)
-            decoder.configure(inputFormat, inputSurfaceFinal, null, 0)
-            decoder.start()
+            // DECODE-GUARD-FIX: a source codec the device cannot decode (e.g.
+            // AV1/HEVC/VP9 with no usable decoder) used to throw out of
+            // createDecoderByType/configure/start and surface only as a vague
+            // 'encode_failed'. Fail as a precise decode failure carrying the
+            // reason and the source mime, so the cause is actually visible.
+            val decoder: MediaCodec = try {
+                val d = MediaCodec.createDecoderByType(inputMime)
+                d.configure(inputFormat, inputSurfaceFinal, null, 0)
+                d.start()
+                d
+            } catch (t: Throwable) {
+                if (t is com.compressly.core.engine.CompressionCancelledException) throw t
+                Log.e(
+                    TAG_DECODER,
+                    "video decoder setup failed for source $inputMime [${outW}x${outH}, rot=$rotation]: " +
+                        "${t::class.java.simpleName} — ${t.message}",
+                    t
+                )
+                throw VideoCompressionException(ERR_DECODE, inputMime)
+            }
 
             var muxer: MediaMuxer? = null
             // Hoisted outside the inner try so the finally block can safely read it.
@@ -1261,8 +1278,13 @@ private suspend fun mergePass(
     }
 }
 
-/** Expected video-engine failure carrying a stable message key. */
-class VideoCompressionException(val key: String) : Exception(key)
+/**
+ * Expected video-engine failure carrying a stable message key and an optional
+ * machine-readable detail (e.g. the source MIME when decoding fails) that the
+ * log and the UI can show to make the real cause visible.
+ */
+class VideoCompressionException(val key: String, val detail: String? = null) :
+    Exception(detail?.let { "$key: $it" } ?: key)
 
 /**
  * FASTSTART-FIX: best-effort relocate `moov` before `mdat` on the transcoded

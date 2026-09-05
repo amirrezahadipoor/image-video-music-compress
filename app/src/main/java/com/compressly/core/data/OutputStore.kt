@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.documentfile.provider.DocumentFile
 import com.compressly.core.engine.model.MediaType
+import com.compressly.core.engine.model.OutputLocation
 import com.compressly.core.util.Storage
 import java.io.File
 import java.io.IOException
@@ -76,16 +77,41 @@ object OutputStore {
 
     /**
      * Copies [tempFile] into a new MediaStore row and returns the public URI.
-     * The temp file is deleted afterwards.
+     * The temp file is deleted afterwards. Honors a custom output folder and the
+     * requested [location]; any failure falls back to the default MediaStore
+     * path so a folder preference can never break a job.
      */
     fun publishTempFile(
         context: Context,
         mediaType: MediaType,
         tempFile: File,
         displayName: String,
-        mimeType: String
+        mimeType: String,
+        location: OutputLocation = OutputLocation.DEFAULT,
+        sourceUri: Uri? = null,
+        customTreeUri: String? = null
     ): Uri {
-        // Custom output folder: write into the SAF tree under Hajmino/<type>.
+        when (location) {
+            // Replace in place: write the result into the SAME folder as the
+            // source (its RELATIVE_PATH), so it truly replaces the original.
+            OutputLocation.SAME_AS_SOURCE -> {
+                val relative = sourceUri?.let { relativePathOf(context, it) }
+                if (relative != null) {
+                    runCatching {
+                        publishToRelativePath(context, mediaType, tempFile, displayName, mimeType, relative)
+                    }.getOrNull()?.let { return it }
+                    // If that failed, fall through to the default rather than fail.
+                }
+            }
+            OutputLocation.CUSTOM -> {
+                customTreeUri?.let { tree ->
+                    runCatching { publishToTree(context, tree, mediaType, tempFile, displayName, mimeType) }
+                        .getOrNull()?.let { return it }
+                }
+            }
+            OutputLocation.DEFAULT -> Unit
+        }
+        // Default output folder: write into the SAF tree under Hajmino/<type>.
         // Any failure falls back to the default MediaStore path below — a
         // folder preference must never be able to break a job.
         customTreeUri?.let { tree ->
@@ -102,6 +128,61 @@ object OutputStore {
                 val values = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
                 context.contentResolver.update(uri, values, null, null)
             }
+            Storage.deleteQuietly(tempFile)
+            return uri
+        } catch (t: Throwable) {
+            runCatching { context.contentResolver.delete(uri, null, null) }
+            throw t
+        }
+    }
+
+    /** The MediaStore RELATIVE_PATH of a content source, or null when unknown/not MediaStore. */
+    private fun relativePathOf(context: Context, sourceUri: Uri): String? {
+        if (Build.VERSION.SDK_INT < 29) return null
+        return runCatching {
+            context.contentResolver.query(
+                sourceUri,
+                arrayOf(MediaStore.MediaColumns.RELATIVE_PATH),
+                null, null, null
+            )?.use { c ->
+                if (c.moveToFirst()) c.getString(0) else null
+            }
+        }.getOrNull()?.takeIf { it.isNotBlank() }
+    }
+
+    /** Publishes into a specific MediaStore folder (relative path). */
+    private fun publishToRelativePath(
+        context: Context,
+        mediaType: MediaType,
+        tempFile: File,
+        displayName: String,
+        mimeType: String,
+        relativePath: String
+    ): Uri {
+        val collection = if (Build.VERSION.SDK_INT >= 29) {
+            when (mediaType) {
+                MediaType.PHOTO -> MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                MediaType.VIDEO -> MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                MediaType.AUDIO -> MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            }
+        } else {
+            throw IOException("RELATIVE_PATH requires API 29+")
+        }
+        val uniqueName = uniqueNameFor(displayName, mimeType)
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, uniqueName)
+            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+            put(MediaStore.MediaColumns.TITLE, baseName(displayName))
+            put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
+        }
+        val uri = context.contentResolver.insert(collection, values) ?: throw IOException("MediaStore insert failed")
+        try {
+            context.contentResolver.openOutputStream(uri)?.use { out ->
+                tempFile.inputStream().use { input -> input.copyTo(out, 256 * 1024) }
+            } ?: throw IOException("Cannot open output stream")
+            val values2 = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
+            context.contentResolver.update(uri, values2, null, null)
             Storage.deleteQuietly(tempFile)
             return uri
         } catch (t: Throwable) {

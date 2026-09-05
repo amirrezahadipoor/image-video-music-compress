@@ -24,22 +24,38 @@ sealed class CompressionSettings {
      */
     open val replaceOriginal: Boolean = false
 
+    /**
+     * Where the result is written. With [replaceOriginal] + [OutputLocation.SAME_AS_SOURCE]
+     * the compressed file lands in the source's own folder (replace in place);
+     * [OutputLocation.CUSTOM] sends it to a per-job chosen folder.
+     */
+    open val outputLocation: OutputLocation = OutputLocation.DEFAULT
+
+    /** The per-job custom folder (SAF tree URI) used when [outputLocation] is CUSTOM. */
+    open val outputFolder: String? = null
+
     data class Photo(
         val settings: PhotoSettings,
         override val preset: CompressionPreset,
-        override val replaceOriginal: Boolean = false
+        override val replaceOriginal: Boolean = false,
+        override val outputLocation: OutputLocation = OutputLocation.DEFAULT,
+        override val outputFolder: String? = null
     ) : CompressionSettings()
 
     data class Video(
         val settings: VideoSettings,
         override val preset: CompressionPreset,
-        override val replaceOriginal: Boolean = false
+        override val replaceOriginal: Boolean = false,
+        override val outputLocation: OutputLocation = OutputLocation.DEFAULT,
+        override val outputFolder: String? = null
     ) : CompressionSettings()
 
     data class Audio(
         val settings: AudioSettings,
         override val preset: CompressionPreset,
-        override val replaceOriginal: Boolean = false
+        override val replaceOriginal: Boolean = false,
+        override val outputLocation: OutputLocation = OutputLocation.DEFAULT,
+        override val outputFolder: String? = null
     ) : CompressionSettings()
 }
 
@@ -54,7 +70,14 @@ data class ItemState(
     val phase: ItemPhase,
     /** 0..1 within the current phase. */
     val fraction: Float = 0f,
-    val error: String? = null
+    val error: String? = null,
+    /**
+     * DIAG: the real failure reason for a FAILED item (class + message), so the
+     * user can finally see WHY a video failed instead of a generic label. This
+     * is what lets a device-specific MediaCodec error be diagnosed without
+     * digging through logcat. Null unless the item failed.
+     */
+    val errorDetail: String? = null
 ) {
     /**
      * Phase-weighted overall fraction of this item, 0..1 — the same scale the

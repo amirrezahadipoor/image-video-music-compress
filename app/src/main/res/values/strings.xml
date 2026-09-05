@@ -41,6 +41,13 @@
     <!-- File picking --><string name="pick_error_too_large">یک یا چند فایل بیشتر از حد مجاز (۲ گیگابایت) هستند.</string>
     <string name="pick_processing">در حال آماده‌سازی فایل‌ها… لطفاً منتظر بمانید.</string>
     <string name="replace_original_title">جایگزینی فایل اصلی</string>
+    <string name="output_location_default">پوشه پیش‌فرض</string>
+    <string name="output_location_same_as_source">همان مکان فایل اصلی</string>
+    <string name="output_location_custom">پوشه جدید…</string>
+    <string name="output_location_same_as_source_desc">خروجی در همان پوشهٔ فایل اصلی ذخیره می‌شود و فایل اصلی پاک می‌شود (جایگزینی در همان مسیر).</string>
+    <string name="output_location_custom_desc">خروجی در یک پوشهٔ انتخابی شما ذخیره می‌شود.</string>
+    <string name="output_location_pick_folder">انتخاب پوشه…</string>
+    <string name="output_location_change_folder">تغییر پوشه…</string>
     <string name="replace_original_desc">پس از فشرده‌سازی موفق، فایل اصلی حذف و نسخه فشرده جایگزین آن می‌شود.</string>
     <!-- Compression settings -->
     <string name="settings_title_photo">تنظیمات عکس</string>

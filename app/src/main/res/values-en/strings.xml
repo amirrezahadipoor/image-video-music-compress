@@ -41,6 +41,13 @@
     <!-- File picking --><string name="pick_error_too_large">One or more files are over the 2 GB limit.</string>
     <string name="pick_processing">Preparing files… please wait.</string>
     <string name="replace_original_title">Replace original file</string>
+    <string name="output_location_default">Default folder</string>
+    <string name="output_location_same_as_source">Same folder as source</string>
+    <string name="output_location_custom">New folder…</string>
+    <string name="output_location_same_as_source_desc">The result is saved in the same folder as the original, and the original is removed (in-place replacement).</string>
+    <string name="output_location_custom_desc">The result is saved into a folder you choose.</string>
+    <string name="output_location_pick_folder">Pick folder…</string>
+    <string name="output_location_change_folder">Change folder…</string>
     <string name="replace_original_desc">After a successful compression, delete the original so the compressed copy replaces it.</string>
     <!-- Compression settings -->
     <string name="settings_title_photo">Photo settings</string>

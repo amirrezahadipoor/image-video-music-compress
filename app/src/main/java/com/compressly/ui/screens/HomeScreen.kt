@@ -225,11 +225,17 @@ fun HomeScreen(
                     android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
             }
+            // BATCH-LOADING: scanning a folder with up to 10k photos is a
+            // ContentResolver pass that takes visible seconds. Show the same
+            // blocking overlay the file picker uses so the user sees progress
+            // instead of a frozen screen.
+            preparingBatch = true
             scope.launch {
                 val snap = withContext(Dispatchers.IO) {
                     runCatching { FolderMediaScanner.scan(context, tree) }
                         .getOrDefault(FolderMediaScanner.Snapshot(emptyList(), emptyList(), emptyList(), false))
                 }
+                preparingBatch = false
                 if (snap.total == 0) {
                     Toast.makeText(
                         context,

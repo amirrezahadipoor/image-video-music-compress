@@ -83,6 +83,19 @@ data class VideoSettings(
     val preserveHdr: Boolean = true
 )
 
+/**
+ * Where the compressed output is written. Lets "replace original" truly land in
+ * the original's folder, or the user send the result to a new folder instead.
+ */
+enum class OutputLocation {
+    /** Pictures/Movies/Music/Hajmino (the default). */
+    DEFAULT,
+    /** The same folder as the source; the source is then removed (replace in place). */
+    SAME_AS_SOURCE,
+    /** A per-job, user-chosen SAF folder. */
+    CUSTOM
+}
+
 enum class AudioFormat { AAC, MP3 }
 
 /** VBR favors perceptual quality; CBR gives a predictable size. */
