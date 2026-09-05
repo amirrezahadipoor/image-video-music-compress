@@ -266,9 +266,13 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: false
     timeout-minutes: 30
+    # Same rule as the workflow-level concurrency: never cancel a run that is
+    # already working. `group: lint` + cancel-in-progress used to let a doc-only
+    # push kill an in-flight lint job, which turned a whole green-shaped run into
+    # "cancelled" and could destroy the only evidence that lint had found something.
     concurrency:
-      group: lint
-      cancel-in-progress: true
+      group: lint-${{ github.sha }}
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v6
