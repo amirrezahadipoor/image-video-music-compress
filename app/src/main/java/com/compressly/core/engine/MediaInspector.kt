@@ -1,7 +1,6 @@
 package com.compressly.core.engine
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import com.compressly.core.engine.model.AudioTags
@@ -109,19 +108,6 @@ object MediaInspector {
                 track = key(MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER),
                 artwork = artwork
             )
-        } finally {
-            runCatching { mmr.release() }
-        }
-    }
-
-    /** A video frame as a thumbnail (Coil also provides this via its own decoder). */
-    fun videoFrame(context: Context, uri: Uri, timeUs: Long = 1_000_000): Bitmap? {
-        val mmr = MediaMetadataRetriever()
-        return try {
-            mmr.setDataSource(context, uri)
-            mmr.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-        } catch (e: Exception) {
-            null
         } finally {
             runCatching { mmr.release() }
         }

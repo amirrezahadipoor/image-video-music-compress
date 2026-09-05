@@ -1,5 +1,7 @@
 package com.compressly.ui.screens
 
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -106,6 +108,21 @@ fun ProgressScreen(
             }
             else -> Unit
         }
+    }
+
+    // X8: while work is alive the top bar deliberately offers ✕ (cancel) and no
+    // back arrow — the only way out is the system gesture, and that gesture does
+    // NOT cancel: the service finishes the batch in the background. Silently
+    // popping is what made the gesture read as "it stopped", so say what happens
+    // on the way out. Enabled only while RUNNING/PAUSED: a terminal screen must
+    // keep the normal (navigation-default) back behaviour, and CANCELLING already
+    // explains itself.
+    val live = job
+    val stillWorking = live != null &&
+        (live.status == JobStatus.RUNNING || live.status == JobStatus.PAUSED)
+    BackHandler(enabled = stillWorking) {
+        Toast.makeText(context, context.getString(R.string.progress_will_keep_running), Toast.LENGTH_SHORT).show()
+        onBack()
     }
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->

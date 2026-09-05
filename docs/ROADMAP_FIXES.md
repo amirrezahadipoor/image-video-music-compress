@@ -48,7 +48,7 @@
 
 | U11 | سقف ۵۰تایی photo picker بدون هیچ پیامی → آگاه‌سازی کاربر | `[x]` — eeb0766 — `PICKER_MAX_ITEMS` تنها منبع + Toast آگاهی‌بخش |
 
-| U5 | `MediaInspector.videoFrame` یتیم → بندانگشتی ویدیو در تاریخچه/نتیجه | `[ ]` |
+| U5 | بندانگشتی ویدیو | `[x]` — بررسی دوباره: تصویر بندانگشتی از قبل در Home و History کار می‌کرد (Coil `VideoFrameDecoder` + `.videoFrameMillis(1000)`) و در Result هم ExoPlayer فریم اول را نشان می‌دهد؛ یتیمِ واقعی خودِ `MediaInspector.videoFrame` بود (بدون فراخوان) که حذف شد تا دو مسیر decoding موازی نماند |
 | U6 | `Mime.*Extension` مرده و منطقش در `OutputStore` تکرار شده → یکسان‌سازی | `[x]` |
 | U7 | `SizeEstimator.estimatedSavingRange` یتیم → یا وصل شود یا حذف | `[ ]` |
 | U8/U9/U12 | کد مرده: `Formats.percentFraction`, `NoopBillingManager.simulatePurchase`, `AnimatedGradientBar`, `ShimmerPlaceholder`, `ErrorState`, `Pill`, `IndigoDeep/Light` | `[x]` — eeb0766 — `estimatedSavingRange`(wrapper)، `percentFraction`، `AnimatedGradientBar`، `ShimmerPlaceholder`، `ErrorState`، `Pill`، `IndigoDeep/Light` حذف شدند؛ `simulatePurchase` و `NoopBillingManager` واقعاً استفاده می‌شوند پس ماندند |
@@ -72,7 +72,7 @@
 | X6 | AdSlot در صفحهٔ «حمایت مالی» و صفحهٔ «در حال فشرده‌سازی» (تصمیم محصول: حذف از حمایت مالی) | `[ ]` |
 | X7 | برچسب‌های `video_resolution_custom` و … در شاخه‌های مرده → بعد از U3 زنده شد | `[x]` — با زنده‌شدن U3 برچسب `video_resolution_custom` قابل دسترس است |
 
-| X8 | بک‌باتن: برگشت از Progress حین کار فعال نباید حس «لغو» بدهد؛ توضیح «ادامه در پس‌زمینه» روی snackbar | `[ ]` |
+| X8 | بک‌باتن: برگشت از Progress حین کار فعال نباید حس «لغو» بدهد | `[x]` — `BackHandler(enabled = RUNNING/PAUSED)` پیام «فشرده‌سازی در پس‌زمینه ادامه دارد» را نشان می‌دهد و بعد `onBack()`؛ در حالت پایان‌یافته رفتار پیش‌فرض ناوبری دست‌نخورده است |
 | X9 | دوتپ روی دکمهٔ فشرده‌سازی، همان فایل‌ها را دوباره enqueue می‌کرد (`startingJob` نوشته می‌شد ولی هیچ‌جا خوانده نمی‌شد) | `[x]` — قفل واقعی شد + `enqueue` در `runCatching` (شکست = آزاد شدن قفل) |
 | X10 | برآورد «≈ حجم خروجی» برای دسته = `firstFile × N` بود (با یک کلیپ ۶۰MB در ابتدا، ۴۰ کلیپ موبایلی ۲٫۴GB نشان داده می‌شد) | `[x]` — نسبت به‌دست‌آمده از فایل تحلیل‌شده روی مجموع واقعی اعمال می‌شود |
 
