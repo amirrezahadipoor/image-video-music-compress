@@ -148,12 +148,24 @@ jobs:
       # ── 3. Verify signature + warn if the RSA key secret is missing ────
       - name: Verify APK signature
         run: |
-          set -e
+          set -euo pipefail
           APK="app/build/outputs/apk/bazaar/release/app-bazaar-release.apk"
           ls -lh "$APK"
-          $JAVA_HOME/bin/jarsigner -verify -verbose "$APK" 2>&1 | \
-            grep -E "jar verified|WARNING|ERROR" || true
-          if [ -z "$BAZAAR_RSA_KEY" ]; then
+          # WHAT THIS REPLACED: `jarsigner -verify … | grep -E "jar verified|WARNING|ERROR" || true`.
+          # jarsigner only understands JAR (v1) signatures, while AGP signs a minSdk-26
+          # release through the v2/v3 APK Signing Block, and the `|| true` swallowed the
+          # exit status anyway — so the step printed nothing and could never fail, which is
+          # worse than no step at all because the job reads as if signatures are covered.
+          # apksigner is the tool that verifies those blocks, and it is deliberately
+          # unwrapped: with `set -e` a missing or broken signature now ends the job.
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1 || true)
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error::no apksigner under \$ANDROID_HOME/build-tools — not reporting an unverified APK as verified"
+            exit 1
+          fi
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
+          grep -q "^Verifies" /tmp/apksigner.txt
+          if [ -z "${BAZAAR_RSA_KEY:-}" ]; then
             echo "::warning::BAZAAR_RSA_KEY secret is empty — Poolakey will refuse purchases at runtime (by design)."
           fi
 
@@ -260,6 +272,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      # Runs first and needs no JDK/Gradle: the syntax gate that would have caught
+      # the five red commits (an unclosed nested block comment inside a KDoc made
+      # the compiler swallow whole files, so nothing downstream was ever checked).
+      # ~1 second, and it names the file and the cause instead of burying it in
+      # Gradle output.
+      - name: Kotlin lexer + resource reference gate
+        run: python3 tools/kt_grammar_check.py
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
