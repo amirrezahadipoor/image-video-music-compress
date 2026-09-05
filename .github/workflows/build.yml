@@ -52,12 +52,20 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      # ── 1. JVM unit tests (bazaar/debug so the Poolakey source set is
-      #    compiled and validated too). The suite is pure-JVM.
-      - name: Run JVM unit tests
+      # ── 1. JVM unit tests — the FULL suite, emulator-free. Every variant is
+      #    exercised (play + bazaar × debug + release) so the bazaar/Poolakey
+      #    source set, the play source set and the release proguard compilation
+      #    are all validated. `--continue` keeps the rest of the suite running
+      #    after any single variant fails, so one broken test never masks the
+      #    others. The suite is pure-JVM (no device needed).
+      - name: Run full JVM unit test suite
         run: |
           ./gradlew \
+            :app:testPlayDebugUnitTest \
             :app:testBazaarDebugUnitTest \
+            :app:testPlayReleaseUnitTest \
+            :app:testBazaarReleaseUnitTest \
+            --continue \
             --no-daemon \
             --stacktrace
 
@@ -67,6 +75,14 @@ jobs:
         with:
           name: test-results
           path: app/build/reports/tests/
+          retention-days: 7
+
+      - name: Upload test XML on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-results-xml
+          path: app/build/test-results/
           retention-days: 7
 
       # i18n key parity: every FA key has an EN counterpart and vice versa,
@@ -223,99 +239,13 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run lint (bazaar debug)
-        run: ./gradlew :app:lintBazaarDebug --no-daemon
+        run: ./gradlew :app:lintBazaarDebug --no-daemon --stacktrace
 
-      # Diagnostic (round 4): dump the androidTest compile classpath so we
-      # can see exactly which artifacts the instrumented test scope sees.
-      - name: Dump androidTest compile classpath (diagnostic)
-        run: |
-          ./gradlew :app:dependencies --configuration bazaarDebugAndroidTestCompileClasspath --no-daemon > androidtest-deps.txt || true
-          grep -E "ui-test|compose.ui:ui|androidx.compose|project :app" androidtest-deps.txt | head -40
-
-      - name: Upload lint report + classpath dump
+      - name: Upload lint report
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: lint-report
-          path: |
-            app/build/reports
-            androidtest-deps.txt
+          path: app/build/reports
           if-no-files-found: ignore
           retention-days: 7
-  # ── Baseline Profile — generated and COMMITTED on a real Android runtime ──
-  # AUTO-COMMIT: when the measured profile differs from the committed one it
-  # is committed straight to main by the workflow bot, so the NEXT build ships
-  # it (no manual artifact downloading). The commit triggers a new run where
-  # the job finds no changes and exits quietly. Never blocks the Bazaar build
-  # below.
-  baseline-profile:
-    name: Generate + commit Baseline Profile (managed device)
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    timeout-minutes: 60
-    concurrency:
-      group: baseline-profile
-      cancel-in-progress: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-
-      - name: Make gradlew executable
-        run: chmod +x gradlew
-
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Materialise signing keystore
-        run: |
-          if [ -z "$COMPRESSLY_KEYSTORE_BASE64" ]; then
-            echo "::warning::COMPRESSLY_KEYSTORE_BASE64 secret is empty — baseline profile build may not sign."
-          else
-            mkdir -p "$HOME/.gradle/compressly"
-            echo "$COMPRESSLY_KEYSTORE_BASE64" | base64 -d > "$HOME/.gradle/compressly/hajmino-signing.jks"
-            echo "COMPRESSLY_KEYSTORE_FILE=$HOME/.gradle/compressly/hajmino-signing.jks" >> "$GITHUB_ENV"
-            echo "signing keystore materialised: $(stat -c%s "$HOME/.gradle/compressly/hajmino-signing.jks") bytes"
-          fi
-
-      - name: Generate Baseline Profile
-        run: |
-          ./gradlew :app:generateBaselineProfile --no-daemon --stacktrace \
-            -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
-
-      - name: Strip Sentry lines (R8 landmine)
-        if: success()
-        run: |
-          # The Adivery ad SDK pulls in io.sentry transitively; a measured
-          # profile records sentry's hot methods, and R8's profile-guided
-          # unused-argument optimization then fails the bazaar RELEASE build
-          # (first hit in run 33596042703, fixed in 4ea03ac by hand). Sentry
-          # hotness is irrelevant to app startup, so keep the auto-commit
-          # from re-introducing the landmine on every profile refresh.
-          sed -i '/sentry/d' app/src/main/generated/baselineProfiles/*.txt
-
-      - name: Auto-commit the refreshed profile
-        if: success()
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet --exit-code -- app/src/main/generated/; then
-            echo "profile unchanged — nothing to commit"
-          else
-            git add app/src/main/generated/
-            git commit -m "chore(perf): refresh measured Baseline Profile"
-            git push origin main
-            echo "refreshed profile committed and pushed"
-          fi
