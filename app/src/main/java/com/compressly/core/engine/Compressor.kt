@@ -156,7 +156,13 @@ class Compressor(private val context: Context) {
         // tree / picker URIs, so the original stayed and a new row appeared.
         // Only falls back to the publish+delete path when the source can't be
         // written (read-only picker grant).
-        if (replaceOriginal) {
+        // FORMAT-SAFE-FIX: in-place overwrite is ONLY correct when the output
+        // shares the source's MIME/extension family. A cross-format result
+        // (e.g. a .heic/.png/.webp photo converted to .jpg) must NOT be written
+        // back into the source document — the file would keep its old
+        // extension/row-MIME over the new bytes and the gallery couldn't render
+        // it. Those go through publish (correct new name) + delete-original.
+        if (replaceOriginal && mimeAllowsInPlaceReplace(context, item.uri, mime)) {
             OutputStore.replaceInPlace(context, item.uri, temp)?.let { replaced ->
                 return EngineOutput(replaced, sizeOf(replaced, encoded), summary)
             }
@@ -340,6 +346,18 @@ class Compressor(private val context: Context) {
 
     private fun sizeOf(uri: Uri): Long =
         sizeOf(uri, -1L)
+
+    /**
+     * Whether writing the compressed [outMime] back into the source document
+     * (OutputStore.replaceInPlace) is safe. Only a matching MIME is: the file
+     * keeps its extension/row-MIME, so a cross-format result would be stored
+     * under the wrong type and become unrenderable. An unknown source MIME
+     * (some providers return null) is treated as NOT safe -> publish + delete.
+     */
+    private fun mimeAllowsInPlaceReplace(context: android.content.Context, uri: Uri, outMime: String): Boolean {
+        val src = runCatching { context.contentResolver.getType(uri) }.getOrNull() ?: return false
+        return src == outMime
+    }
 
     /**
      * Size of the published output, preferring the known encoded length
