@@ -176,11 +176,15 @@ object VideoPlanner {
             VideoResolution.R1080 -> longEdgeCap(1920, displayW, displayH)
             VideoResolution.R720 -> longEdgeCap(1280, displayW, displayH)
             VideoResolution.R480 -> longEdgeCap(854, displayW, displayH)
-            // CUSTOM-FIX: the user's numbers are honoured exactly, but made
-            // encoder-safe first. H.264/HEVC encoders reject odd dimensions
-            // (the 4:2:0 plane needs even), and a size below 64 or above 8000
-            // fails configure() — so the value is clamped and rounded here, in
-            // the one place the transcoder and the live estimate both read from.
+            // CUSTOM-FIX: the typed frame is a CAP, not a crop. It is made
+            // encoder-safe here — H.264/HEVC reject odd dimensions (4:2:0 needs
+            // even) and configure() fails below 64 or above 8000 — and then the
+            // common path below turns it into a uniform scale factor, so the
+            // source aspect ratio is preserved and the edges are aligned down to
+            // a multiple of 16. That is why 641x361 on a 1920x1080 source ends at
+            // 640x352 rather than an exact 640x360: anamorphic output would be a
+            // worse bug than 8 pixels. Both the transcoder and the live estimate
+            // read this one function, so they can never disagree.
             VideoResolution.CUSTOM -> encoderSize(settings.customWidth) to encoderSize(settings.customHeight)
         }
         if (preset == CompressionPreset.SMART) {

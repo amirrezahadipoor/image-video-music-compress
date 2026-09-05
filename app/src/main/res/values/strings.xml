@@ -119,7 +119,7 @@
     <string name="video_bitrate_auto">خودکار (بر پایهٔ سطح فشرده‌سازی)</string>
     <string name="video_bitrate_value">%1$d کیلوبیت</string>
     <string name="video_bitrate_overridden">سقف حجم فعال است و بیت‌ریت دستی را کنار می‌گذارد.</string>
-    <string name="video_resolution_custom_hint">این کادر دقیقاً اعمال می‌شود، پس نسبت تصویر ممکن است تغییر کند. اعداد فرد به نزدیک‌ترین اندازهٔ زوج و همه در بازهٔ ۶۴ تا ۸۰۰۰ تبدیل می‌شوند.</string>
+    <string name="video_resolution_custom_hint">به‌عنوان سقفی روی اندازهٔ منبع اعمال می‌شود: نسبت تصویر دست‌نخورده می‌ماند و ابعاد به مضرب ۱۶ پایین گرد می‌شوند، پس نتیجه ممکن است کمی کوچک‌تر از مقدار وارد‌شده باشد. اعداد فرد زوج و همه در بازهٔ ۶۴ تا ۸۰۰۰ پیکسل می‌شوند.</string>
     <string name="video_custom_width_hint">پهنا (پیکسل)</string>
     <string name="video_custom_height_hint">بلا (پیکسل)</string>
     <string name="video_fps">نرخ فریم</string>

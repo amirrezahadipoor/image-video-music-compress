@@ -15,9 +15,9 @@
 | `PhotoSettings.quality` | `PhotoCompressor` (نردبان کیفیت؛ `lastQualityUsed` به خلاصهٔ نتیجه می‌رود) | `photo/PhotoCompressor.kt` | `CompressionEngineTest` |
 | `PhotoSettings.resize` / `customMaxWidth` | سقف پهنا در `PhotoCompressor` (clamp 320..8000 در UI، 64..8000 در موتور) | `photo/PhotoCompressor.kt` | `SmartSettingsTest` |
 | `PhotoSettings.smart` | `SmartPhotoAdvisor` + `GradeAdvisor` (تطبیقی ۸۵→۶۵) | `photo/*` | `SmartPhotoAdvisorTest` |
-| `VideoSettings.resolution` | `VideoPlanner.outputDims` → `Plan.width/height` → `MediaCodec.configure` | `video/VideoPlanner.kt:162`, `MediaCodecTranscoder.kt:123` | `VideoPlannerTest` |
-| `VideoResolution.CUSTOM` + `customWidth/customHeight` | همان مسیر، ولی از `encoderSize` (۶۴..۸۰۰۰ و زوج) رد می‌شود | `VideoPlanner.encoderSize` | `ResultMathTest` |
-| `VideoSettings.bitrate` | `targetVideoBitrate`: دستی بر خودکار مقدم است، اما `sizeTargetMb` بر آن مقدم است | `video/VideoPlanner.kt:251` | `VideoPlannerTest` |
+| `VideoSettings.resolution` | `VideoPlanner.outputDims` → `Plan.width/height` → `MediaCodec.configure` | `VideoPlanner.kt` → `outputDims`, `MediaCodecTranscoder.kt:123` | `VideoPlannerTest` |
+| `VideoResolution.CUSTOM` + `customWidth/customHeight` | عدد کاربر **سقف** است: از `encoderSize` (۶۴..۸۰۰۰، زوج) رد می‌شود، بعد به ضریب مقیاس یکسان تبدیل می‌شود تا نسبت تصویر حفظ شود و یال‌ها به مضرب ۱۶ هم‌تراز پایین می‌روند (۶۴۱×۳۶۱ روی منبع ۱۹۲۰×۱۰۸۰ ← ۶۴۰×۳۵۲) | `VideoPlanner.encoderSize` | `ResultMathTest` |
+| `VideoSettings.bitrate` | `targetVideoBitrate`: دستی بر خودکار مقدم است، اما `sizeTargetMb` بر آن مقدم است | `VideoPlanner.kt` → `targetVideoBitrate` | `VideoPlannerTest` |
 | `VideoSettings.sizeTargetMb` | `sizeTargetBitrate` + حلقهٔ اصلاحی `aggressiveCorrection` | `VideoPlanner.plan`, `MediaCodecTranscoder` | `SmartPlanningTest` |
 | `VideoSettings.frameRate` | `resolvedFps` → `KEY_FRAME_RATE` و قیمت‌گذاری بیت‌ریت | `VideoPlanner`, transcoder | `VideoPlannerTest` |
 | `VideoSettings.codec` | انتخاب encoder؛ نبودِ HW → fallback به H.264 که در UI اعلام می‌شود (`h265FellBack`) | `MediaCodecTranscoder`, `video/CodecSupport.kt` | `CompressionEngineTest` |

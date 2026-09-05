@@ -118,7 +118,7 @@
     <string name="video_bitrate_auto">Auto (from the compression level)</string>
     <string name="video_bitrate_value">%1$d kbps</string>
     <string name="video_bitrate_overridden">The size budget is on and overrides the manual bitrate.</string>
-    <string name="video_resolution_custom_hint">This frame is used exactly as typed, so the aspect ratio may change. Odd numbers are rounded to an even size and everything is clamped to 64-8000.</string>
+    <string name="video_resolution_custom_hint">Used as a maximum on top of the source: the aspect ratio stays intact and edges snap down to a multiple of 16, so the result can be slightly smaller than what you typed. Odd numbers become even; 64-8000 px.</string>
     <string name="video_custom_width_hint">Width (px)</string>
     <string name="video_custom_height_hint">Height (px)</string>
     <string name="video_fps">Frame rate</string>

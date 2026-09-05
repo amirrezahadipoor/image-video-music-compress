@@ -41,7 +41,7 @@
 
 | U2 | **بیت‌ریت دستی ویدیو** — چیپ/اسلایدر در `VideoAdvanced` (`VideoPlanner.kt:251` آن را honor می‌کند) | `[x]` — eeb0766 — چیپ‌های ۱۰۰۰/۲۵۰۰/۵۰۰۰/۱۰۰۰۰ kbps + پیام مقدم بودن سقف حجم |
 
-| U3 | **رزولوشن دلخواه ویدیو** — `VideoResolution.CUSTOM` + دو فیلد `customWidth/Height` (`VideoPlanner.kt:179`) | `[x]` — eeb0766 — چیپ CUSTOM + دو فیلد پهنا/بلا؛ `VideoPlanner.encoderSize` مرز ۶۴..۸۰۰۰ و زوج‌بودن را تضمین می‌کند |
+| U3 | **رزولوشن دلخواه ویدیو** — `VideoResolution.CUSTOM` + دو فیلد `customWidth/Height` (`VideoPlanner.kt:179`) | `[x]` — eeb0766 — چیپ CUSTOM + دو فیلد پهنا/بلا؛ `VideoPlanner.encoderSize` مرز ۶۴..۸۰۰۰ و زوج‌بودن را تضمین می‌کند — متن UI و تست هم با واقعیت هم‌تراز شد: عدد واردی سقف است، نسبت تصویر حفظ و یال‌ها به مضرب ۱۶ هم‌تراز می‌شوند (`56385e7` بعدی) |
 
 | U4 | `JobStatus.PAUSED` هیچ‌جا نوشته نمی‌شود → ست کردن واقعی وضعیت | `[x]` |
 | U10 | `gif` در پسوندهای اسکن فولهر نبود → قابلیت GIF→MP4 از مسیر فولدر دست‌نیافتنی | `[x]` — eeb0766 — `gif` در `typeOf` اضافه شد |

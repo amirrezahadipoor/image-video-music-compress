@@ -172,16 +172,44 @@ class ResultMathTest {
         assertEquals(7998, VideoPlanner.encoderSize(7999))
     }
 
+    /**
+     * What CUSTOM really guarantees, written down after CI caught the wrong
+     * assumption: the typed frame is a CAP that becomes a uniform scale factor,
+     * so aspect is preserved and edges align down to a multiple of 16.
+     * The point is that the live estimate and the encoder read the SAME numbers.
+     */
     @Test
-    fun customResolutionIsWhatTheEncoderIsConfiguredWith() {
+    fun customResolutionIsAppliedAsAnAspectPreservingCap() {
         val info = MediaInfo(width = 1920, height = 1080, frameRate = 30, durationMs = 60_000)
-        val settings = VideoSettings(
-            resolution = VideoResolution.CUSTOM,
-            customWidth = 641,
-            customHeight = 361
+
+        // 641x361: clamped/rounded to 640x360, then the shared path aligns both
+        // edges to 16 -> 360 becomes 352. 640/1920 == 352/1080 is NOT expected
+        // to be exact; the scale is the MIN of the two ratios.
+        val odd = VideoPlanner.outputDims(
+            info,
+            VideoSettings(resolution = VideoResolution.CUSTOM, customWidth = 641, customHeight = 361),
+            CompressionPreset.BALANCED
         )
-        val (w, h) = VideoPlanner.outputDims(info, settings, CompressionPreset.BALANCED)
-        assertEquals(640, w)
-        assertEquals(360, h)
+        assertEquals("width takes the binding scale", 640, odd.first)
+        assertEquals("16-byte alignment trims 360 to 352", 352, odd.second)
+
+        // A ladder-sized request on a source with the same aspect lands exactly.
+        val ladder = VideoPlanner.outputDims(
+            info,
+            VideoSettings(resolution = VideoResolution.CUSTOM, customWidth = 1280, customHeight = 720),
+            CompressionPreset.BALANCED
+        )
+        assertEquals(1280, ladder.first)
+        assertEquals(720, ladder.second)
+
+        // Never upscale: a bigger frame than the source is a no-op.
+        val small = MediaInfo(width = 1280, height = 720, frameRate = 30, durationMs = 60_000)
+        val cap = VideoPlanner.outputDims(
+            small,
+            VideoSettings(resolution = VideoResolution.CUSTOM, customWidth = 1920, customHeight = 1080),
+            CompressionPreset.BALANCED
+        )
+        assertEquals("custom must not invent pixels", 1280, cap.first)
+        assertEquals(720, cap.second)
     }
 }
