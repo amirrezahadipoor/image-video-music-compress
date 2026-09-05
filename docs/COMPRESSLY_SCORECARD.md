@@ -56,7 +56,7 @@
 **نقاط ضعف:** فقط کافه‌بازار و بدون Google Play build؛ دمو/لندینگ/اسکرین‌شات برند اکنون به‌صورت mockup در `branding/` موجود است اما هنوز ویدیوی واقعی ضبط‌شده ندارد.
 
 ## ۹. تستپذیری — نمره: **8.6 / 10**
-**نقاط قوت:** **۲۱ فایل تست / ۲۴۲ تست JVM** با کیفیت بالا (VideoPlannerTest، PhotoBatchTest، AudioPlannerTest، پیچیدگی و ...).
+**نقاط قوت:** **۲۳ فایل تست / ۲۵۱ تست JVM** با کیفیت بالا (VideoPlannerTest، PhotoBatchTest، AudioPlannerTest، پیچیدگی و ...).
 **نقاط ضعف:** سیگنال runtime بازگشته اما فقط یک تست مینیمال MediaCodec است (پوشش a11y scan و screenshot regression در CI نیست).
 
 ## ۱۰. نهایی / کیفیت کد — نمره: **8.4 / 10**

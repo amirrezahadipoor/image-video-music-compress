@@ -52,7 +52,7 @@
 
 | U5 | بندانگشتی ویدیو | `[x]` — بررسی دوباره: تصویر بندانگشتی از قبل در Home و History کار می‌کرد (Coil `VideoFrameDecoder` + `.videoFrameMillis(1000)`) و در Result هم ExoPlayer فریم اول را نشان می‌دهد؛ یتیمِ واقعی خودِ `MediaInspector.videoFrame` بود (بدون فراخوان) که حذف شد تا دو مسیر decoding موازی نماند |
 | U6 | `Mime.*Extension` مرده و منطقش در `OutputStore` تکرار شده → یکسان‌سازی | `[x]` |
-| U7 | `SizeEstimator.estimatedSavingRange` یتیم → یا وصل شود یا حذف | `[ ]` |
+| U7 | `SizeEstimator.estimatedSavingRange` یتیم → یا وصل شود یا حذف | `[x]` — تأیید بازبینی مستقل: در کد فعلی اصلاً وجود ندارد (در `eeb0766` حذف شده بود) |
 | U8/U9/U12 | کد مرده: `Formats.percentFraction`, `NoopBillingManager.simulatePurchase`, `AnimatedGradientBar`, `ShimmerPlaceholder`, `ErrorState`, `Pill`, `IndigoDeep/Light` | `[x]` — eeb0766 — `estimatedSavingRange`(wrapper)، `percentFraction`، `AnimatedGradientBar`، `ShimmerPlaceholder`، `ErrorState`، `Pill`، `IndigoDeep/Light` حذف شدند؛ `simulatePurchase` و `NoopBillingManager` واقعاً استفاده می‌شوند پس ماندند |
 
 | U13 | Baseline Profile یتیم شده (job CI حذف شده، ادعای «measured» بدون داده، `docs/BENCHMARK.md` جدول خالی، دو فایل بایت‌به‌بایت یکسان ۱٫۷۸MB) | `[!]` نیازمند تصمیم: یا job emulator برگردد یا ادعا و فایل‌ها حذف شوند |
@@ -67,11 +67,11 @@
 | X1 | پیشرفت در مسیر retry انکودر نرم‌افزاری به عقب می‌پرد (مونوتونیک مثل عکس) | `[x]` — eeb0766 — کسر آیتم در `JobCoordinator` مونوتونیک شد (همهٔ مسیرهای retry) |
 
 | X2 | موتور در حالت no-op کل فایل را به کش کپی می‌کند و دور می‌ریزد | `[x]` |
-| X3 | مدل فضا فایل‌های میانی (تا ۳× خروجی) را نمی‌شمارد | `[ ]` |
+| X3 | مدل فضا فایل‌های میانی (تا ۳× خروجی) را نمی‌شمارد | `[x]` — 1.0.9 — `Storage.requiredFreeBytes` = خروجی + ۲× موقت؛ تست `StorageSpaceTest` |
 | X4 | دو کانال نوتیفیکیشن با نام یکسان | `[x]` — eeb0766 — نام/توضیح جدا برای کانال نتایج |
 
 | X5 | `try { } catch (t) { throw t }` بی‌معنی در `Compressor.compressItem` | `[x]` |
-| X6 | AdSlot در صفحهٔ «حمایت مالی» و صفحهٔ «در حال فشرده‌سازی» (تصمیم محصول: حذف از حمایت مالی) | `[ ]` |
+| X6 | AdSlot در صفحهٔ «حمایت مالی» و صفحهٔ «در حال فشرده‌سازی» (تصمیم محصول: حذف از حمایت مالی) | `[x]` — 1.0.9 — اسلات از Support حذف شد؛ Progress طبق تصمیم ثبت‌شده ماند |
 | X7 | برچسب‌های `video_resolution_custom` و … در شاخه‌های مرده → بعد از U3 زنده شد | `[x]` — با زنده‌شدن U3 برچسب `video_resolution_custom` قابل دسترس است |
 
 | X8 | بک‌باتن: برگشت از Progress حین کار فعال نباید حس «لغو» بدهد | `[x]` — `BackHandler(enabled = RUNNING/PAUSED)` پیام «فشرده‌سازی در پس‌زمینه ادامه دارد» را نشان می‌دهد و بعد `onBack()`؛ در حالت پایان‌یافته رفتار پیش‌فرض ناوبری دست‌نخورده است |
@@ -86,7 +86,7 @@
 | T2 | job `security` فقط HEAD را می‌پاید → باید **تاریخچه** را هم بپاید (keystore در history) | `[x]` — `security` حالا با `fetch-depth: 0` تاریخچه را هم می‌پاید (مرحلهٔ «Scan git history for signing material»؛ advisory تا پاک‌سازی تاریخچه، بعدش `exit 1`). روی همین ریپو آزمایش شد: ۲ keystore در تاریخچه، هیچ‌کدام در HEAD |
 
 | T3 | ۱۰ تست instrumented هیچ‌جا اجرا نمی‌شود → یا job emulator برگردد یا در README صادقانه نوشته شود | `[!]` وابسته به U13/تصمیم زمان CI |
-| T4 | `disable`های ۱۵تایی lint (کرش ابزار با AGP 8.7) → ارتقا به AGP ≥ 8.8.2 و حذفشان | `[!]` ریسک بالا، نیازمند یک چرخهٔ CI جدا |
+| T4 | `disable`های ۱۵تایی lint (کرش ابزار با AGP 8.7) → ارتقا به AGP ≥ 8.8.2 و حذفشان | `[~]` — 1.0.9 — AGP→8.8.2 و ۱۷ detector دوباره فعال شد؛ اعتبار نهایی = ران CI همین دور (اگر قرمز شد، revert تک-کامیتی) |
 | T5 | دو ران دوبل روی هر push (push + dispatch) → افزودن `concurrency` در سطح workflow | `[x]` — eeb0766 — `concurrency` سطح workflow با cancel-in-progress: false |
 
 | T6 | Room: `version=1` بدون هیچ Migration و بدون تست schema → تلهٔ کرش در اولین تغییر schema | `[!]` نیازمند تولید schema با بیلد واقعی (نمی‌توان hash را دستی نوشت) |
@@ -95,11 +95,11 @@
 | # | مورد | وضعیت |
 |---|---|---|
 | S1 | **دو keystore و رمزهایشان در تاریخچهٔ ریپوی عمومی است** (`hajmino_secure.jks` و `hajmino.jks`؛ رمزها در همان commit‌ها به‌صورت plaintext — برای جزئیات: `REVIEW_2026-09-05_HAJMINO.md` بخش «امضا و keystore»، که عمداً این فایل کامیت نشده) → پاک‌سازی تاریخچه + تأیید اینکه سِکرت CI کلید تازه‌ای است | `[!]` کاری که فقط شما می‌توانید بکنید (force-push + purge از GitHub Support + چرخش کلید در بازار) |
-| S2 | شناسه‌های Adivery به‌عنوان پیش‌فرض commit شده‌اند → نبودِ ID باید بیلد bazaar را بشکند، نه بی‌صدا کار کند | `[ ]` |
-| S3 | پرداخت با reflection + `getOrDefault(Noop)` → در بیلد release بازار باید `error()` دهد | `[ ]` |
+| S2 | شناسه‌های Adivery به‌عنوان پیش‌فرض commit شده‌اند → نبودِ ID باید بیلد bazaar را بشکند، نه بی‌صدا کار کند | `[x]` — 1.0.9 — پیش‌فرض‌ها حذف شدند؛ بدون ID بنر با لاگ روشن غیرفعال + هشدار CI (خراب‌کردن بیلد انتخاب نشد تا CI بدون secret هم سبز بماند) |
+| S3 | پرداخت با reflection + `getOrDefault(Noop)` → در بیلد release بازار باید `error()` دهد | `[x]` — 1.0.9 — بیلد bazaar در نبود Poolakey هنگام ساخت کانتینر `IllegalStateException` می‌دهد؛ فقط play به Noop برمی‌گردد |
 | S4 | بیلد bazaar (تنها بیلد منتشرشده) INTERNET + SDK تبلیغ دارد، در حالی که شعار «۱۰۰٪ آفلاین» است | `[!]` تصمیم محصول |
 | S5 | `minSdk=26` ولی هیچ تستی روی API 26-28 (بدون `IS_PENDING`) → یا تست شود یا minSdk به 29 | `[!]` |
-| S6 | bump `versionCode`/`versionName` + `CHANGELOG.md` (تا قبل از این هیچ tag/release/changeLog نداشتیم) | `[ ]` |
+| S6 | bump `versionCode`/`versionName` + `CHANGELOG.md` (تا قبل از این هیچ tag/release/changeLog نداشتیم) | `[x]` — 1.0.9 — versionCode=9 + بخش کامل CHANGELOG (زدن tag/release همچنان دستی شما) |
 
 ## فاز ۶ — بدهی مستندات
 | # | مورد | وضعیت |
@@ -218,3 +218,25 @@ lint، T6 مهاجرت Room، S4 «۱۰۰٪ آفلاین» در بیلد باز�
 **هنوز همان کاستیِ مهم:** این APK روی هیچ دستگاهی اجرا نشده — تست‌های ۲۴۲‌تایی JVM
 و lint هست، ولی رفتار واقعی (شامل خودِ فشرده‌سازی، حذف فایل اصلی، و متن‌های تازه)
 باید روی گوشی دیده شود (`docs/KNOWN_ISSUES.md` #۲).
+
+---
+
+## ثبت دور ۴ — بازبینی مستقل «1.0.9» (پس از `ddcfc81`)
+
+بازبینی مستقل (نه تکرار گزارش‌های قبلی) ۹ ایراد تازه پیدا و همه رفع شد:
+
+| # | ایراد | رفع |
+|---|---|---|
+| N1 | share مخلوط (عکس+ویدیو) با موتور نوع اول اجرا می‌شد و بقیه fail | تفکیک هم‌نوع + پیام «N فایل نادیده گرفته شد» (`share_mixed_skipped` fa/en) |
+| N2 | نوتیفیکیشن نتیجه فقط وقتی هیچ کاری فعال نبود پست می‌شد → با کار موازی، گم می‌شد | پست در لحظهٔ terminal شدن، مستقل از کارهای فعال |
+| N3 | تپ روی نوتیفیکیشن نتیجه بعد از prune ۳دقیقه‌ای → «شغل پیدا نشد» | مسیر هوشمند: زنده←پیشرفت، تمام‌شده←ردیف نتیجه، هیچ‌کدام←تاریخچه (`NavRequest.OpenHistory`) |
+| N4 | همهٔ نتایج با ID مشترک 1002 → بازنویسی روی هم | `NotificationHelper.resultNotificationId(jobId)` |
+| N5 | مسیر GIF→MP4 مکان خروجی/پوشهٔ سفارشی را نادیده می‌گرفت | `publishTempFileDetailed` + یادداشت صادقانهٔ پوشهٔ پیش‌فرض (اصل GIF دست‌نخورده) |
+| N6 | `items(visibleEntries)` بدون key در تاریخچه | `key = { it.id }` |
+| N7 | `PhotoBatch.pixelCountOf` (I/O) روی نخ Default در شروع دستهٔ بزرگ | probe روی `Dispatchers.IO` |
+| N8 | ۸× `!!` در AacTranscoder/AudioCompressor/WaveformSampler | گارد null با کلید خطای درست یا degrade صادقانه |
+| N9 | `itemId = nanoTime + uri.hashCode()` شکننده | `nanoTime + index` (هم‌راستا با مسیر picker) |
+
+همچنین: S2/S3/X3/X6/S6/U7/T4 (بالا) + مجوزهای LGPL درون‌اپ (KNOWN #8) + شمارش
+تست‌های داکس (۲۵۱ در ۲۳ فایل). پاریتهٔ fa/en: ۳۶۳ کلید.
+**اعتبار:** مثل همیشه فقط GitHub Actions؛ هیچ بیلد محلی‌ای اجرا نشد.
