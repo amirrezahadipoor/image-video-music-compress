@@ -213,6 +213,7 @@
     <string name="settings_consent_body">برای اینکه هر فایل اصلی با نسخهٔ فشردهٔ خودش عوض شود، اندروید یک‌بار اجازهٔ شما را می‌خواهد. در پنجرهٔ بعد «Allow» را بزنید تا %1$d فایل اصلی حذف شود. اگر اجازه ندهید، فایل‌های فشرده در کنار فایل‌های اصلی ذخیره می‌شوند و هیچ چیز از دست نمی‌رود.</string>
     <string name="settings_consent_continue">ادامه و اجازه</string>
     <string name="settings_consent_skip">فقط فشرده‌سازی، بدون حذف</string>
+    <string name="settings_consent_unavailable">اندروید نتوانست پنجرهٔ اجازه را باز کند؛ فایل‌های اصلی دست‌نخورده می‌مانند و نسخهٔ فشرده در کنارشان ساخته می‌شود.</string>
 
     <!-- History -->
     <string name="history_title">تاریخچه</string>

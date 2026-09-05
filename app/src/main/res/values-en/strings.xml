@@ -212,6 +212,7 @@
     <string name="settings_consent_body">To replace each original with its own compressed version, Android asks for your approval once. Tap “Allow” in the next dialog and %1$d original file(s) will be removed. If you don’t, the compressed files are saved next to the originals and nothing is lost.</string>
     <string name="settings_consent_continue">Continue and allow</string>
     <string name="settings_consent_skip">Compress without deleting</string>
+    <string name="settings_consent_unavailable">Android could not open the permission dialog, so the originals stay untouched and the compressed copies are placed next to them.</string>
 
     <!-- History -->
     <string name="history_title">History</string>

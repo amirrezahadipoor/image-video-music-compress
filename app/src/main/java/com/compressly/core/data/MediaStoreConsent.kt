@@ -24,16 +24,42 @@ import android.provider.MediaStore
  */
 object MediaStoreConsent {
 
-    /**
-     * The rows in [uris] that this app may not write to on its own.
-     * Empty on older releases, where no such request exists — there the
-     * per-file fallback (publish a new row, then keep the original and say so) is
-     * the only possible behaviour, and the result screen reports it.
-     */
-    fun needsWriteConsent(context: Context, uris: List<Uri>): List<Uri> {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return emptyList()
-        return uris.filter { uri -> isMediaStoreRow(uri) && !isOwned(context, uri) }
+    /** What has to be asked for a batch, and in which order. */
+    data class Plan(
+        /** Rows to overwrite in place: needs the edit grant. */
+        val write: List<Uri>,
+        /** Rows whose original has to be *removed* after a new row was published:
+         *  the edit grant does not cover deletion, so this is a second dialog. */
+        val delete: List<Uri>
+    ) {
+        val isEmpty: Boolean get() = write.isEmpty() && delete.isEmpty()
     }
+
+    /**
+     * Splits [uris] into what must be asked for. Empty on older releases, where no
+     * such request exists — there the per-file fallback (publish a new row, keep
+     * the original and say so) is the only possible behaviour, and the result
+     * screen reports it.
+     *
+     * [inPlacePossible] is supplied by the caller because only the engine knows
+     * whether a given row can be overwritten where it stands (same MIME family, or
+     * a MediaStore row whose MIME and name can be retyped first). Anything it
+     * answers false for becomes publish-a-new-row, and that needs the delete
+     * grant — the pair used to be the gap that let a whole photo batch finish with
+     * every original still in the gallery.
+     */
+    fun plan(context: Context, uris: List<Uri>, inPlacePossible: (Uri) -> Boolean): Plan {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return Plan(emptyList(), emptyList())
+        val foreign = uris.filter { uri -> isMediaStoreRow(uri) && !isOwned(context, uri) }
+        if (foreign.isEmpty()) return Plan(emptyList(), emptyList())
+        val (overwritable, replaceable) = foreign.partition { inPlacePossible(it) }
+        return Plan(write = overwritable, delete = replaceable.distinct())
+    }
+
+    /** The rows in [uris] this app may not write to on its own. */
+    fun needsWriteConsent(context: Context, uris: List<Uri>): List<Uri> =
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) emptyList()
+        else uris.filter { uri -> isMediaStoreRow(uri) && !isOwned(context, uri) }
 
     /**
      * One system dialog for the whole batch (the alternative is one dialog per
@@ -63,7 +89,7 @@ object MediaStoreConsent {
      * deliberately excluded: their access comes from the tree permission the user
      * granted when they picked a folder, and MediaStore has nothing to approve.
      */
-    private fun isMediaStoreRow(uri: Uri): Boolean =
+    internal fun isMediaStoreRow(uri: Uri): Boolean =
         uri.scheme == "content" &&
             uri.authority?.contains("media") == true &&
             uri.pathSegments.lastOrNull()?.let { seg -> seg.all { it.isDigit() } } == true

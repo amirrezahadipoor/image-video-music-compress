@@ -166,15 +166,36 @@ class Compressor(private val context: Context) {
         // tree / picker URIs, so the original stayed and a new row appeared.
         // Only falls back to the publish+delete path when the source can't be
         // written (read-only picker grant).
-        // FORMAT-SAFE-FIX: in-place overwrite is ONLY correct when the output
-        // shares the source's MIME/extension family. A cross-format result
-        // (e.g. a .heic/.png/.webp photo converted to .jpg) must NOT be written
-        // back into the source document — the file would keep its old
-        // extension/row-MIME over the new bytes and the gallery couldn't render
-        // it. Those go through publish (correct new name) + delete-original.
-        if (replaceOriginal && mimeAllowsInPlaceReplace(context, item.uri, mime)) {
-            OutputStore.replaceInPlace(context, item.uri, temp)?.let { replaced ->
-                return EngineOutput(replaced, sizeOf(replaced, encoded), summary, replacedInPlace = true)
+        // FORMAT-SAFE-FIX (v2): a cross-format result (a .heic/.png/.webp photo
+        // compressed to .jpg) must never land as JPEG bytes under a .heic name —
+        // the gallery cannot render that. v1 of this rule sent such rows through
+        // "publish a new file + delete the original", and the delete is the half
+        // Android refuses on a row we do not own, so the user kept a folder full
+        // of originals. v2 fixes the *type* instead of avoiding the write: the row
+        // is retyped (MIME + extension) and the bytes go in place, so there is one
+        // file, in the same folder, with the same date. Only when the source MIME
+        // is unreadable — nothing to retype against — or the provider refuses the
+        // update do we fall back to publish + delete.
+        if (replaceOriginal) {
+            val srcMime = runCatching { context.contentResolver.getType(item.uri) }.getOrNull()
+            when (decideInPlace(srcMime, mime)) {
+                InPlace.OVERWRITE ->
+                    OutputStore.replaceInPlace(context, item.uri, temp)?.let { replaced ->
+                        return EngineOutput(replaced, sizeOf(replaced, encoded), summary, replacedInPlace = true)
+                    }
+                // CROSS-FORMAT-INPLACE: the source row's MIME and extension are
+                // retyped first, so a HEIC/PNG/WebP photo compressed to JPEG still
+                // ends as ONE file in the same folder with the same date — and no
+                // delete grant is needed anywhere. Only when the provider refuses
+                // that does the batch fall back to publish + delete (which the
+                // result screen reports honestly when the delete is refused too).
+                InPlace.RETYPE_THEN_OVERWRITE ->
+                    if (OutputStore.retypeMediaRow(context, item.uri, mime)) {
+                        OutputStore.replaceInPlace(context, item.uri, temp)?.let { replaced ->
+                            return EngineOutput(replaced, sizeOf(replaced, encoded), summary, replacedInPlace = true)
+                        }
+                    }
+                InPlace.PUBLISH -> Unit
             }
         }
         // OUTPUT-LOCATION: publish into the requested folder (or the source's
@@ -364,17 +385,6 @@ class Compressor(private val context: Context) {
     private fun sizeOf(uri: Uri): Long =
         sizeOf(uri, -1L)
 
-    /**
-     * Whether writing the compressed [outMime] back into the source document
-     * (OutputStore.replaceInPlace) is safe. Only a matching MIME is: the file
-     * keeps its extension/row-MIME, so a cross-format result would be stored
-     * under the wrong type and become unrenderable. An unknown source MIME
-     * (some providers return null) is treated as NOT safe -> publish + delete.
-     */
-    private fun mimeAllowsInPlaceReplace(context: android.content.Context, uri: Uri, outMime: String): Boolean {
-        val src = runCatching { context.contentResolver.getType(uri) }.getOrNull() ?: return false
-        return src == outMime
-    }
 
     /**
      * Size of the published output, preferring the known encoded length
@@ -385,6 +395,24 @@ class Compressor(private val context: Context) {
         if (known > 0) known else runCatching {
             context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length }
         }.getOrNull() ?: 0L
+}
+
+/**
+ * How a finished temp file may land on top of its source. Pure so that the
+ * settings screen (which decides what permission to ask for) and the engine
+ * (which performs it) cannot drift apart, and so the rule is unit-testable
+ * without a device.
+ *
+ * [PUBLISH] is only for a source whose MIME type cannot be read at all: guessing
+ * a MIME for a row we cannot inspect risks writing JPEG bytes into a .heic name,
+ * which is worse than a duplicate the user can still delete.
+ */
+internal enum class InPlace { OVERWRITE, RETYPE_THEN_OVERWRITE, PUBLISH }
+
+internal fun decideInPlace(srcMime: String?, outMime: String): InPlace = when {
+    srcMime == null -> InPlace.PUBLISH
+    srcMime == outMime -> InPlace.OVERWRITE
+    else -> InPlace.RETYPE_THEN_OVERWRITE
 }
 
 /** Maps engine failures to a stable, user-facing error key. */

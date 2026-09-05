@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.documentfile.provider.DocumentFile
 import com.compressly.core.engine.model.MediaType
+import com.compressly.core.util.Mime
 import com.compressly.core.engine.model.OutputLocation
 import com.compressly.core.util.Storage
 import java.io.File
@@ -140,6 +141,48 @@ object OutputStore {
     }
 
     private val WRITE_MODES = arrayOf("w", "wt", "rwt")
+
+    /**
+     * Makes a MediaStore row safe to overwrite with [outMime] bytes, by updating
+     * the row's own MIME and display-name extension first (the provider then moves
+     * the file to the matching name). This is what lets a HEIC or PNG photo be
+     * compressed to JPEG *in the same row*: the alternative used to be
+     * publish-a-new-row-then-delete-the-original, and the delete is the half
+     * Android refuses for files the app does not own — the direct cause of
+     * "compressed my folder but every original is still there".
+     *
+     * Returns whether the row now really reports [outMime]. A provider that
+     * accepted the update without applying it must NOT be written into, since the
+     * gallery would then be showing JPEG bytes under a .heic name.
+     */
+    fun retypeMediaRow(context: Context, sourceUri: Uri, outMime: String): Boolean {
+        if (Build.VERSION.SDK_INT < 29) return false
+        if (!MediaStoreConsent.isMediaStoreRow(sourceUri)) return false
+        val ext = Mime.extensionFor(outMime).removePrefix(".")
+        if (ext.isEmpty()) return false
+        val base = nameOf(sourceUri).substringBeforeLast('.').ifBlank { return false }
+        val patched = runCatching {
+            context.contentResolver.update(
+                sourceUri,
+                ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, "$base.$ext")
+                    put(MediaStore.MediaColumns.MIME_TYPE, outMime)
+                },
+                null,
+                null
+            )
+        }.getOrDefault(0)
+        if (patched <= 0) {
+            android.util.Log.w("OutputStore", "row $sourceUri refused the retype to $outMime")
+            return false
+        }
+        val now = runCatching { context.contentResolver.getType(sourceUri) }.getOrNull()
+        if (now != outMime) {
+            android.util.Log.w("OutputStore", "retype did not stick on $sourceUri (still $now)")
+            return false
+        }
+        return true
+    }
 
     /**
      * Where the file actually landed compared with what was asked for.
@@ -298,6 +341,10 @@ object OutputStore {
         // tree-backed documents either — so an orphaned half-written file
         // would stay in the user's folder after a cancel/failure. Resolve the
         // tree URI we hold and look the document up by name as a last resort.
+        val mediaRow = MediaStoreConsent.isMediaStoreRow(uri)
+        if (mediaRow && runCatching { context.contentResolver.delete(uri, null, null) }.getOrDefault(0) > 0) {
+            return true
+        }
         val deleted = runCatching { DocumentFile.fromSingleUri(context, uri)?.delete() }
             .getOrDefault(false) ?: false
         if (deleted) return true
@@ -314,10 +361,15 @@ object OutputStore {
             }.getOrDefault(false) ?: false
             if (found) return true
         }
-        // Last resort: the bare MediaStore delete. On Android 10-11 a row this
-        // app does not own answers with RecoverableSecurityException (or 0
-        // rows) — that is not a silent success any more, it is a `false` the UI
-        // must act on.
+        // A MediaStore row was already tried above with the API that owns it; a
+        // document provider gets one bare delete as a last resort. On Android
+        // 10-11 a row this app does not own answers with
+        // RecoverableSecurityException (or 0 rows) — that is not a silent success
+        // any more, it is a `false` the UI must act on.
+        if (mediaRow) {
+            android.util.Log.w("OutputStore", "could not remove $uri (no delete grant)")
+            return false
+        }
         val removed = runCatching { context.contentResolver.delete(uri, null, null) }.getOrDefault(0) > 0
         if (!removed) {
             android.util.Log.w("OutputStore", "could not remove $uri (no write/delete grant)")

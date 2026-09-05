@@ -431,11 +431,18 @@ class SettingsViewModel(private val container: AppContainer, private val context
         // first had already moved. The flag is the lock now.
         if (!s.ready || s.items.isEmpty() || s.startingJob) return null
 
-        // SPACE-FIX: estimatedSize is the estimate for the FIRST file only.
-        // A 50-file batch needs roughly 50x that — checking one file's worth
-        // let a big batch start and then die mid-way with an IOException.
-        // (Worst case: every file in the batch is as big as the first.)
-        val batchEstimate = s.estimatedSize.coerceAtLeast(0L) * s.items.size
+        // SPACE-FIX: estimatedSize is the estimate for the FIRST file only, so
+        // checking one file's worth used to let a 50-file batch start and die
+        // mid-way with an IOException. The naive fix (first x N) then over-warned
+        // on mixed folders -- and every false warning was also a way to reach
+        // "compress anyway", which is the button that skipped the replace-consent
+        // prompt. Both halves now share one rule: JobTotals.estimateBatchBytes.
+        val batchEstimate = com.compressly.core.util.JobTotals.estimateBatchBytes(
+            totalOriginal = s.items.sumOf { if (it.sizeBytes > 0L) it.sizeBytes else 0L },
+            firstOriginal = s.originalSize,
+            firstEstimate = s.estimatedSize,
+            count = s.items.size
+        )
         if (batchEstimate > 0 && !Storage.hasEnoughSpace(batchEstimate)) {
             _state.update { it.copy(lowSpaceWarning = true) }
             return null

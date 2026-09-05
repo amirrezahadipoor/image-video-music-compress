@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -96,6 +97,9 @@ import com.compressly.ui.components.Waveform
 import com.compressly.ui.viewmodels.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
+/** Which MediaStore grant the batch is waiting for before the job may start. */
+private enum class ConsentStage { NONE, WRITE, DELETE }
+
 @Composable
 fun CompressionSettingsScreen(
     mediaType: MediaType,
@@ -121,19 +125,14 @@ fun CompressionSettingsScreen(
             state.items.sumOf { it.sizeBytes.takeIf { s -> s > 0 } ?: 0L }
         } else state.originalSize
     }
+    // RATIO-ESTIMATE-FIX: one rule with the free-space gate, in JobTotals.
     val totalEstimated = remember(state.items.size, state.estimatedSize, totalOriginal, state.originalSize) {
-        when {
-            state.items.size <= 1 -> state.estimatedSize
-            // RATIO-ESTIMATE-FIX: scaling the FIRST file's estimate by N promised
-            // a folder whatever the first file happened to be (one 60 MB clip at
-            // the front made 40 phone clips look like 40 × 60 MB). The analysis
-            // only measures one file, so reuse what it actually learned — the
-            // before → after RATIO — and apply it to the real total.
-            state.originalSize > 0 && state.estimatedSize > 0 ->
-                (totalOriginal.toDouble() * (state.estimatedSize.toDouble() / state.originalSize))
-                    .toLong().coerceAtLeast(0L)
-            else -> state.estimatedSize.coerceAtLeast(0L) * state.items.size
-        }
+        com.compressly.core.util.JobTotals.estimateBatchBytes(
+            totalOriginal = totalOriginal,
+            firstOriginal = state.originalSize,
+            firstEstimate = state.estimatedSize,
+            count = state.items.size
+        )
     }
 
     LaunchedEffect(state.ready) {
@@ -153,6 +152,21 @@ fun CompressionSettingsScreen(
         }
     }
 
+    // The low-space dialog's "compress anyway" has to go through
+    // viewModel.forceCompress() instead, because viewModel.compress() would just
+    // raise the same warning again. It is a flag rather than a captured lambda so
+    // the state machine below survives recomposition, and it is CLEARED by
+    // finishAfterConsent() -- including on the paths that never reach a dialog.
+    var pendingForceStart by remember { mutableStateOf(false) }
+
+    fun forceStart() {
+        val jobId = viewModel.forceCompress()
+        if (jobId != null) {
+            SoundEffects.play(SoundEffects.Type.CLICK)
+            onJobStarted(jobId)
+        }
+    }
+
     // REPLACE-GRANT-FIX: "replace the original" on a file this app does not own is
     // refused by MediaStore on Android 10+ — openOutputStream returns null and
     // contentResolver.delete changes nothing — and every layer used to swallow
@@ -163,14 +177,60 @@ fun CompressionSettingsScreen(
     // are published as usual, and the result screen says which originals stayed
     // and offers a one-tap retry.
     var showConsentDialog by remember { mutableStateOf(false) }
-    var pendingConsent by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var consentWrite by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var consentDelete by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var consentStage by remember { mutableStateOf(ConsentStage.NONE) }
+    var consentTick by remember { mutableStateOf(0) }
+    var consentOutcome by remember { mutableStateOf(ConsentStage.NONE) }
+    var permissionTick by remember { mutableStateOf(0) }
 
     val consentLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) {
-        // Granted or denied, the job starts: a denial just means the originals
-        // are kept, which the result screen reports honestly.
-        startCompression()
+        // Granted or denied, the flow continues: a refusal means the originals are
+        // kept, which the result screen reports honestly. What happens next is
+        // decided by the effect below, because the WRITE grant and the DELETE
+        // grant are two different system dialogs and the launcher must not
+        // re-launch itself.
+        consentOutcome = consentStage
+        consentTick += 1
+    }
+
+    fun finishAfterConsent() {
+        consentStage = ConsentStage.NONE
+        if (pendingForceStart) {
+            pendingForceStart = false
+            forceStart()
+        } else {
+            startCompression()
+        }
+    }
+
+    fun launchConsent(stage: ConsentStage, uris: List<Uri>) {
+        // Nothing to ask for is not the same as a refused request: no dialog, no
+        // warning, just carry on (a Toast here would be a lie about a failure).
+        if (uris.isEmpty()) {
+            finishAfterConsent()
+            return
+        }
+        consentStage = stage
+        val request = if (stage == ConsentStage.WRITE) MediaStoreConsent.writeRequest(context, uris)
+        else MediaStoreConsent.deleteRequest(context, uris)
+        if (request == null) {
+            // CONSENT-TRUTH: no PendingIntent means no grant, and the job would
+            // then quietly keep every original -- which is indistinguishable from
+            // "the feature does not work". Say it, then carry on anyway: a file
+            // published next to the original still beats a failed job.
+            Toast.makeText(context, R.string.settings_consent_unavailable, Toast.LENGTH_LONG).show()
+            finishAfterConsent()
+            return
+        }
+        runCatching {
+            consentLauncher.launch(IntentSenderRequest.Builder(request.intentSender).build())
+        }.onFailure {
+            android.util.Log.w("CompressionSettings", "consent intent could not be launched", it)
+            finishAfterConsent()
+        }
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -179,8 +239,11 @@ fun CompressionSettingsScreen(
         // Whether granted or not, proceed with compression — notification
         // permission is optional and the job runs either way. One system dialog
         // per launch by design: the replacement grant can still be given from
-        // the result screen.
-        startCompression()
+        // the result screen. This does NOT start the job any more: it used to jump
+        // straight to startCompression() and so skipped the replace-consent gate
+        // for every job started before notifications were granted -- which, on a
+        // fresh install, is the first job.
+        permissionTick += 1
     }
 
     fun requestCompression() {
@@ -191,37 +254,59 @@ fun CompressionSettingsScreen(
             return
         }
         if (!state.replaceOriginal) {
-            startCompression()
+            finishAfterConsent()
             return
         }
         val uris = state.items.map { it.uri }
         scope.launch {
-            // OWNER_PACKAGE_NAME is read per row: never on the main thread, a
-            // 1700-photo folder would freeze the UI before the job even starts.
-            val pending = withContext(Dispatchers.IO) {
-                MediaStoreConsent.needsWriteConsent(context, uris)
+            // OWNER_PACKAGE_NAME and the MIME type are read per row: never on the
+            // main thread, a 1700-photo folder would freeze the UI before the job
+            // even starts.
+            val plan = withContext(Dispatchers.IO) {
+                MediaStoreConsent.plan(context, uris) { uri ->
+                    // A row whose source MIME cannot be read is the one case the
+                    // engine will NOT overwrite in place (it must publish a new
+                    // row and remove the old one), and a WRITE grant does not
+                    // permit deleting. Unknown -> it belongs in the delete set.
+                    runCatching { context.contentResolver.getType(uri) }.getOrNull() != null
+                }
             }
-            if (pending.isEmpty()) startCompression()
-            else {
-                pendingConsent = pending
-                showConsentDialog = true
+            consentWrite = plan.write
+            consentDelete = plan.delete
+            when {
+                plan.write.isNotEmpty() -> showConsentDialog = true
+                plan.delete.isNotEmpty() -> launchConsent(ConsentStage.DELETE, plan.delete)
+                else -> finishAfterConsent()
             }
         }
+    }
+
+    // Two chained MediaStore dialogs: the write grant for overwriting rows, then
+    // the delete grant for the rows that must be replaced by a new one. Both are
+    // answered through the same launcher, so the transition lives here.
+    LaunchedEffect(consentTick) {
+        if (consentTick == 0) return@LaunchedEffect
+        when (consentOutcome) {
+            ConsentStage.WRITE ->
+                if (consentDelete.isEmpty()) finishAfterConsent()
+                else launchConsent(ConsentStage.DELETE, consentDelete)
+            else -> finishAfterConsent()
+        }
+    }
+
+    LaunchedEffect(permissionTick) {
+        if (permissionTick > 0) requestCompression()
     }
 
     if (showConsentDialog) {
         AlertDialog(
             onDismissRequest = { showConsentDialog = false },
             title = { Text(stringResource(R.string.settings_consent_title)) },
-            text = { Text(stringResource(R.string.settings_consent_body, pendingConsent.size)) },
+            text = { Text(stringResource(R.string.settings_consent_body, (consentWrite + consentDelete).distinct().size)) },
             confirmButton = {
                 Button(onClick = {
                     showConsentDialog = false
-                    val request = MediaStoreConsent.writeRequest(context, pendingConsent)
-                    if (request == null) startCompression()
-                    else runCatching {
-                        consentLauncher.launch(IntentSenderRequest.Builder(request.intentSender).build())
-                    }.onFailure { startCompression() }
+                    launchConsent(ConsentStage.WRITE, consentWrite)
                 }) { Text(stringResource(R.string.settings_consent_continue)) }
             },
             dismissButton = {
@@ -229,7 +314,10 @@ fun CompressionSettingsScreen(
                 // choosing this; the result screen simply says so.
                 TextButton(onClick = {
                     showConsentDialog = false
-                    startCompression()
+                    consentWrite = emptyList()
+                    // The delete half is still worth asking for: without it the
+                    // unreadable-MIME rows keep their originals for good.
+                    launchConsent(ConsentStage.DELETE, consentDelete)
                 }) { Text(stringResource(R.string.settings_consent_skip)) }
             }
         )
@@ -477,12 +565,16 @@ fun CompressionSettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = {
+                    // OVERRIDE-CONSENT-FIX: this used to call forceCompress()
+                    // directly, so answering "compress anyway" to a low-space
+                    // warning skipped the MediaStore grant request entirely -- the
+                    // write then failed, the fallback published a second file and
+                    // the delete of the original was refused, leaving the whole
+                    // batch of originals in the gallery. The override only skips
+                    // the SPACE check now; the consent question is still asked.
                     viewModel.dismissLowSpaceWarning()
-                    val jobId = viewModel.forceCompress()
-                    if (jobId != null) {
-                        SoundEffects.play(SoundEffects.Type.CLICK)
-                        onJobStarted(jobId)
-                    }
+                    pendingForceStart = true
+                    requestCompression()
                 }) {
                     Text(stringResource(R.string.action_compress))
                 }

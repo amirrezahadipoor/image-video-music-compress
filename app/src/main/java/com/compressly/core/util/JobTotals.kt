@@ -35,6 +35,27 @@ object JobTotals {
         val grew: Boolean get() = saved < 0
     }
 
+    /**
+     * Batch output estimate derived from the ONE file the analysis measured.
+     *
+     * Scaling the first file by N invented folders: a single 60 MB clip at the
+     * front made 40 phone clips look like 2.4 GB, and that number is what the
+     * free-space gate reads — so the user got a false "not enough space" dialog,
+     * whose "compress anyway" answer used to skip the MediaStore consent prompt
+     * entirely (see CompressionSettingsScreen). Reuse what was actually learned
+     * instead: the before-to-after RATIO of the analysed file, applied to the
+     * real total size of the selection. Falls back to N-times only when the
+     * analysis has no ratio to offer (sizes unknown).
+     */
+    fun estimateBatchBytes(totalOriginal: Long, firstOriginal: Long, firstEstimate: Long, count: Int): Long {
+        if (count <= 1) return firstEstimate.coerceAtLeast(0L)
+        if (totalOriginal > 0L && firstOriginal > 0L && firstEstimate > 0L) {
+            val ratio = firstEstimate.toDouble() / firstOriginal.toDouble()
+            return (totalOriginal.toDouble() * ratio).toLong().coerceAtLeast(0L)
+        }
+        return firstEstimate.coerceAtLeast(0L) * count
+    }
+
     fun of(rows: List<HistoryEntry>): Totals {
         val done = rows.filter { it.status == HistoryEntry.STATUS_DONE }
         val before = done.sumOf { it.inputSize }

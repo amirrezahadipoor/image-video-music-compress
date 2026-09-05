@@ -11,7 +11,7 @@
 | `AudioSettings.bitrate` (kbps) | `AudioPlanner.targetBitrateKbps(bitrate, sourceBitrate)` → هر دو مسیر + `SizeEstimator` | `core/engine/audio/*`, `estimate/SizeEstimator.kt` | `AudioPlannerTest` |
 | `AudioSettings.bitrateMode` (VBR/CBR) | `Mp3Writer` (LAME -V در برابر CBR) و `SizeEstimator` (`vbr = …`) | `Mp3Writer.kt:73`, `SizeEstimator` مسیر صدا | `Mp3WriterTest` |
 | `AudioSettings.preserveMetadata` | کپی تگ‌ها با jaudiotagger در انتهای مسیر MP3 | `AudioCompressor` | دستی |
-| `PhotoSettings.outputFormat` | انکودر + MIME خروجی؛ در `replaceOriginal` هم تعیین‌کنندهٔ in-place بودن است (`mimeAllowsInPlaceReplace`) | `Compressor.compressPhoto`, `Compressor.publishOrKeepOriginal` | `CompressionEngineTest` |
+| `PhotoSettings.outputFormat` | انکودر + MIME خروجی؛ در `replaceOriginal` تعیین‌کنندهٔ مسیر جایگزینی است (`decideInPlace(srcMime, outMime)`: همان فرمت ← نوشتن درجا، فرمت دیگر ← `retypeMediaRow` و بعد نوشتن درجا، MIME ناشناخته ← publish + حذف) | `Compressor.compressPhoto`, `Compressor.publishOrKeepOriginal` | `CompressionEngineTest` |
 | `PhotoSettings.quality` | `PhotoCompressor` (نردبان کیفیت؛ `lastQualityUsed` به خلاصهٔ نتیجه می‌رود) | `photo/PhotoCompressor.kt` | `CompressionEngineTest` |
 | `PhotoSettings.resize` / `customMaxWidth` | سقف پهنا در `PhotoCompressor` (clamp 320..8000 در UI، 64..8000 در موتور) | `photo/PhotoCompressor.kt` | `SmartSettingsTest` |
 | `PhotoSettings.smart` | `SmartPhotoAdvisor` + `GradeAdvisor` (تطبیقی ۸۵→۶۵) | `photo/*` | `SmartPhotoAdvisorTest` |
@@ -26,7 +26,7 @@
 | `VideoSettings.preserveHdr` | `KEY_COLOR_TRANSFER/STANDARD/RANGE` روی MediaFormat (با retry به فرمت حداقلی) | `MediaCodecTranscoder.kt:806-817` | دستی |
 | `CompressionPreset` (SMART/BALANCED/HIGH/MAX) | `PresetDefaults.videoSettingsFor/photoSettingsFor` + `SizeEstimator` + `GradeAdvisor` | `model/PresetDefaults.kt` | `PresetDefaultsTest` |
 | `outputLocation` (DEFAULT/SAME_AS_SOURCE/CUSTOM) | `OutputStore.publishTempFileDetailed`؛ اگر پوشه ممکن نشد، به پیش‌فرض می‌افتد و **در خلاصهٔ نتیجه اعلام می‌شود** | `data/OutputStore.kt` | `ResultMathTest` (نام/پسوند) |
-| `replaceOriginal` | `Compressor.publishOrKeepOriginal` → `OutputStore.replaceInPlace` (اول) و در غیر این صورت publish + `delete`؛ عدم حذف → نشانة `original_retained` روی رکورد تاریخچه | `engine/Compressor.kt`, `core/service/JobCoordinator.kt`, `ui/screens/ResultScreen.kt` | `ResultMathTest` |
+| `replaceOriginal` | `Compressor.publishOrKeepOriginal` → `OutputStore.replaceInPlace` (اول) و در غیر این صورت publish + `delete`؛ عدم حذف → نشانة `original_retained` روی رکورد. دروازهٔ اجازه در `CompressionSettingsScreen.requestCompression` است و `MediaStoreConsent.plan` تعیین می‌کند برای کدام ردیف grantِ نوشتن و برای کدام grantِ حذف لازم باشد (تطابق این دوتایی با `decideInPlace` در `ReplaceOriginalPolicyTest` قفل شده) تاریخچه | `engine/Compressor.kt`, `core/service/JobCoordinator.kt`, `ui/screens/ResultScreen.kt` | `ResultMathTest` |
 
 ## دو قاعده‌ای که این جدول نگه داشته است
 1. **هر کلید باید مصرف‌کننده‌اش را در همین جدول داشته باشد.** اگر چیزی اضافه کردید
