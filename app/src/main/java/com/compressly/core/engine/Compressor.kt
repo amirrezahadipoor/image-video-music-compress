@@ -76,42 +76,52 @@ class Compressor(private val context: Context) {
     ): CompressionResult {
         val startedAt = System.currentTimeMillis()
         onProgress(ItemPhase.PREPARING, 0f)
-        try {
-            // OUTPUT-LOCATION: where the result goes (default / same folder as
-            // the source / a per-job chosen folder) applies equally to all
-            // engines, so it is resolved once here and handed to each.
-            val location = settings.outputLocation
-            val outputFolder = settings.outputFolder
-            val replace = settings.replaceOriginal
-            val output = when (settings) {
-                is CompressionSettings.Photo ->
-                    compressPhoto(item, settings.settings, location, outputFolder, replace, control, onProgress)
-                is CompressionSettings.Video ->
-                    compressVideo(item, settings.settings, settings.preset, location, outputFolder, replace, control, onProgress)
-                is CompressionSettings.Audio ->
-                    compressAudio(item, settings.settings, location, outputFolder, replace, control, onProgress)
-            }
-            onProgress(ItemPhase.FINALIZING, 1f)
-            onProgress(ItemPhase.DONE, 1f)
-            return CompressionResult(
-                itemId = item.itemId,
-                jobId = jobId,
-                fileName = item.displayName,
-                inputUri = item.uri,
-                inputSize = item.sizeBytes,
-                outputUri = output.uri,
-                outputSize = output.size,
-                durationMs = System.currentTimeMillis() - startedAt,
-                success = true,
-                settingsSummary = output.summary
-            )
-        } catch (t: Throwable) {
-            // Don't report DONE on failure — the caller will set FAILED.
-            throw t
+        // No try/catch here on purpose: the DONE callbacks below are what keep
+        // the item from being reported as finished, and the old
+        // `catch (t) { throw t }` wrapper only existed to say that.
+        // OUTPUT-LOCATION: where the result goes (default / same folder as
+        // the source / a per-job chosen folder) applies equally to all
+        // engines, so it is resolved once here and handed to each.
+        val location = settings.outputLocation
+        val outputFolder = settings.outputFolder
+        val replace = settings.replaceOriginal
+        val output = when (settings) {
+            is CompressionSettings.Photo ->
+                compressPhoto(item, settings.settings, location, outputFolder, replace, control, onProgress)
+            is CompressionSettings.Video ->
+                compressVideo(item, settings.settings, settings.preset, location, outputFolder, replace, control, onProgress)
+            is CompressionSettings.Audio ->
+                compressAudio(item, settings.settings, location, outputFolder, replace, control, onProgress)
         }
+        onProgress(ItemPhase.FINALIZING, 1f)
+        onProgress(ItemPhase.DONE, 1f)
+        return CompressionResult(
+            itemId = item.itemId,
+            jobId = jobId,
+            fileName = item.displayName,
+            inputUri = item.uri,
+            inputSize = item.sizeBytes,
+            outputUri = output.uri,
+            outputSize = output.size,
+            durationMs = System.currentTimeMillis() - startedAt,
+            success = true,
+            settingsSummary = output.summary,
+            replacedInPlace = output.replacedInPlace
+        )
     }
 
-    private data class EngineOutput(val uri: Uri, val size: Long, val summary: String)
+    /**
+     * [replacedInPlace] is true when the result was written back into the SOURCE
+     * document (same URI, same name, same folder). It is what lets the job
+     * runner skip a pointless delete and lets the UI promise "the original is
+     * gone" instead of guessing.
+     */
+    private data class EngineOutput(
+        val uri: Uri,
+        val size: Long,
+        val summary: String,
+        val replacedInPlace: Boolean = false
+    )
 
     /**
      * Publishes the engine's temp file - unless it did not actually shrink, in
@@ -164,16 +174,23 @@ class Compressor(private val context: Context) {
         // it. Those go through publish (correct new name) + delete-original.
         if (replaceOriginal && mimeAllowsInPlaceReplace(context, item.uri, mime)) {
             OutputStore.replaceInPlace(context, item.uri, temp)?.let { replaced ->
-                return EngineOutput(replaced, sizeOf(replaced, encoded), summary)
+                return EngineOutput(replaced, sizeOf(replaced, encoded), summary, replacedInPlace = true)
             }
         }
         // OUTPUT-LOCATION: publish into the requested folder (or the source's
         // own folder when replacing), honoring the per-job custom tree.
-        val uri = OutputStore.publishTempFile(
+        val published = OutputStore.publishTempFileDetailed(
             context, mediaType, temp, item.displayName, mime,
             location = location, sourceUri = item.uri, customTreeUri = outputFolder
         )
-        return EngineOutput(uri, sizeOf(uri), summary)
+        // FOLDER-FALLBACK-FIX: falling back to the default folder used to be
+        // invisible — the user picked a destination, got a file somewhere else,
+        // and nothing ever said so. Keep the graceful fallback (a folder
+        // problem must not lose the compression) but record it in the summary
+        // chip the result screen already shows.
+        val finalSummary = if (published.usedRequestedFolder) summary else
+            "$summary · " + context.getString(ir.siliksama.hajmino.R.string.result_note_default_folder)
+        return EngineOutput(published.uri, sizeOf(published.uri), finalSummary)
     }
 
     private suspend fun compressPhoto(

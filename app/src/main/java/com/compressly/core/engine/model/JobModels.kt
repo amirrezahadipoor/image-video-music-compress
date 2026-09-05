@@ -138,5 +138,11 @@ data class CompressionResult(
     val durationMs: Long = 0L,
     val success: Boolean,
     val error: String? = null,
-    val settingsSummary: String = ""
+    val settingsSummary: String = "",
+    /**
+     * True when the compressed bytes went back into the source document itself
+     * (same URI/name/folder). Then no separate delete of the original is needed
+     * — and the UI can say so instead of leaving the user to find out.
+     */
+    val replacedInPlace: Boolean = false
 )

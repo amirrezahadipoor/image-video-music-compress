@@ -6,22 +6,12 @@ import android.provider.MediaStore
 import java.io.File
 
 object Mime {
-    fun forPhotoFormat(format: String): String = when (format.lowercase()) {
-        "png" -> "image/png"
-        "webp" -> "image/webp"
-        "heic", "heif" -> "image/heic"
-        else -> "image/jpeg"
-    }
-
     fun photoExtension(mime: String): String = when (mime.lowercase()) {
         "image/png" -> "png"
         "image/webp" -> "webp"
         "image/heic", "image/heif" -> "heic"
         else -> "jpg"
     }
-
-    fun isPhoto(mime: String?): Boolean =
-        mime?.startsWith("image/") == true && mime != "image/gif"
 
     /** File extension for a video container, so a passthrough copy keeps its type. */
     fun videoExtension(mime: String?): String = when (mime?.lowercase()) {
@@ -45,9 +35,19 @@ object Mime {
         else -> "mp3"
     }
 
-    fun isVideo(mime: String?): Boolean = mime?.startsWith("video/") == true
-
-    fun isAudio(mime: String?): Boolean = mime?.startsWith("audio/") == true
+    /**
+     * The dot-prefixed file extension a published file must carry for this MIME
+     * type, so the name always matches the container inside it. Single source of
+     * truth: OutputStore used to keep its own duplicate copy of this table while
+     * these helpers sat unused.
+     */
+    fun extensionFor(mimeType: String?): String = when {
+        mimeType == null -> ""
+        mimeType.startsWith("image/") -> "." + photoExtension(mimeType)
+        mimeType.startsWith("video/") -> "." + videoExtension(mimeType)
+        mimeType.startsWith("audio/") -> "." + audioExtension(mimeType)
+        else -> ""
+    }
 }
 
 /** Local storage helpers. Everything stays on-device and offline. */
@@ -78,6 +78,17 @@ object Uris {
             }
         }.getOrNull() ?: uri.lastPathSegment ?: "file"
     }
+
+    /**
+     * False once the row is gone (deleted here, or removed in another app).
+     * A failed query counts as PRESENT: an unknown answer must never be what
+     * convinces the UI that a user's file has been deleted.
+     */
+    fun exists(context: Context, uri: Uri): Boolean = runCatching {
+        context.contentResolver
+            .query(uri, arrayOf(MediaStore.MediaColumns._ID), null, null, null)
+            ?.use { it.moveToFirst() }
+    }.getOrDefault(true) == true
 
     fun sizeOf(context: Context, uri: Uri): Long {
         return runCatching {

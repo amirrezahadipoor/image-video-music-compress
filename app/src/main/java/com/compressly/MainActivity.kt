@@ -222,20 +222,25 @@ private fun CrashRecoveryDialog(onDismiss: () -> Unit) {
 @androidx.compose.runtime.Composable
 private fun HandleNavRequests(container: AppContainer, navController: NavHostController) {
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        container.navigationBus.requests.collect { request ->
-            when (request) {
-                is NavRequest.OpenJob -> navController.navigate(Routes.progress(request.jobId)) {
+        container.navigationBus.pending.collect { request ->
+            val req = request ?: return@collect
+            // The NavHost may not have installed its graph yet on a cold start;
+            // give it one frame, the same settle the screenshot hook waits for.
+            if (navController.currentBackStackEntry == null) kotlinx.coroutines.delay(350)
+            when (req) {
+                is NavRequest.OpenJob -> navController.navigate(Routes.progress(req.jobId)) {
                     launchSingleTop = true
                     popUpTo(Routes.HOME) { inclusive = false }
                 }
-                is NavRequest.OpenEntry -> navController.navigate(Routes.result(request.entryId)) {
+                is NavRequest.OpenEntry -> navController.navigate(Routes.result(req.entryId)) {
                     launchSingleTop = true
                 }
-                is NavRequest.OpenSettings -> navController.navigate(Routes.settings(request.mediaType.name)) {
+                is NavRequest.OpenSettings -> navController.navigate(Routes.settings(req.mediaType.name)) {
                     launchSingleTop = true
                     popUpTo(Routes.HOME) { inclusive = false }
                 }
             }
+            container.navigationBus.consume(req)
         }
     }
 }

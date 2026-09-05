@@ -190,6 +190,15 @@
     <string name="result_open_output">Open file</string>
     <string name="result_items_success">%1$d of %2$d files compressed successfully</string>
     <string name="result_share_sheet_title">Share compressed file</string><string name="result_batch_saved">Total saved: %1$s</string>
+    <string name="result_open_folder">Open folder</string>
+    <string name="result_originals_retained">%1$d original file(s) were not deleted — Android only lets the app that created a file remove it. Tap below to remove them now.</string>
+    <string name="result_remove_originals">Delete the originals</string>
+    <string name="result_removing_originals">Deleting…</string>
+    <string name="result_note_default_folder">default folder</string>
+    <string name="settings_consent_title">Allow replacing files</string>
+    <string name="settings_consent_body">To replace each original with its own compressed version, Android asks for your approval once. Tap “Allow” in the next dialog and %1$d original file(s) will be removed. If you don’t, the compressed files are saved next to the originals and nothing is lost.</string>
+    <string name="settings_consent_continue">Continue and allow</string>
+    <string name="settings_consent_skip">Compress without deleting</string>
 
     <!-- History -->
     <string name="history_title">History</string>
@@ -305,7 +314,6 @@
     <string name="restart_after_error_desc">The app restarted after an unexpected error. Unfinished jobs were marked as interrupted; you can simply try again.</string>
     <string name="history_arrow">→</string>
 
-
     <!-- Onboarding -->
     <string name="onboard_title_0" formatted="false">100% Offline — 100% Private</string>
     <string name="onboard_body_0">No file is ever uploaded. All processing happens on your device. No internet, no account, no worry.</string>
@@ -319,7 +327,6 @@
     <string name="onboard_body_4" formatted="false">Smart mode automatically finds the best quality-to-size balance — always keeping perceptual quality above 70%.</string>
     <string name="onboard_next">Next</string>
     <string name="onboard_start">Let\'s start!</string>
-
 
     <!-- Premium screen -->
     <string name="premium_screen_title">Support &amp; Remove Ads</string>

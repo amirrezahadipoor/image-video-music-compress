@@ -3,7 +3,9 @@ package com.compressly.ui.screens
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,6 +45,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import kotlin.math.roundToInt
@@ -59,7 +64,11 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.compressly.CompresslyApp
+import com.compressly.core.data.MediaStoreConsent
 import ir.siliksama.hajmino.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.compressly.core.engine.model.AudioFormat
 import com.compressly.core.engine.model.InputItem
 import com.compressly.core.engine.model.CompressionPreset
@@ -121,6 +130,9 @@ fun CompressionSettingsScreen(
 
     // Notification permission explainer (Android 13+).
     var showPermissionDialog by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
+
     fun startCompression() {
         val jobId = viewModel.compress()
         if (jobId != null) {
@@ -129,11 +141,33 @@ fun CompressionSettingsScreen(
         }
     }
 
+    // REPLACE-GRANT-FIX: "replace the original" on a file this app does not own is
+    // refused by MediaStore on Android 10+ — openOutputStream returns null and
+    // contentResolver.delete changes nothing — and every layer used to swallow
+    // that refusal. That is why a photo batch "completed" with all of its
+    // originals still in the gallery. The right fix is to ask for the grant up
+    // front, once for the whole batch, on the screen where the user asked for
+    // replacement. A refusal is not an error either: the job runs, the results
+    // are published as usual, and the result screen says which originals stayed
+    // and offers a one-tap retry.
+    var showConsentDialog by remember { mutableStateOf(false) }
+    var pendingConsent by remember { mutableStateOf<List<Uri>>(emptyList()) }
+
+    val consentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) {
+        // Granted or denied, the job starts: a denial just means the originals
+        // are kept, which the result screen reports honestly.
+        startCompression()
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         // Whether granted or not, proceed with compression — notification
-        // permission is optional and the job runs either way.
+        // permission is optional and the job runs either way. One system dialog
+        // per launch by design: the replacement grant can still be given from
+        // the result screen.
         startCompression()
     }
 
@@ -142,9 +176,51 @@ fun CompressionSettingsScreen(
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
             showPermissionDialog = true
-        } else {
-            startCompression()
+            return
         }
+        if (!state.replaceOriginal) {
+            startCompression()
+            return
+        }
+        val uris = state.items.map { it.uri }
+        scope.launch {
+            // OWNER_PACKAGE_NAME is read per row: never on the main thread, a
+            // 1700-photo folder would freeze the UI before the job even starts.
+            val pending = withContext(Dispatchers.IO) {
+                MediaStoreConsent.needsWriteConsent(context, uris)
+            }
+            if (pending.isEmpty()) startCompression()
+            else {
+                pendingConsent = pending
+                showConsentDialog = true
+            }
+        }
+    }
+
+    if (showConsentDialog) {
+        AlertDialog(
+            onDismissRequest = { showConsentDialog = false },
+            title = { Text(stringResource(R.string.settings_consent_title)) },
+            text = { Text(stringResource(R.string.settings_consent_body, pendingConsent.size)) },
+            confirmButton = {
+                Button(onClick = {
+                    showConsentDialog = false
+                    val request = MediaStoreConsent.writeRequest(context, pendingConsent)
+                    if (request == null) startCompression()
+                    else runCatching {
+                        consentLauncher.launch(IntentSenderRequest.Builder(request.intentSender).build())
+                    }.onFailure { startCompression() }
+                }) { Text(stringResource(R.string.settings_consent_continue)) }
+            },
+            dismissButton = {
+                // Keep the originals, still compress — nothing is lost by
+                // choosing this; the result screen simply says so.
+                TextButton(onClick = {
+                    showConsentDialog = false
+                    startCompression()
+                }) { Text(stringResource(R.string.settings_consent_skip)) }
+            }
+        )
     }
 
     // UI-3 FIX: Compress button is now pinned to the bottom of the screen via
@@ -156,6 +232,10 @@ fun CompressionSettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.background)
+                    // INSET-FIX: this bar is pinned by the Scaffold, so with an open
+                    // keyboard (a custom width/height field) it used to sit under it
+                    // and the warning line below it ran into the navigation bar.
+                    .imePadding()
                     .padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
                 GradientSummaryBar(

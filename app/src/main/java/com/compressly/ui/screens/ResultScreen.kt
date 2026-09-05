@@ -1,5 +1,8 @@
 package com.compressly.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
@@ -23,6 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,11 +34,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,6 +68,7 @@ import com.compressly.ui.components.StatCard
 import com.compressly.ui.theme.GradientSuccess
 import com.compressly.ui.util.ErrorMessages
 import com.compressly.ui.viewmodels.ResultViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun ResultScreen(
@@ -152,29 +159,39 @@ private fun SuccessContent(
     onCompressAnother: () -> Unit,
     onHistory: () -> Unit
 ) {
+    // STATS-SCOPE-FIX: the numbers cover exactly the task the user ran, and only
+    // rows that actually produced an output. Counting failed/cancelled rows
+    // (outputSize 0) inflated a batch's saving, and a row belonging to another
+    // job — which the old colliding job ids made possible — is what showed a
+    // single video's result screen the totals of the folder before it.
+    val done = siblings.filter { it.status == HistoryEntry.STATUS_DONE }
     // BATCH-RESULT-FIX: after a folder/batch (more than one file) the result
     // must NOT single out one file with its own preview and reduction — the
     // user asked for the whole job's total before/after change. A batch shows
     // an aggregate summary instead; a single file keeps the full preview.
     if (siblings.size > 1) {
-        BatchResultContent(siblings, viewModel, context, onHistory)
+        BatchResultContent(entry, siblings, done, viewModel, context, onHistory)
         return
     }
-    SingleResultContent(entry, viewModel, context, onCompressAnother, onHistory)
+    SingleResultContent(done.firstOrNull { it.id == entry.id } ?: entry, viewModel, context, onCompressAnother, onHistory)
 }
 
 @Composable
 private fun BatchResultContent(
-    siblings: List<HistoryEntry>,
+    entry: HistoryEntry,
+    all: List<HistoryEntry>,
+    done: List<HistoryEntry>,
     viewModel: ResultViewModel,
     context: android.content.Context,
     onHistory: () -> Unit
 ) {
-    val totalCount  = siblings.size
-    val doneCount   = siblings.count { it.status == HistoryEntry.STATUS_DONE }
-    val totalBefore = siblings.sumOf { it.inputSize }
-    val totalAfter  = siblings.sumOf { it.outputSize }
-    val totalSaved  = siblings.sumOf { it.savedBytes }
+    val totalCount  = all.size
+    val doneCount   = done.size
+    // Only finished rows carry real byte counts; the count line above still
+    // names the failures so the total is never presented as the whole job.
+    val totalBefore = done.sumOf { it.inputSize }
+    val totalAfter  = done.sumOf { it.outputSize }
+    val totalSaved  = done.sumOf { it.savedBytes }
     val reduction   = if (totalBefore > 0)
         (totalSaved.toDouble() / totalBefore).coerceIn(0.0, 1.0)
     else 0.0
@@ -222,13 +239,30 @@ private fun BatchResultContent(
         // Aggregate before / after totals of the WHOLE batch, plus the total
         // reduction — the only numbers that matter after a folder job.
         Spacer(Modifier.height(22.dp))
-        BatchSummaryCard(siblings)
+        BatchSummaryCard(all, done)
+
+        Spacer(Modifier.height(14.dp))
+        OriginalsRetainedCard(done, viewModel)
 
         Spacer(Modifier.height(24.dp))
         ActionButton(
             text = stringResource(R.string.result_share_batch, doneCount),
-            onClick = { viewModel.shareAll(context, siblings) },
+            onClick = { viewModel.shareAll(context, all) },
             icon = Icons.Outlined.Share
+        )
+        // OPEN-OUTPUT-FIX: a batch job used to end with a share button and
+        // nothing else — no way to actually look at the compressed files. A
+        // folder has no single "the file", so the last finished result opens,
+        // and "open folder" shows the place the batch was written to.
+        Spacer(Modifier.height(10.dp))
+        GhostButton(
+            text = stringResource(R.string.result_open_output),
+            onClick = { viewModel.open(context, done.lastOrNull() ?: entry) }
+        )
+        Spacer(Modifier.height(10.dp))
+        GhostButton(
+            text = stringResource(R.string.result_open_folder),
+            onClick = { viewModel.openFolder(context, done.lastOrNull() ?: entry) }
         )
         Spacer(Modifier.height(10.dp))
         GhostButton(
@@ -339,6 +373,9 @@ private fun SingleResultContent(
             }
         }
 
+        Spacer(Modifier.height(14.dp))
+        OriginalsRetainedCard(listOf(entry), viewModel)
+
         Spacer(Modifier.height(24.dp))
 
         ActionButton(
@@ -350,6 +387,11 @@ private fun SingleResultContent(
         GhostButton(
             text = stringResource(R.string.result_open_output),
             onClick = { viewModel.open(context, entry) }
+        )
+        Spacer(Modifier.height(10.dp))
+        GhostButton(
+            text = stringResource(R.string.result_open_folder),
+            onClick = { viewModel.openFolder(context, entry) }
         )
         Spacer(Modifier.height(10.dp))
         GhostButton(
@@ -368,11 +410,11 @@ private fun SingleResultContent(
 }
 
 @Composable
-private fun BatchSummaryCard(siblings: List<HistoryEntry>) {
-    val doneCount   = siblings.count { it.status == HistoryEntry.STATUS_DONE }
-    val totalBefore = siblings.sumOf { it.inputSize }
-    val totalAfter  = siblings.sumOf { it.outputSize }
-    val totalSaved  = siblings.sumOf { it.savedBytes }
+private fun BatchSummaryCard(all: List<HistoryEntry>, done: List<HistoryEntry>) {
+    val doneCount   = done.size
+    val totalBefore = done.sumOf { it.inputSize }
+    val totalAfter  = done.sumOf { it.outputSize }
+    val totalSaved  = done.sumOf { it.savedBytes }
     val surface     = MaterialTheme.colorScheme.surface
     val primary     = MaterialTheme.colorScheme.primary
     val onSurface   = MaterialTheme.colorScheme.onSurface
@@ -384,7 +426,7 @@ private fun BatchSummaryCard(siblings: List<HistoryEntry>) {
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
             Text(
-                text = pluralStringResource(R.plurals.result_batch_files, doneCount, doneCount, siblings.size),
+                text = pluralStringResource(R.plurals.result_batch_files, doneCount, doneCount, all.size),
                 style = MaterialTheme.typography.labelMedium,
                 color = onSurfaceVar
             )
@@ -431,6 +473,87 @@ private fun BatchSummaryCard(siblings: List<HistoryEntry>) {
                     style = MaterialTheme.typography.titleMedium,
                     color = primary
                 )
+            }
+        }
+    }
+}
+
+/**
+ * The honest tail of "replace the original". When MediaStore refused to let the
+ * app remove a file it does not own, the job used to finish in silence and the
+ * user only noticed later that the gallery was untouched. Now the count is said
+ * plainly, with one tap that goes through the system dialog — the only route
+ * Android allows for someone else's media row.
+ */
+@Composable
+private fun OriginalsRetainedCard(entries: List<HistoryEntry>, viewModel: ResultViewModel) {
+    val retained = viewModel.removableOriginals(entries)
+    if (retained.isEmpty()) return
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    val grantLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) {
+        // The dialog does the deleting itself; only the stale warning is left
+        // to clean up, and only for rows whose file is really gone.
+        scope.launch {
+            viewModel.refreshRetainedMarkers(context, retained)
+            busy = false
+        }
+    }
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.result_originals_retained, retained.size),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(6.dp))
+                TextButton(
+                    enabled = !busy,
+                    onClick = {
+                        busy = true
+                        val pending = viewModel.requestDeleteGrant(context, retained)
+                        if (pending != null) {
+                            runCatching {
+                                grantLauncher.launch(IntentSenderRequest.Builder(pending.intentSender).build())
+                            }.onFailure {
+                                scope.launch {
+                                    viewModel.deleteOriginals(context, retained)
+                                    busy = false
+                                }
+                            }
+                        } else {
+                            scope.launch {
+                                viewModel.deleteOriginals(context, retained)
+                                busy = false
+                            }
+                        }
+                    }
+                ) {
+                    Text(
+                        stringResource(
+                            if (busy) R.string.result_removing_originals else R.string.result_remove_originals
+                        )
+                    )
+                }
             }
         }
     }

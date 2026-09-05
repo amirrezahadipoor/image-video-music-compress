@@ -21,11 +21,8 @@ import com.compressly.core.util.SoundEffects
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -139,12 +136,28 @@ data class Selection(
     val items: List<InputItem>
 )
 
-/** Cross-cutting navigation requests (e.g. notification taps). */
+/**
+ * Cross-cutting navigation requests (notification taps, "open with Hajmino").
+ *
+ * DELIVERY-FIX: this used to be a SharedFlow with replay=0, and the request is
+ * emitted from onCreate() — before the collector inside setContent has
+ * subscribed. Every cold-start tap therefore vanished: the app opened on Home
+ * and the job/result screen the user tapped never appeared (the same drop took
+ * a shared file to the settings screen with it). A pending value in a StateFlow
+ * is delivered to whoever subscribes late, and is cleared the moment it has
+ * actually been navigated, so a later resubscription (rotation, language
+ * change) cannot navigate twice.
+ */
 class NavigationBus {
-    private val _requests = MutableSharedFlow<NavRequest>(extraBufferCapacity = 8)
-    val requests: SharedFlow<NavRequest> = _requests.asSharedFlow()
+    private val _pending = MutableStateFlow<NavRequest?>(null)
+    val pending: StateFlow<NavRequest?> = _pending.asStateFlow()
 
     fun navigate(request: NavRequest) {
-        _requests.tryEmit(request)
+        _pending.value = request
+    }
+
+    /** Marks [request] as handled; a newer request is never overwritten. */
+    fun consume(request: NavRequest) {
+        _pending.compareAndSet(request, null)
     }
 }

@@ -191,6 +191,15 @@
     <string name="result_open_output">باز کردن فایل</string>
     <string name="result_items_success">%1$d از %2$d فایل با موفقیت فشرده شد</string>
     <string name="result_share_sheet_title">اشتراک‌گذاری فایل فشرده</string><string name="result_batch_saved">مجموع صرفه‌جویی: %1$s</string>
+    <string name="result_open_folder">باز کردن پوشه</string>
+    <string name="result_originals_retained">%1$d فایل اصلی حذف نشد؛ اندروید فقط به برنامهٔ سازندهٔ فایل اجازهٔ حذف می‌دهد. بدهید تا همین حالا حذف شوند.</string>
+    <string name="result_remove_originals">حذف فایل‌های اصلی</string>
+    <string name="result_removing_originals">در حال حذف…</string>
+    <string name="result_note_default_folder">پوشهٔ پیش‌فرض</string>
+    <string name="settings_consent_title">اجازهٔ جایگزینی فایل‌ها</string>
+    <string name="settings_consent_body">برای اینکه هر فایل اصلی با نسخهٔ فشردهٔ خودش عوض شود، اندروید یک‌بار اجازهٔ شما را می‌خواهد. در پنجرهٔ بعد «Allow» را بزنید تا %1$d فایل اصلی حذف شود. اگر اجازه ندهید، فایل‌های فشرده در کنار فایل‌های اصلی ذخیره می‌شوند و هیچ چیز از دست نمی‌رود.</string>
+    <string name="settings_consent_continue">ادامه و اجازه</string>
+    <string name="settings_consent_skip">فقط فشرده‌سازی، بدون حذف</string>
 
     <!-- History -->
     <string name="history_title">تاریخچه</string>
@@ -306,7 +315,6 @@
     <string name="restart_after_error_desc">برنامه پس از یک خطای غیرمنتظره راه‌اندازی مجدد شد. کارهای ناتمام به‌عنوان «ناقص» علامت خوردند و می‌توانید دوباره تلاش کنید.</string>
     <string name="history_arrow">←</string>
 
-
     <!-- Premium -->
     <string name="premium_title">حمایت مالی / ارتقا به نسخه طلایی</string>
     <string name="premium_desc">با ۹۹ هزار تومان، تمام تبلیغات را برای همیشه حذف کنید و از ما حمایت کنید.</string>
@@ -321,8 +329,6 @@
     <string name="privacy_updated">به‌روز شده در ۳۱ اوت ۲۰۲۶</string>
     <string name="privacy_body">حجمینو یک فشرده‌ساز کاملاً آفلاین است. عکس، ویدیو و صدا فقط روی همین دستگاه پردازش می‌شوند و به هیچ سروری آپلود نمی‌گردند. حساب کاربری ساخته نمی‌شود و تحلیل‌گر یا تبلیغ‌شبکهٔ ثالث در نسخهٔ پلی وجود ندارد.\n\nچه چیزی روی دستگاه می‌ماند:\n• تنظیمات شما (تم، زبان، درجهٔ پیش‌فرض، صدای رابط)\n• تاریخچهٔ فشرده‌سازی\n• در نسخهٔ بازار: وضعیت خرید پریمیوم برای حذف تبلیغات\n\nفایل خروجی در حافظهٔ دستگاه ذخیره می‌شود (پوشهٔ Hajmino در تصاویر، فیلم‌ها یا آهنگ‌ها).\n\nاعلان‌ها فقط پیشرفت کار پس‌زمینه را نشان می‌دهند و داده را از دستگاه خارج نمی‌کنند.\n\nنسخهٔ کافه‌بازار ممکن است تبلیغ نشان دهد و خرید درون‌برنامه‌ای را از طریق بازار انجام دهد. نسخهٔ پلی بدون تبلیغ و بدون خرید است.\n\nپشتیبان ابری برنامه خاموش است تا تنظیمات و تاریخچه به سرور گوگل نرود.\n\nاگر سؤالی دارید، از صفحهٔ برنامه‌های دیگر سازنده با ما در ارتباط باشید.</string>
 
-
-
     <!-- Onboarding -->
     <string name="onboard_title_0">کاملاً آفلاین — کاملاً امن</string>
     <string name="onboard_body_0">هیچ فایلی آپلود نمی‌شود. همه پردازش‌ها روی خود دستگاه شما انجام می‌شود. بدون اینترنت، بدون حساب کاربری، بدون نگرانی.</string>
@@ -336,7 +342,6 @@
     <string name="onboard_body_4">حالت هوشمند به طور خودکار بهترین تعادل کیفیت و حجم را انتخاب می‌کند — همیشه بیش از ۷۰٪ کیفیت حفظ می‌شود.</string>
     <string name="onboard_next">بعدی</string>
     <string name="onboard_start">شروع کنید!</string>
-
 
     <!-- Premium screen -->
     <string name="premium_screen_title">حمایت مالی و حذف تبلیغات</string>

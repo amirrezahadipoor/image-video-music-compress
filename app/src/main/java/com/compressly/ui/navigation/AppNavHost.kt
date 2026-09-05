@@ -174,7 +174,14 @@ fun AppNavHost(navController: NavHostController, initialSnapRoute: String? = nul
             val entryId = backStackEntry.arguments?.getLong("entryId") ?: return@composable
             ResultScreen(
                 entryId = entryId,
-                onBack = { navController.popBackStack(Routes.HOME, false) },
+                // BACK-FIX: this used to pop to HOME, which is wrong every time
+                // the result was opened from History — the arrow threw the user
+                // past History (popping it out of the stack entirely) while the
+                // system back gesture went to History. The two disagreed, which
+                // is how "back is buggy" looked. Back now means "one level up",
+                // whichever way it was requested; only the explicit
+                // "compress another" action returns to the start of the flow.
+                onBack = { navController.popBackStack() },
                 onCompressAnother = { navController.popBackStack(Routes.HOME, false) },
                 onHistory = {
                     navController.navigate(Routes.HISTORY) {

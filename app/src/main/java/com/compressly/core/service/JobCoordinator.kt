@@ -38,6 +38,13 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 /**
+ * Seed for the first job id of this process. A member function would be called
+ * from a property initializer, so it lives at file scope instead.
+ */
+private fun newJobIdSeed(): Long =
+    ((System.currentTimeMillis() * 1000L) + java.util.Random().nextInt(1000)) and Long.MAX_VALUE
+
+/**
  * Central job orchestrator. Enqueues compression jobs, runs them on a
  * background scope, exposes live progress via StateFlow, and keeps the
  * foreground service alive while work is pending. Fully offline.
@@ -55,7 +62,19 @@ class JobCoordinator(
     private val itemControls = ConcurrentHashMap<Long, ConcurrentHashMap<Long, JobControl>>()
     private val jobPaused = ConcurrentHashMap<Long, Boolean>()
     private val cancelledItems = ConcurrentHashMap<Long, MutableSet<Long>>()
-    private val nextJobId = AtomicLong(1)
+
+    /**
+     * JOBID-UNIQ-FIX (the root cause of "the single file's result showed the
+     * stats of my old folder"): the id used to restart at 1 on every process
+     * start, while history rows keep their jobId in Room forever. So job 1 of
+     * this run matched job 1 of a previous run in `getByJob` / `getFirstDoneByJob`
+     * — the batch branch of the result screen fired for a one-file job, the
+     * batch summary mixed in unrelated old files, and "share all" sent the
+     * previous folder's files. Ids are now globally unique: milliseconds since
+     * the epoch scaled by 1000 plus a random tail, then a monotonic counter.
+     * Legacy small ids already stored in the DB can never collide with these.
+     */
+    private val nextJobId = AtomicLong(newJobIdSeed())
 
     fun enqueue(
         mediaType: MediaType,
@@ -83,14 +102,23 @@ class JobCoordinator(
         jobPaused[jobId] = true
         controls[jobId]?.pause()
         itemControls[jobId]?.values?.forEach { it.pause() }
-        updateJob(jobId) { it.copy(isPaused = true) }
+        // PAUSED-STATE-FIX: JobStatus.PAUSED was declared and read in four
+        // places but never written, so every `status == PAUSED` check was dead.
+        // Record it for real (only from RUNNING, so a cancel is never undone).
+        updateJob(jobId) {
+            if (it.status == JobStatus.RUNNING) it.copy(isPaused = true, status = JobStatus.PAUSED)
+            else it.copy(isPaused = true)
+        }
     }
 
     fun resume(jobId: Long) {
         jobPaused[jobId] = false
         controls[jobId]?.resume()
         itemControls[jobId]?.values?.forEach { it.resume() }
-        updateJob(jobId) { it.copy(isPaused = false) }
+        updateJob(jobId) {
+            if (it.status == JobStatus.PAUSED) it.copy(isPaused = false, status = JobStatus.RUNNING)
+            else it.copy(isPaused = false)
+        }
     }
 
     fun cancel(jobId: Long) {
@@ -142,6 +170,7 @@ class JobCoordinator(
             // and pause/resume reach every in-flight item.
             val itemControl = JobControl(startPaused = jobPaused[jobId] == true)
             itemControls.getOrPut(jobId) { ConcurrentHashMap() }[item.itemId] = itemControl
+            var originalRetained = false
             try {
                 // CRASH-RECOVERY-FIX: every item gets a RUNNING history row
                 // BEFORE any work starts. If the process dies mid-compression,
@@ -216,7 +245,13 @@ class JobCoordinator(
                         result.outputUri != null &&
                         result.outputUri != result.inputUri
                     ) {
-                        deleteOriginalOptional(result.inputUri)
+                        // RETAIN-MARKER-FIX: when the source could not be removed
+                        // (no write/delete grant on a MediaStore row this app does
+                        // not own) the old code stayed silent and the user just
+                        // found the originals still in the gallery — the exact
+                        // "my 1700 duplicates" complaint. Record it on the row so
+                        // the result screen can say it plainly and offer the fix.
+                        originalRetained = !deleteOriginalOptional(result.inputUri, settings.outputFolder)
                     }
                 } else if (result.error == "cancelled") {
                     anyCancelled.set(true)
@@ -225,7 +260,7 @@ class JobCoordinator(
                 }
                 // Finalize the RUNNING row created at the start of this item.
                 historyRepository.update(
-                    entryFrom(settings.mediaType(), result).copy(id = runningRow)
+                    entryFrom(settings.mediaType(), result, originalRetained).copy(id = runningRow)
                 )
             } finally {
                 itemControls[jobId]?.remove(item.itemId)
@@ -307,6 +342,29 @@ class JobCoordinator(
                     ))
                 }
             }
+        } catch (t: Throwable) {
+            // RUNJOB-CATCHALL-FIX: only the per-item work had a catch; anything
+            // thrown by the orchestration itself (a Room SQLiteFullException
+            // from historyRepository.insert/update, the ActivityManager probe,
+            // an IllegalArgumentException in PhotoBatch) escaped into
+            // appScope — which has no CoroutineExceptionHandler — and killed the
+            // process while the foreground notification stayed pinned and the
+            // job never reached a terminal state. Failing the job honestly is
+            // always better than crashing the app.
+            if (t is kotlinx.coroutines.CancellationException) throw t
+            android.util.Log.e("CompressJob", "job $jobId aborted by orchestration error", t)
+            anyFailure.set(true)
+            _jobs.update { jobs ->
+                val job = jobs[jobId] ?: return@update jobs
+                jobs + (jobId to job.copy(
+                    items = job.items.map { st ->
+                        if (st.phase == ItemPhase.QUEUED || st.phase == ItemPhase.PREPARING ||
+                            st.phase == ItemPhase.COMPRESSING || st.phase == ItemPhase.FINALIZING
+                        ) st.copy(phase = ItemPhase.FAILED, error = "generic", errorDetail = t::class.java.simpleName)
+                        else st
+                    }
+                ))
+            }
         } finally {
             controls.remove(jobId)
             itemControls.remove(jobId)
@@ -366,7 +424,11 @@ class JobCoordinator(
         is CompressionSettings.Audio -> MediaType.AUDIO
     }
 
-    private fun entryFrom(mediaType: MediaType, result: CompressionResult): HistoryEntry {
+    private fun entryFrom(
+        mediaType: MediaType,
+        result: CompressionResult,
+        originalRetained: Boolean = false
+    ): HistoryEntry {
         val status = when {
             result.error == "cancelled" -> HistoryEntry.STATUS_CANCELLED
             result.success -> HistoryEntry.STATUS_DONE
@@ -381,7 +443,10 @@ class JobCoordinator(
             outputUri = result.outputUri?.toString(),
             outputSize = result.outputSize,
             status = status,
-            error = result.error,
+            // Reuses the existing free-text column (no schema change): the
+            // result screen turns it into a plain-language warning plus the
+            // "remove them now" action. Failed rows keep their real error key.
+            error = if (originalRetained && result.success) HistoryEntry.ERROR_ORIGINAL_RETAINED else result.error,
             settingsSummary = result.settingsSummary,
             createdAt = System.currentTimeMillis(),
             durationMs = result.durationMs
@@ -402,12 +467,12 @@ class JobCoordinator(
      * 30+ without a delete grant). We never fail the item — worst case the
      * original simply stays, which is safe.
      */
-    private fun deleteOriginalOptional(uri: Uri) {
+    private fun deleteOriginalOptional(uri: Uri, jobTree: String?): Boolean {
         // Use the tree-aware delete in OutputStore rather than a bare
         // contentResolver.delete, which silently fails for SAF tree / picker
         // documents and was leaving the original behind (the duplicate-photos
         // bug). The in-place replace normally avoids this entirely.
-        com.compressly.core.data.OutputStore.delete(context, uri)
+        return com.compressly.core.data.OutputStore.delete(context, uri, jobTree)
     }
 
     private fun updateItem(jobId: Long, itemId: Long, transform: (ItemState) -> ItemState) {
