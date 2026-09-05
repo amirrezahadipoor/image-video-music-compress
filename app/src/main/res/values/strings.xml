@@ -6,6 +6,7 @@
     <!-- Common actions -->
     <string name="action_compress">شروع فشرده‌سازی</string>
     <string name="action_cancel">لغو عملیات</string>
+    <string name="folder_start">شروع عملیات</string>
     <string name="action_pause">توقف موقت</string>
     <string name="action_resume">ادامه پردازش</string>
     <string name="action_share">اشتراک‌گذاری</string>
@@ -396,7 +397,7 @@
     <string name="folder_pick_desc">کل یک آلبوم یا پوشه را انتخاب کنید؛ همهی عکسها، ویدیوها یا صداهای داخل آن یکجا فشرده میشوند.</string>
     <string name="folder_title">چه چیزی فشرده شود؟</string>
     <string name="folder_found">%1$d فایل قابل فشردهسازی پیدا شد.</string>
-    <string name="folder_truncated">تعداد فایلها زیاد بود؛ فقط ۵۰۰ فایل اول بررسی شد.</string>
+    <string name="folder_truncated">تعداد فایلها بیشتر از حد فشردهسازی همزمان بود؛ بزرگترین گروه حفظ شد (تا ۱۰٬۰۰۰ عکس، ۱۰ ویدیو یا ۵۰ فایل صوتی).</string>
     <string name="folder_empty">در این پوشه فایل پشتیبانیپذیری پیدا نشد.</string>
     <string name="folder_photos">عکسها (%1$d)</string>
     <string name="folder_videos">ویدیوها (%1$d)</string>

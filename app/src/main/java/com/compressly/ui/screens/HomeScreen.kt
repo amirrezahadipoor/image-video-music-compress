@@ -417,7 +417,30 @@ fun HomeScreen(
                             }
                         }
                     },
-                    confirmButton = {},
+                    confirmButton = {
+                        // The user asked for a clear "start" beside "cancel": a
+                        // single primary button that begins compressing the
+                        // largest group found in the folder. The per-type
+                        // buttons above remain for an explicit type choice.
+                        TextButton(
+                            onClick = {
+                                val chosen = when {
+                                    snap.videos.isNotEmpty() &&
+                                        snap.videos.size >= snap.photos.size &&
+                                        snap.videos.size >= snap.audios.size -> snap.videos
+                                    snap.audios.isNotEmpty() &&
+                                        snap.audios.size >= snap.photos.size -> snap.audios
+                                    else -> snap.photos
+                                }
+                                val uris = chosen.map { it.uri }
+                                val type = if (chosen === snap.videos) MediaType.VIDEO
+                                else if (chosen === snap.audios) MediaType.AUDIO
+                                else MediaType.PHOTO
+                                folderSnapshot = null
+                                acceptPicked(type, uris)
+                            }
+                        ) { Text(stringResource(R.string.folder_start)) }
+                    },
                     dismissButton = {
                         TextButton(onClick = { folderSnapshot = null }) {
                             Text(stringResource(R.string.action_cancel))

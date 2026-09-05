@@ -633,6 +633,9 @@ object VideoPlanner {
      * estimate both call this, so the number shown to the user before they press
      * "compress" is the number the encoder is actually configured with.
      */
+    /** High enough that CBR is safe for the hardware encoder. Below this, CBR */
+    private const val CBR_SAFE_BITRATE = 3_000_000
+
     fun plan(info: MediaInfo, settings: VideoSettings, preset: CompressionPreset): Plan {
         val (w, h) = outputDims(info, settings, preset)
         val bitrate = targetVideoBitrate(info, settings, preset)
@@ -646,7 +649,14 @@ object VideoPlanner {
             fps = fps,
             dropFrames = dropsFrames(settings, info),
             iFrameInterval = iFrameIntervalSeconds(bitrate, w, h, fps),
-            preferCbr = aggressive,
+            // CBR-ERROR-FIX: forcing CBR at the very low bitrates the aggressive
+            // tiers choose (a few hundred kbps at 720p) puts many hardware
+            // encoders into an error state; the next codec call then throws
+            // "invalid to call at released state : only valid in executing
+            // state" and fails the job. Aggressive tiers still get VBR — the
+            // corrective pass enforces the size, so we don't need CBR's hard
+            // budget, and VBR is what the HW encoder can actually sustain.
+            preferCbr = aggressive && bitrate >= CBR_SAFE_BITRATE,
             aggressiveCorrection = preset == CompressionPreset.MAXIMUM_COMPRESSION
         )
     }

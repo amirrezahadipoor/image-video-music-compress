@@ -389,10 +389,11 @@
     <string name="folder_pick_desc">Choose a whole album or folder — every photo, video or audio file inside is compressed in one batch.</string>
     <string name="folder_title">What should be compressed?</string>
     <string name="folder_found">%1$d compressible files found.</string>
-    <string name="folder_truncated">Too many files — only the first 500 were scanned.</string>
+    <string name="folder_truncated">The folder holds more files than can be compressed at once — the largest group was kept (up to 10,000 photos, 10 videos or 50 audio files).</string>
     <string name="folder_empty">No supported files found in this folder.</string>
     <string name="folder_photos">Photos (%1$d)</string>
     <string name="folder_videos">Videos (%1$d)</string>
     <string name="folder_audios">Audio files (%1$d)</string>
     <string name="action_cancel">Cancel</string>
+    <string name="folder_start">Start</string>
 </resources>

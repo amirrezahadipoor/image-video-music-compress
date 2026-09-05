@@ -140,19 +140,55 @@ class MediaCodecTranscoder(private val context: Context) {
             // VIDEO-FIX-1: the pass returns the encoder it actually used, so the
             // result summary can report the real codec (H.265 -> H.264 fallback
             // must not be labelled H.265).
-            var firstPass = videoPass(
-                inputUri = inputUri,
-                outputPath = tempVideo.absolutePath,
-                info = plannedInfo,
-                settings = settings,
-                choices = encoderChoices,
-                plan = plan,
-                rotation = rotation,
-                trimStartUs = trimStartUs,
-                trimEndUs = trimEndUs,
-                control = control,
-                onProgress = { p -> onProgress(p * 0.50f) }
-            )
+            // HW-ERROR-FALLBACK: a hardware encoder can error MID-PASS (e.g. the
+            // "invalid to call at released state" IllegalStateException), which
+            // is a runtime failure the configure-time candidate fallback can't
+            // cover. When the first pass dies with an encode/decode error from a
+            // HARDWARE encoder and a software encoder is available, retry once
+            // with the software candidates — a video must never be lost.
+            var firstPass = try {
+                videoPass(
+                    inputUri = inputUri,
+                    outputPath = tempVideo.absolutePath,
+                    info = plannedInfo,
+                    settings = settings,
+                    choices = encoderChoices,
+                    plan = plan,
+                    rotation = rotation,
+                    trimStartUs = trimStartUs,
+                    trimEndUs = trimEndUs,
+                    control = control,
+                    onProgress = { p -> onProgress(p * 0.50f) }
+                )
+            } catch (t: Throwable) {
+                if (t is com.compressly.core.engine.CompressionCancelledException) throw t
+                val retryable = (t is VideoCompressionException && (t.key == ERR_ENCODE || t.key == ERR_DECODE))
+                val hwFailed = lastChosenEncoderSoftware == false
+                val softwareChoices = encoderChoices.filter { it.software }
+                if (retryable && hwFailed && softwareChoices.isNotEmpty()) {
+                    Log.w(
+                        TAG_ENCODER,
+                        "hardware encoder failed mid-pass (${t.message}); retrying with software encoder",
+                        t
+                    )
+                    Storage.deleteQuietly(tempVideo)
+                    videoPass(
+                        inputUri = inputUri,
+                        outputPath = tempVideo.absolutePath,
+                        info = plannedInfo,
+                        settings = settings,
+                        choices = softwareChoices,
+                        plan = plan,
+                        rotation = rotation,
+                        trimStartUs = trimStartUs,
+                        trimEndUs = trimEndUs,
+                        control = control,
+                        onProgress = { p -> onProgress(p * 0.50f) }
+                    )
+                } else {
+                    throw t
+                }
+            }
             // Where the final video stream really starts (original timeline).
             // Audio must be re-based from THIS point, not from trimStartUs, or
             // the soundtrack leads the picture by the key-frame gap.
@@ -444,6 +480,7 @@ class MediaCodecTranscoder(private val context: Context) {
                     inputSurface = surface
                     encoder = enc
                     chosen = candidate
+                    lastChosenEncoderSoftware = candidate.software
                     break
                 } catch (t: Throwable) {
                     // ENGINE-ONLY failures; user cancellation must propagate.
@@ -543,7 +580,17 @@ class MediaCodecTranscoder(private val context: Context) {
                     val inIndex = decoder.dequeueInputBuffer(TIMEOUT_US)
                     if (inIndex >= 0) {
                         didWork = true
-                        val buf = decoder.getInputBuffer(inIndex)!!
+                        // DECODE-GUARD-FIX: a buffer index from dequeue is only
+                        // usable while the codec is still executing. If the
+                        // decoder just errored/released, getInputBuffer can throw
+                        // IllegalStateException — treat it as a decode failure
+                        // rather than a crash.
+                        val buf = try {
+                            decoder.getInputBuffer(inIndex)
+                        } catch (t: Throwable) {
+                            if (t is com.compressly.core.engine.CompressionCancelledException) throw t
+                            throw VideoCompressionException(ERR_DECODE, inputMime)
+                        } ?: throw VideoCompressionException(ERR_DECODE, inputMime)
                         val sampleSize = extractor.readSampleData(buf, 0)
                         val pts = if (sampleSize >= 0) extractor.sampleTime else -1L
                         // Stop at the end of the trim window. Without this the
@@ -611,7 +658,16 @@ class MediaCodecTranscoder(private val context: Context) {
                         encoderInfo.size = 0
                     }
                     if (encoderInfo.size > 0) {
-                        val encoded = enc.getOutputBuffer(encoderOut)!!
+                        // ENCODE-GUARD-FIX: a hardware encoder can error mid-pass;
+                        // getOutputBuffer then throws "invalid to call at released
+                        // state". Surface it as a clean encode failure so the
+                        // software-encoder retry can catch it.
+                        val encoded = try {
+                            enc.getOutputBuffer(encoderOut)
+                        } catch (t: Throwable) {
+                            if (t is com.compressly.core.engine.CompressionCancelledException) throw t
+                            throw VideoCompressionException(ERR_ENCODE, t.message)
+                        } ?: throw VideoCompressionException(ERR_ENCODE, "null output buffer")
                         if (!muxerStarted) {
                             videoMuxerTrack = muxer.addTrack(enc.outputFormat)
                             muxer.start()
@@ -653,11 +709,16 @@ class MediaCodecTranscoder(private val context: Context) {
                 // success — never fall through to publishing an empty file.
                 if (!muxerStarted) throw VideoCompressionException(ERR_ENCODE)
             } finally {
-                runCatching { inputSurfaceFinal.release() }
+                // RELEASE-ORDER-FIX: stop and release the ENCODER and DECODER
+                // FIRST, then the input surface. The old order released the
+                // surface while the codecs were still attached to it, which on
+                // several SoCs put them into an error state and made the next
+                // access throw "invalid to call at released state".
                 runCatching { decoder.stop() }
-                runCatching { decoder.release() }
                 runCatching { enc.stop() }
+                runCatching { decoder.release() }
                 runCatching { enc.release() }
+                runCatching { inputSurfaceFinal.release() }
                 // BUG-10 FIX: MediaMuxer.stop() throws IllegalStateException if
                 // start() was never called (e.g. the encoder only emitted a
                 // CODEC_CONFIG frame then EOS with no real video data).
@@ -1072,7 +1133,7 @@ private suspend fun mergePass(
         }.getOrDefault(false)
     }
 
-    data class EncoderChoice(val name: String, val mime: String)
+    data class EncoderChoice(val name: String, val mime: String, val software: Boolean = false)
 
     /** One decode->encode pass: the encoder actually used, and (when
      *  trimming) where the output stream really starts on the original
@@ -1120,8 +1181,8 @@ private suspend fun mergePass(
             else -> listOf(MIME_H264)
         }
         for (mime in chain) {
-            findEncoder(mime, hardwareOnly = true)?.let { result += EncoderChoice(it, mime) }
-            findEncoder(mime, hardwareOnly = false)?.let { result += EncoderChoice(it, mime) }
+            findEncoder(mime, hardwareOnly = true)?.let { result += EncoderChoice(it, mime, software = false) }
+            findEncoder(mime, hardwareOnly = false)?.let { result += EncoderChoice(it, mime, software = true) }
         }
         return result
     }
@@ -1165,6 +1226,14 @@ private suspend fun mergePass(
     // 30-50 codecs on every videoPass call, which adds ~2-5 ms on mid-range
     // devices.
     private val bitrateModeSupportCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+
+    /**
+     * Whether the encoder the last (possibly failed) pass committed was software.
+     * A runtime codec error has no return value to inspect, so the retry logic
+     * in [transcode] reads this to decide if a software fallback is warranted.
+     */
+    @Volatile
+    private var lastChosenEncoderSoftware: Boolean? = null
 
     /**
      * True when THE CHOSEN ENCODER (by name) supports [mode]. Asking "does any
