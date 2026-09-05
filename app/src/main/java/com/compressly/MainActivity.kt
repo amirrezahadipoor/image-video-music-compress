@@ -156,7 +156,7 @@ class MainActivity : ComponentActivity() {
                         when {
                             entry != null -> NavRequest.OpenEntry(entry.id)
                             job != null -> NavRequest.OpenJob(jobId)
-                            else -> NavRequest.OpenHistory()
+                            else -> NavRequest.OpenHistory
                         }
                     }
                     app.container.navigationBus.navigate(request)
