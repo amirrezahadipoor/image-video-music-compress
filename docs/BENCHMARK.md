@@ -76,3 +76,19 @@ cp ./shots/*.png app/src/androidTest/assets/baselines/
 
 اگر پوشهٔ `baselines` خالی باشد (وضعیت فعلی)، تست به‌جای failure فقط skip
 می‌کند و عکس‌ها را به‌عنوان artifact بالا می‌فرستد.
+
+## وضعیت واقعی جاب `benchmark` در CI (۲۰۲۶-۱۰-۲۵)
+
+جاب حالا هارنس را واقعاً بیلد و نصب می‌کند و تا لحظهٔ اجرای تست پیش می‌رود؛
+سه مانع پشت‌سرهم برداشته شد و مانع چهارم باز است:
+
+| مانع | وضعیت | جزئیات |
+|---|---|---|
+| اجرای `debug` (debuggable) به‌جای واریانت benchmark | رفع شد | build type به نام `benchmark` در ماژول هارنس؛ `isDebuggable = false` |
+| `checkTestedAppObfuscation` (اپ R8 شده، هارنس نشده) | رفع شد | واریانت `benchmark` اپ برای همین واریانت minify ندارد (release دست‌نخورده) |
+| `GrantPermissionRule.grant(WRITE_EXTERNAL_STORAGE)` در macrobenchmark 1.3.3 روی API 33 | رفع شد | ارتقا به dependency `benchmark-macro-junit4` **1.5.0** |
+| خودِ ران: پروسه در اولین اندازه‌گیری crash می‌کند | باز | self-instrumenting (الزام 1.5.x) هارنس را داخل همان APKی می‌گذارد که باید kill/شروع شود؛ logcat در لاگ جاب |
+
+یعنی وضعیت امروز: هارنس **بیلد و نصب می‌شود** (پس با تغییر API نمی‌پوسد)، ولی
+**عدد تولید نمی‌کند**؛ جاب `continue-on-error` است و ران را قرمز نمی‌کند.
+اعداد `docs/BENCHMARK.md` همچنان باید از دستگاه فیزیکی بیاید — همان قاعدهٔ قبلی.

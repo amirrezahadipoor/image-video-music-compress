@@ -24,4 +24,17 @@ echo "running :benchmark:$TASK"
 # The EMULATOR suppression lives in benchmark/build.gradle.kts (defaultConfig)
 # so configuration caching keeps working; DEBUGGABLE is intentionally not
 # suppressed there.
-./gradlew ":benchmark:$TASK" --no-daemon --stacktrace
+if ./gradlew ":benchmark:$TASK" --no-daemon --stacktrace; then
+  exit 0
+fi
+
+# A failed benchmark run on this emulator has so far only surfaced as
+# "Process crashed" with no stack, so capture the device side of the story in
+# the job log (the emulator still exists at this point).
+echo "::group::logcat (crash buffer)"
+adb logcat -d -b crash -t 300 || true
+echo "::endgroup::"
+echo "::group::logcat (app + benchmark)"
+adb logcat -d -t 800 | grep -iE "siliksama|benchmark|AndroidRuntime|FATAL|beginning of" || true
+echo "::endgroup::"
+exit 1
