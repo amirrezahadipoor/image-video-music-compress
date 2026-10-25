@@ -434,7 +434,7 @@
         <item quantity="one">%1$d file failed.</item>
         <item quantity="other">%1$d files failed.</item>
     </plurals>
-    <string name="notif_timeout_title">Compression hit Android's time limit</string>
+    <string name="notif_timeout_title">Compression reached Android\'s time limit</string>
     <string name="notif_timeout_text">Android stops long-running foreground work after six hours in 24. The unfinished job was cancelled — you can start it again.</string>
     <string name="photo_gif_note">An animated GIF is converted to MP4 and the original is never modified; "replace original" and the no-gain guard do not apply to it.</string>
     <string name="start_service_failed">Android refused to start the compression service (usually because the app was in the background). Keep the app open and try again.</string>
