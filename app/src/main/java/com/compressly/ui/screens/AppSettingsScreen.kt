@@ -60,6 +60,7 @@ fun AppSettingsScreen(
     val soundEnabled by viewModel.soundEnabled.collectAsStateWithLifecycle()
     val outputTreeUri by viewModel.outputTreeUri.collectAsStateWithLifecycle()
 
+    val context = androidx.compose.ui.platform.LocalContext.current
     // D11 (MAIN-THREAD-IO): the folder's display name was resolved with
     // DocumentFile.fromTreeUri() *during composition*, i.e. a ContentResolver
     // round-trip on the main thread every recomposition. Resolve it once per
@@ -77,7 +78,6 @@ fun AppSettingsScreen(
             }
         }
     }
-    val context = androidx.compose.ui.platform.LocalContext.current
     val treePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
     ) { tree ->
