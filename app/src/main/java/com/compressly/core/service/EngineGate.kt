@@ -74,8 +74,9 @@ object EngineGate {
         val atOnce = activeAtOnce.coerceIn(1, MAX_CONCURRENT_ITEMS)
         if (atOnce >= MAX_CONCURRENT_ITEMS) return 1
         if (atOnce <= 1) return MAX_CONCURRENT_ITEMS
-        return MAX_CONCURRENT_ITEMS / atOnce   // 5/2 = 2, 5/3 = 1 -> clamped to 2
-            .coerceAtLeast(2)
+        // Parentheses matter: `5 / atOnce.coerceAtLeast(2)` would divide by the
+        // CLAMPED value (5/3 = 1) instead of clamping the quotient.
+        return (MAX_CONCURRENT_ITEMS / atOnce).coerceAtLeast(2)
     }
 
     private suspend fun acquire(want: Int) {

@@ -114,10 +114,14 @@ class EngineGateTest {
                 }
             }
         }
+        // Sample WHILE the heavy body is still running (it sleeps 200 ms); the
+        // lights reach five afterwards, so the peak has to be read now.
+        kotlinx.coroutines.delay(80)
+        val peakDuringHeavy = probe.peak.get()
         heavy.await()
         lights.awaitAll()
 
-        assertEquals("the heavy item must run alone", 1, probe.peak.get())
+        assertEquals("the heavy item must run alone", 1, peakDuringHeavy)
         assertTrue("a light item entered while the heavy one was running", !otherSawHeavyRunning.get())
     }
 
