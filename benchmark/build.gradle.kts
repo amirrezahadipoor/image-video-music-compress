@@ -48,19 +48,22 @@ android {
     // describe what users install.
     buildTypes {
         create("benchmark") {
-            // Test APK only: the *app* variant it measures is the app module's
-            // `benchmark` build type (release-based, isDebuggable = false).
-            isDebuggable = true
+            // The harness is merged into the measured APK, which must not be
+            // debuggable (macrobenchmark refuses: "ERRORS (not suppressed):
+            // ... DEBUGGABLE").
+            isDebuggable = false
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
         }
     }
 
-    // NOT self-instrumenting on purpose. With self-instrumenting the benchmark
-    // classes are merged into the app's (R8-minified) benchmark APK, and the
-    // instrumentation process crashed at startup. A separate test APK against
-    // the real, minified, non-debuggable app variant is both closer to what
-    // users install and stable.
+    // macrobenchmark 1.5.x REQUIRES self-instrumenting mode ("ERRORS (not
+    // suppressed): NOT-SELF-INSTRUMENTING"): the harness runs inside the APK it
+    // measures. That APK is the app's `benchmark` build type — non-debuggable
+    // and, for this variant only, unminified, because AGP cannot merge the
+    // harness into an R8-shrunk APK without the keep rules that lifecycle's
+    // optional classes make impossible to get right.
+    experimentalProperties["android.experimental.self-instrumenting"] = true
 }
 
 dependencies {
