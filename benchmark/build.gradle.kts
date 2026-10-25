@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "ir.siliksama.hajmino.benchmark"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26
