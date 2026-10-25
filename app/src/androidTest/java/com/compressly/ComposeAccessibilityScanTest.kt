@@ -119,12 +119,21 @@ class ComposeAccessibilityScanTest {
                 if (node.isClickable) {
                     val text = node.text?.trim().orEmpty()
                     val desc = node.contentDescription?.trim().orEmpty()
-                    if (text.isEmpty() && desc.isEmpty()) {
+                    // TalkBack announces a clickable node as "label, button"
+                    // using the labels of its (non-clickable) descendants when
+                    // the node itself has none — that is a merged node, not an
+                    // anonymous one. Requiring the label on the clickable node
+                    // alone reported false positives for Compose containers.
+                    if (text.isEmpty() && desc.isEmpty() && subtreeLabels(node).isEmpty()) {
                         // Include the node's bounds so the offending control
                         // can be pinpointed in the report (top of screen?
                         // bottom CTA? pager page?).
                         val b = node.visibleBounds
-                        violations += "$path (${node.className}) @[${b.left.toInt()},${b.top.toInt()},${b.right.toInt()},${b.bottom.toInt()}]"
+                        violations += "$path (${node.className}) " +
+                            "res=${node.resourceName} " +
+                            "children=${node.children.size} " +
+                            "childIds=${node.children.joinToString(",") { it.resourceName ?: "-" }} " +
+                            "@[${b.left.toInt()},${b.top.toInt()},${b.right.toInt()},${b.bottom.toInt()}]"
                     }
                 }
                 node.children.forEachIndexed { i, child -> walk(child, "$path/$i", depth + 1) }
@@ -134,6 +143,23 @@ class ComposeAccessibilityScanTest {
         }
         walk(appRoot(), "(root)", 0)
         return violations
+    }
+
+    /** Labels a screen reader would read from this node's descendants. */
+    private fun subtreeLabels(root: UiObject2): List<String> {
+        val out = mutableListOf<String>()
+        fun collect(node: UiObject2, depth: Int) {
+            if (depth > 6 || out.size >= 4) return
+            try {
+                node.text?.trim()?.takeIf { it.isNotEmpty() }?.let { out += it }
+                node.contentDescription?.trim()?.takeIf { it.isNotEmpty() }?.let { out += it }
+                node.children.forEach { collect(it, depth + 1) }
+            } catch (_: Exception) {
+                // stale node mid-walk — ignore
+            }
+        }
+        collect(root, 0)
+        return out
     }
 
     private fun assertLabeled(screen: String) {

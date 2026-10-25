@@ -8,7 +8,12 @@
 set -uo pipefail
 
 TASKS=$(./gradlew :benchmark:tasks --all --no-daemon --quiet || true)
-TASK=$(printf '%s\n' "$TASKS" | grep -Eo 'connected[A-Za-z]*AndroidTest' | head -1 || true)
+# Prefer a *benchmark* variant: a plain connectedAndroidTest would measure the
+# debuggable debug APK, and macrobenchmark refuses to report on it.
+TASK=$(printf '%s\n' "$TASKS" | grep -Eo 'connected[A-Za-z]*Benchmark[A-Za-z]*AndroidTest' | head -1 || true)
+if [ -z "$TASK" ]; then
+  TASK=$(printf '%s\n' "$TASKS" | grep -Eo 'connected[A-Za-z]*AndroidTest' | head -1 || true)
+fi
 
 if [ -z "$TASK" ]; then
   echo "::notice::no connected benchmark task in :benchmark — the harness is configured and compiled by the build job; the numbers in docs/BENCHMARK.md still have to come from a physical device."

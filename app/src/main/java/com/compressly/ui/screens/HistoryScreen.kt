@@ -5,6 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -114,8 +119,20 @@ fun HistoryScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (selectionMode) {
-                    IconButton(onClick = { exitSelection() }) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_cancel))
+                    // A11Y-BACK: the label sits on the button itself (with
+                    // clearAndSetSemantics), not only on the child icon — the
+                    // accessibility node for the clickable is then guaranteed
+                    // to carry a name, which is what TalkBack reads out.
+                    val cancelLabel = stringResource(R.string.action_cancel)
+                    IconButton(
+                        onClick = { exitSelection() },
+                        modifier = Modifier.clearAndSetSemantics {
+                            role = Role.Button
+                            contentDescription = cancelLabel
+                            onClick { exitSelection(); true }
+                        }
+                    ) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
                     }
                     Text(
                         text = stringResource(R.string.history_selected, selected.size),
@@ -124,17 +141,33 @@ fun HistoryScreen(
                         modifier = Modifier.weight(1f)
                     )
                     if (selected.isNotEmpty()) {
-                        IconButton(onClick = { showBulkDeleteDialog = true }) {
+                        val bulkLabel = stringResource(R.string.history_delete_selected)
+                        IconButton(
+                            onClick = { showBulkDeleteDialog = true },
+                            modifier = Modifier.clearAndSetSemantics {
+                                role = Role.Button
+                                contentDescription = bulkLabel
+                                onClick { showBulkDeleteDialog = true; true }
+                            }
+                        ) {
                             Icon(
                                 Icons.Outlined.DeleteOutline,
-                                contentDescription = stringResource(R.string.history_delete_selected),
+                                contentDescription = null,
                                 tint = MaterialTheme.colorScheme.error
                             )
                         }
                     }
                 } else {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                    val backLabel = stringResource(R.string.action_back)
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.clearAndSetSemantics {
+                            role = Role.Button
+                            contentDescription = backLabel
+                            onClick { onBack(); true }
+                        }
+                    ) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
                     }
                     Text(
                         text = stringResource(R.string.history_title),
@@ -143,10 +176,18 @@ fun HistoryScreen(
                         modifier = Modifier.weight(1f)
                     )
                     if (entries.isNotEmpty()) {
-                        IconButton(onClick = { showClearDialog = true }) {
+                        val clearLabel = stringResource(R.string.history_clear_all)
+                        IconButton(
+                            onClick = { showClearDialog = true },
+                            modifier = Modifier.clearAndSetSemantics {
+                                role = Role.Button
+                                contentDescription = clearLabel
+                                onClick { showClearDialog = true; true }
+                            }
+                        ) {
                             Icon(
                                 Icons.Outlined.DeleteOutline,
-                                contentDescription = stringResource(R.string.history_clear_all),
+                                contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }

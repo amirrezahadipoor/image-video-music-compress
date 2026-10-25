@@ -33,6 +33,20 @@ android {
         jvmTarget = "17"
     }
 
+    // BENCHMARK-VARIANT: without this the module only had debug/release, so
+    // `connectedAndroidTest` measured ir.siliksama.hajmino.debug — a DEBUGGABLE
+    // APK, which macrobenchmark rejects with "ERRORS (not suppressed):
+    // EMULATOR DEBUGGABLE". The `benchmark` build type matches the app's own
+    // `benchmark` build type (release-based, non-debuggable), so the numbers
+    // describe what users install.
+    buildTypes {
+        create("benchmark") {
+            isDebuggable = true
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+        }
+    }
+
     // Run the measurements against the app APK under test (no separate runner).
     experimentalProperties["android.experimental.self-instrumenting"] = true
 }

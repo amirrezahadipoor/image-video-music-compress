@@ -145,6 +145,12 @@ android {
             initWith(getByName("release"))
             matchingFallbacks += listOf("release")
             isDebuggable = false
+            // BENCHMARK-INSTALL: the release credentials are only present in
+            // the release job, but a benchmark APK still has to be installable
+            // on the emulator. Sign it with the debug key (the official
+            // macrobenchmark template does the same); isDebuggable stays false,
+            // which is the flag macrobenchmark actually checks.
+            signingConfig = signingConfigs.getByName("debug")
         }
         debug {
             // CI-FIX (smoke job): the debug build used to run R8 too, and R8's
