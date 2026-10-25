@@ -151,6 +151,15 @@ android {
             // macrobenchmark template does the same); isDebuggable stays false,
             // which is the flag macrobenchmark actually checks.
             signingConfig = signingConfigs.getByName("debug")
+            // BENCHMARK-SHRINK-OFF: AGP refuses to run a test APK against a
+            // shrunk app unless the *harness* APK shrinks too, and shrinking the
+            // harness dies on optional classes that only lifecycle's desktop
+            // paths reference (ArchTaskExecutor & co). The CI job exists to
+            // prove the harness still builds and runs end-to-end; the numbers
+            // that matter come from a physical device, where `release` (R8 on)
+            // is measured. Verified in CI run 40237759452.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
         debug {
             // CI-FIX (smoke job): the debug build used to run R8 too, and R8's
