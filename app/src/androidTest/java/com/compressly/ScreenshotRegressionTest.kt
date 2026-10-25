@@ -106,7 +106,12 @@ class ScreenshotRegressionTest {
         // UiDevice.takeScreenshot(File) only reports success, so capture the
         // bitmap and write it ourselves (the file is the artifact that the CI
         // job collects when a baseline is missing).
-        val bmp = runCatching { device.takeScreenshot() }.getOrNull() ?: run {
+        // UiAutomation.takeScreenshot() is the stable Bitmap-returning API;
+        // UiDevice's own overloads in uiautomator 2.3.0 do not give a bitmap
+        // back to Kotlin (its takeScreenshot(File) only reports success).
+        val bmp = runCatching {
+            InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        }.getOrNull() ?: run {
             println("SCREENSHOT $name SKIPPED (device refused to capture)")
             return
         }

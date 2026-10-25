@@ -437,20 +437,9 @@ jobs:
           # the connected task name depends on the variant it resolves
           # (connectedBazaarDebugAndroidTest here, not ...BenchmarkAndroidTest).
           # Ask Gradle instead of hardcoding a name that does not exist.
-          script: |
-            TASK=$(./gradlew :benchmark:tasks --all --no-daemon --quiet | grep -Eo 'connected[A-Za-z]+AndroidTest' | head -1 || true)
-            echo "benchmark connected task: '${TASK}'"
-            if [ -z "$TASK" ]; then
-              # This module is a self-instrumenting com.android.test module, so it
-              # does not always expose a connected task. Saying so is the honest
-              # outcome; the harness is still CONFIGURED and COMPILED by the build
-              # job, and the numbers that go into docs/BENCHMARK.md have to come
-              # from a physical device anyway.
-              echo "::notice::no connected benchmark task in :benchmark — harness compiled only (docs/BENCHMARK.md)."
-              ./gradlew :benchmark:tasks --all --no-daemon --quiet > /dev/null
-              exit 0
-            fi
-            ./gradlew ":benchmark:$TASK" --no-daemon --stacktrace
+          # One line on purpose: the runner executes each line of `script:`
+          # separately, so a shell `if` block would be split and fail.
+          script: bash tools/run_benchmark.sh
 
       - name: Upload benchmark output
         if: always()
