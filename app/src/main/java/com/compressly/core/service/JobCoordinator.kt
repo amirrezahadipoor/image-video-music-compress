@@ -7,6 +7,7 @@ import androidx.core.content.ContextCompat
 import com.compressly.core.data.HistoryRepository
 import com.compressly.core.data.db.HistoryEntry
 import com.compressly.core.engine.CompressionCancelledException
+import com.compressly.core.engine.ForegroundServiceUnavailableException
 import com.compressly.core.engine.Compressor
 import com.compressly.core.engine.photo.PhotoBatch
 import com.compressly.core.engine.JobControl

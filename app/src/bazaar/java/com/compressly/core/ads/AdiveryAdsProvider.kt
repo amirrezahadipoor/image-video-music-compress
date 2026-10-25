@@ -5,6 +5,9 @@ import android.util.Log
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import com.adivery.sdk.Adivery
@@ -45,11 +48,22 @@ class AdiveryAdsProvider : AdsProvider {
         // through the listener below.
         val bannerId = BuildConfig.ADIVERY_BANNER_ID
         if (bannerId.isBlank()) return
-        // D4: the banner view kept its listener/loader alive after the slot left
-        // the composition. Destroy it so a recycled screen does not leak it.
-        val banner = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<AdiveryBannerAdView?>(null) }
-        androidx.compose.runtime.DisposableEffect(Unit) {
-            onDispose { runCatching { banner.value?.destroy() }; banner.value = null }
+        // D4 (BANNER-RELEASE): the banner kept its listener alive after the slot
+        // left the composition, so a recycled screen leaked it (and its loader).
+        // Adivery 4.9.0 exposes no destroy() on AdiveryBannerAdView — checked in
+        // the published AAR, whose only public members are loadAd /
+        // setBannerAdListener / isLoaded / isLoading — so the available release
+        // is: drop the listener (no more callbacks into a dead composition) and
+        // detach the view from whatever still holds it.
+        val banner = remember { mutableStateOf<AdiveryBannerAdView?>(null) }
+        DisposableEffect(Unit) {
+            onDispose {
+                banner.value?.let { view ->
+                    runCatching { view.setBannerAdListener(null) }
+                    runCatching { (view.parent as? android.view.ViewGroup)?.removeView(view) }
+                }
+                banner.value = null
+            }
         }
         AndroidView(
             modifier = modifier.fillMaxWidth().wrapContentHeight(),

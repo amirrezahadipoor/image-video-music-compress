@@ -45,7 +45,10 @@ class HistoryViewModel(container: AppContainer) : ViewModel() {
      */
     suspend fun clearAndDeleteOutputs(context: Context): Pair<Int, Int> = withContext(Dispatchers.IO) {
         val rows = repository.all.first()
-        val uris = outputUrisOf(rows)
+        // C12: the files a "clear history + delete outputs" needs to remove are
+        // exactly the ones the rows point at; they used to be collected by a
+        // helper that was never written.
+        val uris = rows.mapNotNull { it.outputUri?.let(android.net.Uri::parse) }
         val removed = uris.count { com.compressly.core.data.OutputStore.delete(context, it) }
         repository.clear()
         rows.size to removed

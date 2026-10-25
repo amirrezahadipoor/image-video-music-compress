@@ -257,30 +257,6 @@ class CompressionJobService : Service() {
         stopSelf()
     }
 
-    /**
-     * C3 (TIMEOUT-FIX): with targetSdk 35+ the system stops a dataSync service
-     * after six hours inside a 24-hour window. This callback did not exist, so
-     * the service was killed silently while its job still said RUNNING.
-     */
-    override fun onTimeout(startId: Int) {
-        onTimeout(startId, 0)
-    }
-
-    override fun onTimeout(startId: Int, fgsType: Int) {
-        val coordinator = (application as CompresslyApp).container.jobCoordinator
-        val job = coordinator.jobs.value.values.firstOrNull {
-            it.status == JobStatus.RUNNING || it.status == JobStatus.PAUSED ||
-                it.status == JobStatus.CANCELLING
-        }
-        safeNotify(
-            NotificationHelper.NOTIFICATION_ID_TIMEOUT,
-            NotificationHelper.buildTimeoutNotification(this)
-        )
-        // Cancelling turns the stranded RUNNING row into a real terminal state.
-        job?.let { coordinator.cancel(it.jobId) }
-        releaseWakeLock()
-        stopSelf()
-    }
 
     override fun onDestroy() {
         releaseWakeLock()

@@ -253,6 +253,11 @@ fun CompressionSettingsScreen(
         }
     }
 
+    // A1 (CONSENT-GATE): declared before the launcher that sets it — Kotlin
+    // locals cannot be referenced above their declaration, and the launcher
+    // callback needs the flag.
+    var notificationPromptAnswered by remember { mutableStateOf(false) }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -286,13 +291,6 @@ fun CompressionSettingsScreen(
             Toast.makeText(context, R.string.perm_storage_denied, Toast.LENGTH_LONG).show()
         }
     }
-
-    // A1 (CONSENT-GATE): once the notification question has been answered --
-    // whichever way -- the flow must never jump straight to startCompression(),
-    // because that skipped the legacy-storage grant and the MediaStore replace
-    // consent. A flag (not a lambda parameter) keeps the state machine stable
-    // across recomposition.
-    var notificationPromptAnswered by remember { mutableStateOf(false) }
 
     fun requestCompression() {
         // Same door for every start path (compress / "compress anyway" /

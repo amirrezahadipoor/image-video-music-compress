@@ -29,6 +29,7 @@ import com.compressly.core.engine.video.CodecSupport
 import com.compressly.core.util.Storage
 import com.compressly.core.util.Uris
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
