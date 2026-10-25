@@ -146,6 +146,7 @@ class MediaCodecTranscoder(private val context: Context) {
             // cover. When the first pass dies with an encode/decode error from a
             // HARDWARE encoder and a software encoder is available, retry once
             // with the software candidates — a video must never be lost.
+            var firstPassChosenSoftware: Boolean? = null
             var firstPass = try {
                 videoPass(
                     inputUri = inputUri,
@@ -158,7 +159,8 @@ class MediaCodecTranscoder(private val context: Context) {
                     trimStartUs = trimStartUs,
                     trimEndUs = trimEndUs,
                     control = control,
-                    onProgress = { p -> onProgress(p * 0.50f) }
+                    onProgress = { p -> onProgress(p * 0.50f) },
+                    onEncoderChosen = { firstPassChosenSoftware = it }
                 )
             } catch (t: Throwable) {
                 if (t is com.compressly.core.engine.CompressionCancelledException) throw t
@@ -175,7 +177,7 @@ class MediaCodecTranscoder(private val context: Context) {
                 val wrappedKeyed = t is VideoCompressionException && (t.key == ERR_ENCODE || t.key == ERR_DECODE)
                 val codecStateFailure = t is IllegalStateException || t is android.media.MediaCodec.CodecException
                 val retryable = wrappedKeyed || codecStateFailure
-                val hwFailed = lastChosenEncoderSoftware == false
+                val hwFailed = firstPassChosenSoftware == false
                 val softwareChoices = encoderChoices.filter { it.software }
                 if (retryable && hwFailed && softwareChoices.isNotEmpty()) {
                     Log.w(
@@ -446,7 +448,14 @@ class MediaCodecTranscoder(private val context: Context) {
         trimStartUs: Long,
         trimEndUs: Long,
         control: JobControl,
-        onProgress: (Float) -> Unit
+        onProgress: (Float) -> Unit,
+        /**
+         * B11 (ENCODER-FLAG-SCOPE): reports which encoder this pass actually
+         * committed. It used to be a field on the transcoder, so two concurrent
+         * video passes (now possible) overwrote each other's answer and the
+         * software fallback could be skipped.
+         */
+        onEncoderChosen: (Boolean) -> Unit = {}
     ): VideoPassResult {
         val outW = plan.width
         val outH = plan.height
@@ -492,7 +501,7 @@ class MediaCodecTranscoder(private val context: Context) {
                     inputSurface = surface
                     encoder = enc
                     chosen = candidate
-                    lastChosenEncoderSoftware = candidate.software
+                    onEncoderChosen(candidate.software)
                     break
                 } catch (t: Throwable) {
                     // ENGINE-ONLY failures; user cancellation must propagate.
@@ -1263,14 +1272,6 @@ private suspend fun mergePass(
     private val bitrateModeSupportCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
 
     /**
-     * Whether the encoder the last (possibly failed) pass committed was software.
-     * A runtime codec error has no return value to inspect, so the retry logic
-     * in [transcode] reads this to decide if a software fallback is warranted.
-     */
-    @Volatile
-    private var lastChosenEncoderSoftware: Boolean? = null
-
-    /**
      * True when THE CHOSEN ENCODER (by name) supports [mode]. Asking "does any
      * encoder support this mode" and then setting it on a different one is what
      * made configure() throw IllegalArgumentException on devices whose top
@@ -1400,6 +1401,10 @@ class VideoCompressionException(val key: String, val detail: String? = null) :
 private fun bestEffortFastStart(outputPath: String) {
     val src = File(outputPath)
     if (!src.exists() || src.length() <= 0) return
+    // B12: MediaMuxer already writes moov first for the non-merge path, and the
+    // copy path moves an untouched MP4 -- copying a multi-GB file onto itself
+    // only to discover there was nothing to move is pure I/O.
+    if (Mp4FastStart.isAlreadyFastStart(src)) return
     val dst = File(outputPath + ".faststart")
     try {
         if (Mp4FastStart.remux(src, dst) && dst.length() > 0 && dst.length() == src.length()) {

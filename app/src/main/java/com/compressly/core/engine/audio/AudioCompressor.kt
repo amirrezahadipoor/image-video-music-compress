@@ -143,7 +143,9 @@ class AudioCompressor(private val context: Context) {
                     bitrateKbps = bitrateKbps.coerceIn(AudioPlanner.MIN_BITRATE_KBPS, AudioPlanner.MAX_BITRATE_KBPS),
                     vbr = settings.bitrateMode == AudioBitrateMode.VBR,
                     out = fos,
-                    control = control
+                    control = control,
+                    // B6: gives the writer a handle for the Xing/LAME header.
+                    targetFile = outFile
                 )
                 val pcmOut = ByteArray(32 * 1024)
                 val info = MediaCodec.BufferInfo()

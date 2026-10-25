@@ -153,7 +153,10 @@ fun AppNavHost(navController: NavHostController, initialSnapRoute: String? = nul
             val jobId = backStackEntry.arguments?.getLong("jobId") ?: return@composable
             ProgressScreen(
                 jobId = jobId,
-                onBack = { navController.popBackStack(Routes.HOME, false) },
+                // C4 (BACK-TARGET-FIX): always popping to HOME discarded where
+                // the user came from (a history row, a notification). Pop this
+                // entry and keep whatever was underneath.
+                onBack = { navController.popBackStack() },
                 onResult = { entryId ->
                     navController.navigate(Routes.result(entryId)) {
                         popUpTo(Routes.HOME) { inclusive = false }

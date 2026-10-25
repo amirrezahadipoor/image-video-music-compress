@@ -35,6 +35,12 @@ object NotificationHelper {
     fun resultNotificationId(jobId: Long): Int = 2000 + (jobId % 1_000_000L).toInt()
 
     /**
+     * C3: notification id for the Android 15 `onTimeout` notice. Sits outside
+     * [NOTIF_ID] (1001), [NOTIF_RESULT_ID] (1002) and the 2000+ result range.
+     */
+    const val NOTIFICATION_ID_TIMEOUT = 1003
+
+    /**
      * CHANNEL-NAMES-FIX: both channels used to be called "Compressions", so in
      * Android's own settings the user saw two identical switches and could not
      * silence the finished-job alerts without killing the live progress bar.
@@ -136,6 +142,20 @@ object NotificationHelper {
             .setContentIntent(openJobIntent(context, job.jobId))
             .build()
     }
+
+    /**
+     * C3 (TIMEOUT-FIX): Android 15 stops a dataSync foreground service after six
+     * hours in 24. The job is cancelled, and this is what tells the user why the
+     * work stopped instead of letting it vanish.
+     */
+    fun buildTimeoutNotification(context: Context): Notification =
+        NotificationCompat.Builder(context, CHANNEL_RESULTS)
+            .setSmallIcon(R.drawable.ic_stat_compress)
+            .setContentTitle(context.getString(R.string.notif_timeout_title))
+            .setContentText(context.getString(R.string.notif_timeout_text))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(context.getString(R.string.notif_timeout_text)))
+            .setAutoCancel(true)
+            .build()
 
     private fun openJobIntent(context: Context, jobId: Long): PendingIntent {
         val intent = Intent(context, com.compressly.MainActivity::class.java).apply {

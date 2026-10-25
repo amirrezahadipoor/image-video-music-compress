@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -266,7 +267,9 @@ fun ProgressScreen(
                     }
 
                     Spacer(Modifier.height(14.dp))
-                    Text(
+                    // C9: on a finished job "keeps running in the background"
+                    // is simply not true.
+                    if (!isTerminal) Text(
                         text = stringResource(R.string.progress_will_keep_running),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -305,7 +308,9 @@ fun ProgressScreen(
         AlertDialog(
             onDismissRequest = { showCancelDialog = false },
             title = { Text(stringResource(R.string.action_cancel)) },
-            text = { Text(stringResource(R.string.progress_stopped_by_user)) },
+            // C10: the dialog *stated* "stopped by the user" as if it had
+            // already happened; it is a question.
+            text = { Text(stringResource(R.string.progress_cancel_confirm)) },
             confirmButton = {
                 TextButton(onClick = {
                     showCancelDialog = false
@@ -485,8 +490,10 @@ private fun TerminalSummary(
         }
         if (failedCount > 0) {
             Spacer(Modifier.height(4.dp))
+            // D16: this line repeated the success wording, so a partial batch
+            // never told the user how many files failed.
             Text(
-                text = stringResource(R.string.result_items_success, doneCount, job.items.size),
+                text = pluralStringResource(R.plurals.result_items_failed, failedCount, failedCount),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

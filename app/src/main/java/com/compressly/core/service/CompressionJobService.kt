@@ -85,6 +85,22 @@ class CompressionJobService : Service() {
                 coordinator.jobs.collect { jobs -> handleJobs(jobs) }
             }
         }
+        // C2 (STICKY-NULL-FIX): a STICKY restart delivers a NULL intent. This
+        // method used to promote itself to the foreground, notice that no job
+        // was active and stop right away -- a notification flash and a dead
+        // restart strategy. With nothing to attach to, do not start at all.
+        if (intent?.action == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        // C2 (STICKY-NULL-FIX): a STICKY restart delivers a NULL intent. This
+        // method used to promote itself to the foreground, notice that no job
+        // was active and stop right away -- a notification flash and a dead
+        // restart strategy. With nothing to attach to, do not start at all.
+        if (intent?.action == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         // START_STICKY: after the OS transiently reclaims the process (a RAM
         // cleaner, a memory-pressure kill) it tries to restart the service so
         // the run can continue. Note that a FULL process kill also destroys the
@@ -214,6 +230,56 @@ class CompressionJobService : Service() {
             wakeLock?.let { wl -> if (wl.isHeld) wl.release() }
         }
         wakeLock = null
+    }
+
+    /**
+     * C3 (TIMEOUT-FIX): with targetSdk 35+ the system stops a dataSync service
+     * after six hours inside a 24-hour window. This callback did not exist, so
+     * the service was killed silently while its job still said RUNNING.
+     */
+    override fun onTimeout(startId: Int) {
+        onTimeout(startId, 0)
+    }
+
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        val coordinator = (application as CompresslyApp).container.jobCoordinator
+        val job = coordinator.jobs.value.values.firstOrNull {
+            it.status == JobStatus.RUNNING || it.status == JobStatus.PAUSED ||
+                it.status == JobStatus.CANCELLING
+        }
+        safeNotify(
+            NotificationHelper.NOTIFICATION_ID_TIMEOUT,
+            NotificationHelper.buildTimeoutNotification(this)
+        )
+        // Cancelling turns the stranded RUNNING row into a real terminal state.
+        job?.let { coordinator.cancel(it.jobId) }
+        releaseWakeLock()
+        stopSelf()
+    }
+
+    /**
+     * C3 (TIMEOUT-FIX): with targetSdk 35+ the system stops a dataSync service
+     * after six hours inside a 24-hour window. This callback did not exist, so
+     * the service was killed silently while its job still said RUNNING.
+     */
+    override fun onTimeout(startId: Int) {
+        onTimeout(startId, 0)
+    }
+
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        val coordinator = (application as CompresslyApp).container.jobCoordinator
+        val job = coordinator.jobs.value.values.firstOrNull {
+            it.status == JobStatus.RUNNING || it.status == JobStatus.PAUSED ||
+                it.status == JobStatus.CANCELLING
+        }
+        safeNotify(
+            NotificationHelper.NOTIFICATION_ID_TIMEOUT,
+            NotificationHelper.buildTimeoutNotification(this)
+        )
+        // Cancelling turns the stranded RUNNING row into a real terminal state.
+        job?.let { coordinator.cancel(it.jobId) }
+        releaseWakeLock()
+        stopSelf()
     }
 
     override fun onDestroy() {

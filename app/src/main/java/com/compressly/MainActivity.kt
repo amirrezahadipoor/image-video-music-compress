@@ -103,13 +103,11 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        // BILLING-LEAK-FIX: the Poolakey Payment object is constructed with
-        // this Activity and stored in the app-lifetime billing manager. The
-        // interface contract says to release it from onDestroy — without this
-        // the first MainActivity instance leaks for the whole process
-        // (bazaar flavor). connect() in onCreate re-establishes it on
-        // recreation, and restoreLocalPremium keeps premium state in memory.
-        runCatching { (application as CompresslyApp).container.billingManager.disconnect() }
+        // C11 (BILLING-SCOPE-FIX): the manager lives in AppContainer (app
+        // lifetime) but this Activity tore it down, so a rotation disconnected
+        // a manager the next Activity instance reuses — a purchase in flight
+        // across the rotation could be lost. The app-scoped manager now owns its
+        // own connection; the screen leaves it alone.
         super.onDestroy()
     }
 
@@ -194,13 +192,19 @@ class MainActivity : ComponentActivity() {
 
         val app = application as CompresslyApp
         lifecycleScope.launch {
+            // A7 (SHARE-DROP-FIX): an item whose MIME could not be read used to
+            // vanish without a word. Count it so the toast can say so.
+            var unreadable = 0
             val items = withContext(Dispatchers.IO) {
                 // ITEMID-FIX: the id used to be nanoTime + uri.hashCode(), a
                 // Long that can go negative and is needlessly fragile; the
                 // picker path already uses nanoTime + index — align it here.
                 streams.mapIndexedNotNull { index, uri ->
                     val type = mediaTypeOf(app, uri)
-                    if (type == null) return@mapIndexedNotNull null
+                    if (type == null) {
+                        unreadable++
+                        return@mapIndexedNotNull null
+                    }
                     com.compressly.core.engine.model.InputItem(
                         itemId = System.nanoTime() + index,
                         uri = uri,
@@ -209,6 +213,13 @@ class MainActivity : ComponentActivity() {
                         mediaType = type
                     )
                 }
+            }
+            if (unreadable > 0) {
+                android.widget.Toast.makeText(
+                    app,
+                    app.getString(R.string.share_unreadable_skipped, unreadable),
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
             }
             // MIXED-SHARE-FIX: a share can carry mixed media types (photos next
             // to a video), but one compression run drives exactly one engine.

@@ -71,7 +71,12 @@ class StorageRepository(private val context: Context) {
                     val nameI = c.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
                     val sizeI = c.getColumnIndex(MediaStore.MediaColumns.SIZE)
                     val mimeI = c.getColumnIndex(MediaStore.MediaColumns.MIME_TYPE)
-                    while (c.moveToNext()) {
+                    // D5 (UNBOUNDED-SCAN-FIX): the cursor is size-ordered, so
+                    // the top N per collection is all we will ever show. The old
+                    // loop walked EVERY media row on the device (tens of
+                    // thousands) to sort them away afterwards.
+                    var taken = 0
+                    while (taken < topN && c.moveToNext()) {
                         val size = if (sizeI >= 0) c.getLong(sizeI) else 0L
                         if (size > 0) {
                             results += StorageFileEntry(
@@ -79,6 +84,7 @@ class StorageRepository(private val context: Context) {
                                 sizeBytes = size,
                                 mimeType = if (mimeI >= 0) c.getString(mimeI) else null
                             )
+                            taken++
                         }
                     }
                 }

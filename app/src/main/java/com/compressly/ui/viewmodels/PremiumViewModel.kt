@@ -25,11 +25,19 @@ class PremiumViewModel(
     private val container: com.compressly.AppContainer
 ) : ViewModel() {
 
+    /**
+     * A3 (PREMIUM-WINDOW-FIX): `billed || stored` kept a refunded purchase
+     * alive for as long as the DataStore write took (the stored value is the
+     * old `true`). While the store is actually connected its answer is the only
+     * one that counts; the stored flag is the offline fallback.
+     */
     val isPremium: StateFlow<Boolean> = combine(
         billingManager.isPremium,
-        container.settingsRepository.isPremium
-    ) { billed, stored -> billed || stored }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+        container.settingsRepository.isPremium,
+        billingManager.connectionState
+    ) { billed, stored, connection ->
+        if (connection == BillingConnectionState.CONNECTED) billed else billed || stored
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     val connectionState: StateFlow<BillingConnectionState> = billingManager.connectionState
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BillingConnectionState.IDLE)

@@ -15,9 +15,9 @@
 | Coil (compose, video) | — | Apache-2.0 | بارگذاری تصویر/ویدیو بندانگشتی |
 | AndroidX Media3 (ExoPlayer, UI, Common) | 1.5.1 | Apache-2.0 | پخش پیش‌نمایش ویدیو/صدا |
 | **jump3r** (`de.sciss:jump3r`) | 1.0.5 | **LGPL 2.1** (طبق POM) | انکودر MP3 (پورت خالص جاواِ LAME) |
-| **jaudiotagger** (`net.jthink:jaudiotagger`) | 3.0.1 | **LGPL** (POM به «GNU Lesser General Public License» ارجاع می‌دهد؛ بعضی فهرست‌ها GPL-3.0 را هم ذکر کرده‌اند → قبل از انتشار از POM رسمی تأیید شود) | خواندن/نوشتن تگ MP3/M4A/FLAC |
+| **jaudiotagger** (`net.jthink:jaudiotagger`) | 3.0.1 | **LGPL** — تأییدشده از POM منتشرشدهٔ Maven Central (`<name>LGPL</name>`، `gnu.org/copyleft/lesser.html`)، متن مجوز در `docs/licenses/lgpl-2.1.txt` | خواندن/نوشتن تگ MP3/M4A/FLAC |
 | Adivery SDK (`com.adivery:sdk`) | 4.9.0 | مالکانه (شرایط خود خدمت) | فقط flavor `bazaar` — تبلیغات |
-| Poolakey (`com.github.cafebazaar.Poolakey`) | 2.2.0 | **باید تأیید شود** (به‌طور رسمی GPL-3.0 ذکر شده) | فقط flavor `bazaar` — پرداخت کافه‌بازار |
+| Poolakey (`com.github.cafebazaar.Poolakey`) | 2.2.0 | **Apache-2.0** — تأییدشده (فیلد `license` در API گیت‌هاب: `Apache-2.0`؛ برخلاف ادعای قبلی این سند، GPL نیست) | فقط flavor `bazaar` — پرداخت کافه‌بازار |
 
 ## تعهدات LGPL (jump3r و jaudiotagger)
 
@@ -35,15 +35,27 @@
 افزودن یک ورودی کوچک به صفحهٔ حریم خصوصی (همین فایل را نشان دهد) تنها کار
 باقی‌مانده است.
 
-## استعلام باز
+## تأیید مجوزها (نتیجهٔ استعلام)
 
-- **Poolakey**: مجوز اعلامی در مخزن GitHub آن GPL-3.0 است. اگر درست باشد، لینک
-  کردنش در بیلد بستهٔ «پخش‌شده در کافه‌بازار» نیاز به انتشار منبع ماژول billing
-  (یا دریافت مجوز تجاری از کافه‌بازار) دارد. از آنجا که کل مخزن `app` عمومی است،
-  تعهد عمل می‌کند — ولی **قبل از انتشار بعدی، مجوز اعلامی را از مخزن رسمی
-  Poolakey تأیید کنید** و در همین فایل بنویسید.
-- **Adivery**: شرط‌های استفاده از SDK و شناسه‌های برنامۀ committed را ببینید
-  (`docs/KNOWN_ISSUES.md` شمارهٔ ۷).
+این بخش جای «استعلام باز» قبلی را گرفته است. هر ردیف با یک منبع قابل‌بررسی
+تأیید شده، نه با حدس:
+
+| کتابخانه | ادعای قبلی | نتیجهٔ بررسی | منبع بررسی |
+|---|---|---|---|
+| Poolakey 2.2.0 | «GPL-3.0» | **Apache-2.0** | فیلد `license` در `api.github.com/repos/cafebazaar/Poolakey` → `Apache-2.0` |
+| jaudiotagger 3.0.1 | «LGPL یا GPL» | **LGPL** | POM رسمی `repo1.maven.org/maven2/net/jthink/jaudiotagger/3.0.1/*.pom` → `<name>LGPL</name>` |
+| jump3r 1.0.5 | LGPL 2.1 | **LGPL 2.1** (بدون تغییر) | POM + `git.iem.at/sciss/jump3r` |
+
+**نتیجهٔ حقوقی:** هیچ وابستگی GPL در بیلد نیست. Poolakey (تنها وابستگی‌ای که
+برچسب GPL خورده بود) Apache-2.0 است، پس لینک کردنش در یک بستهٔ بسته هیچ تعهدی
+برای انتشار سورس ایجاد نمی‌کند. دو وابستگی LGPL (jump3r برای انکود MP3 و
+jaudiotagger برای تگ) با رعایت سه شرط بخش بالا استفاده می‌شوند و متن کامل
+مجوزشان در [`docs/licenses/lgpl-2.1.txt`](licenses/lgpl-2.1.txt) و
+[`docs/licenses/apache-2.0.txt`](licenses/apache-2.0.txt) در همین مخزن است —
+یعنی شرط «متن مجوز همراه برنامه» مستقل از اینترنت هم برآورده می‌شود.
+
+**تنها مورد باز:** شرط‌های استفاده از Adivery (SDK مالکانه) و شناسه‌های
+برنامه؛ `docs/KNOWN_ISSUES.md` شمارهٔ ۷.
 
 ## لینک‌ها
 
@@ -55,5 +67,6 @@
 - AndroidX / Compose: <https://developer.android.com/jetpack/androidx>
 - Media3: <https://github.com/androidx/media>
 - Coil: <https://coil-kt.github.io/coil/>
-- Poolakey: <https://github.com/cafebazaar/Poolakey>
+- Poolakey: <https://github.com/cafebazaar/Poolakey> (مجوز: Apache-2.0)
+- متن مجوزهای همراه: `docs/licenses/lgpl-2.1.txt`، `docs/licenses/apache-2.0.txt`
 - Adivery: <https://adivery.com>

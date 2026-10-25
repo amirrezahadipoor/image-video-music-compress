@@ -210,7 +210,9 @@ private fun PresetRow(
                     }
                     saving != null && saving > 0.02 -> {
                         Text(
-                            text = "−" + Formats.percent(saving),
+                            // D12: the direction of "−12%" in an RTL layout was
+                            // decided by the bidi algorithm, not by us.
+                            text = com.compressly.core.util.Bidi.isolate("−" + Formats.percent(saving)),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = if (selected) primary else MaterialTheme.colorScheme.onSurface

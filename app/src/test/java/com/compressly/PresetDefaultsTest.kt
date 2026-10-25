@@ -71,7 +71,9 @@ class PresetDefaultsTest {
             trimEnabled = true,
             trimStartMs = 1_500,
             trimEndMs = 9_000,
-            bitrate = 4_000_000
+            bitrate = 4_000_000,
+            sizeTargetMb = 50,
+            preserveHdr = false
         )
         val after = PresetDefaults.videoSettingsFor(CompressionPreset.HIGH_COMPRESSION, before)
         // Carried over.
@@ -88,6 +90,9 @@ class PresetDefaultsTest {
         assertTrue(after.trimEnabled)
         assertEquals(1_500L, after.trimStartMs)
         assertEquals(9_000L, after.trimEndMs)
+        // B1: user decisions about size and HDR survive a level change.
+        assertEquals(50, after.sizeTargetMb)
+        assertEquals(false, after.preserveHdr)
         // Owned by the level.
         assertEquals(
             com.compressly.core.engine.model.VideoResolution.R1080,

@@ -39,6 +39,19 @@ class HomeViewModel(container: AppContainer) : ViewModel() {
     val isPremium: StateFlow<Boolean> = container.settingsRepository.isPremium
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    /**
+     * C8: the result of the last folder scan. It used to be a `remember` inside
+     * HomeScreen, so rotating the phone while the "found N files" sheet was open
+     * threw the scan away and the user had to pick the folder again.
+     */
+    private val _folderSnapshot =
+        kotlinx.coroutines.flow.MutableStateFlow<com.compressly.core.data.FolderMediaScanner.Snapshot?>(null)
+    val folderSnapshot: StateFlow<com.compressly.core.data.FolderMediaScanner.Snapshot?> = _folderSnapshot
+
+    fun setFolderSnapshot(snapshot: com.compressly.core.data.FolderMediaScanner.Snapshot?) {
+        _folderSnapshot.value = snapshot
+    }
+
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {

@@ -7,6 +7,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.compressly.CompresslyApp
 import com.compressly.AppContainer
@@ -29,6 +32,23 @@ class HistoryViewModel(container: AppContainer) : ViewModel() {
 
     fun clear() {
         viewModelScope.launch { repository.clear() }
+    }
+
+    /**
+     * C12 (CLEAR-OUTPUTS): "clear history" used to leave every compressed file
+     * behind with no way to remove them in bulk. This deletes the rows and, when
+     * asked, the files they point at. Deletion is best-effort per file (a row
+     * this app no longer owns cannot be removed without a system grant), so the
+     * caller gets the real numbers instead of a silent half-job.
+     *
+     * @return rows removed to files removed.
+     */
+    suspend fun clearAndDeleteOutputs(context: Context): Pair<Int, Int> = withContext(Dispatchers.IO) {
+        val rows = repository.all.first()
+        val uris = outputUrisOf(rows)
+        val removed = uris.count { com.compressly.core.data.OutputStore.delete(context, it) }
+        repository.clear()
+        rows.size to removed
     }
 
     /** Bulk-deletes the given history rows (multi-select). */

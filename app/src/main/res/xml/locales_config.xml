@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    G1: the app ships Persian (default, values/) and English (values-en/), but
+    Android 13+ could not see that: without android:localeConfig the app does
+    not appear under Settings > System > Languages > App languages, and the
+    per-app language picker has no list to offer. Declaring both locales makes
+    the app a first-class citizen of the platform's language settings; the
+    in-app switcher (LocaleHelper) keeps working exactly as before.
+-->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="fa" />
+    <locale android:name="en" />
+</locale-config>

@@ -17,8 +17,10 @@ import de.sciss.jump3r.mp3.VBRTag
 import de.sciss.jump3r.mp3.VbrMode
 import de.sciss.jump3r.mp3.Version
 import java.io.Closeable
+import java.io.File
 import java.io.IOException
 import java.io.OutputStream
+import java.io.RandomAccessFile
 
 /**
  * Android-safe MP3 encoder built directly on jump3r's pure-Java LAME port.
@@ -35,11 +37,20 @@ class Mp3Writer(
     bitrateKbps: Int,
     vbr: Boolean,
     private val out: OutputStream,
-    private val control: JobControl
+    private val control: JobControl,
+    /**
+     * B6: the file being written, when the caller has one. The Xing/LAME header
+     * is a *header*: it can only be written after the last frame is known, so
+     * it is patched back over frame 0 through this handle. A stream-only sink
+     * (tests, pipes) leaves it null and simply gets no header.
+     */
+    private val targetFile: File? = null
 ) : Closeable {
 
     private val lame: Lame
     private val gfp: LameGlobalFlags
+    private val vbrTag: VBRTag
+    private val vbr: Boolean
     private val mp3Buf = ByteArray(32 * 1024)
 
     init {
@@ -48,7 +59,6 @@ class Mp3Writer(
         val p = Presets()
         val qupvt = QuantizePVT()
         val qu = Quantize()
-        val vbrTag = VBRTag()
         val ver = Version()
         val id3 = ID3Tag()
         val rv = Reservoir()
@@ -56,6 +66,8 @@ class Mp3Writer(
         val mpg = MPGLib()
 
         lame = Lame()
+        vbrTag = VBRTag()
+        this.vbr = vbr
         lame.setModules(ga, bs, p, qupvt, qu, vbrTag, ver, id3, mpg)
         bs.setModules(ga, mpg, ver, vbrTag)
         id3.setModules(bs, ver)
@@ -74,6 +86,10 @@ class Mp3Writer(
             gfp.VBR = VbrMode.vbr_default
             gfp.VBR_q = vbrQualityFor(bitrateKbps)
             gfp.quality = 2
+            // B6 (XING-FIX): keep the first frame reserved for the VBR header.
+            // VBR q‑step needs it for correct duration and seeking; without the
+            // header players scan the whole file to learn how long it is.
+            gfp.bWriteVbrTag = true
         } else {
             gfp.brate = bitrateKbps.coerceIn(32, 320)
             gfp.quality = 2
@@ -98,11 +114,36 @@ class Mp3Writer(
         }
     }
 
-    /** Flushes remaining MP3 frames and writes the LAME tag. */
+    /**
+     * Flushes remaining MP3 frames, then writes the LAME (Xing/Info) header.
+     *
+     * B6 (XING-FIX): the header was never written at all. LAME reserves room
+     * for it in frame 0, so the file decoded as VBR-without-a-table: duration
+     * was wrong in most players and seeking wandered. The ReplayGain analysis
+     * this class enabled (findReplayGain = true) had no destination either; it
+     * now lands in the same LAME tag.
+     */
     fun finish() {
         val n = lame.lame_encode_flush(gfp, mp3Buf, 0, mp3Buf.size)
         if (n > 0) out.write(mp3Buf, 0, n)
         out.flush()
+        if (vbr) writeVbrHeader()
+    }
+
+    /** Patches the Xing/LAME tag over frame 0. Best-effort, never fatal. */
+    private fun writeVbrHeader() {
+        val file = targetFile ?: return
+        val frame = ByteArray(MAX_TAG_FRAME_BYTES)
+        val size = runCatching { vbrTag.getLameTagFrame(gfp, frame) }.getOrDefault(0)
+        if (size <= 0) return
+        runCatching {
+            RandomAccessFile(file, "rw").use { raf ->
+                if (raf.length() >= size) {
+                    raf.seek(0)
+                    raf.write(frame, 0, size)
+                }
+            }
+        }
     }
 
     override fun close() {
@@ -147,6 +188,11 @@ class Mp3Writer(
         } else if (res < 0) {
             throw IOException("MP3 encode error ($res)")
         }
+    }
+
+    private companion object {
+        /** LAME's own bound for a LAME/Xing tag frame. */
+        const val MAX_TAG_FRAME_BYTES = 2880
     }
 
     private fun vbrQualityFor(bitrateKbps: Int): Int = when {

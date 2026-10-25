@@ -155,12 +155,21 @@ object OutputStore {
      * accepted the update without applying it must NOT be written into, since the
      * gallery would then be showing JPEG bytes under a .heic name.
      */
-    fun retypeMediaRow(context: Context, sourceUri: Uri, outMime: String): Boolean {
-        if (Build.VERSION.SDK_INT < 29) return false
-        if (!MediaStoreConsent.isMediaStoreRow(sourceUri)) return false
+    /**
+     * A2 (RETYPE-ROLLBACK): the identity a row had before it was retyped, so a
+     * failed in-place write can put it back. Without this the row kept the NEW
+     * extension while still holding the OLD bytes (a .jpg name over HEIC data).
+     */
+    data class RetypeToken(val uri: Uri, val displayName: String?, val mimeType: String?)
+
+    fun retypeMediaRow(context: Context, sourceUri: Uri, outMime: String): RetypeToken? {
+        if (Build.VERSION.SDK_INT < 29) return null
+        if (!MediaStoreConsent.isMediaStoreRow(sourceUri)) return null
         val ext = Mime.extensionFor(outMime).removePrefix(".")
-        if (ext.isEmpty()) return false
-        val base = nameOf(sourceUri).substringBeforeLast('.').ifBlank { return false }
+        if (ext.isEmpty()) return null
+        val originalName = runCatching { nameOf(sourceUri) }.getOrNull()
+        val originalMime = runCatching { context.contentResolver.getType(sourceUri) }.getOrNull()
+        val base = nameOf(sourceUri).substringBeforeLast('.').ifBlank { return null }
         val patched = runCatching {
             context.contentResolver.update(
                 sourceUri,
@@ -174,11 +183,37 @@ object OutputStore {
         }.getOrDefault(0)
         if (patched <= 0) {
             android.util.Log.w("OutputStore", "row $sourceUri refused the retype to $outMime")
-            return false
+            return null
         }
         val now = runCatching { context.contentResolver.getType(sourceUri) }.getOrNull()
         if (now != outMime) {
             android.util.Log.w("OutputStore", "retype did not stick on $sourceUri (still $now)")
+            return null
+        }
+        return RetypeToken(sourceUri, originalName, originalMime)
+    }
+
+    /**
+     * A2 (RETYPE-ROLLBACK): undo [retypeMediaRow] after the in-place write it
+     * was preparing failed. Returns whether the row reports its old MIME again.
+     * Best-effort by nature (the provider may refuse), but a refusal here is a
+     * *logged* failure instead of a silently corrupted gallery entry.
+     */
+    fun revertRetype(context: Context, token: RetypeToken): Boolean {
+        if (token.displayName == null && token.mimeType == null) return false
+        val updated = runCatching {
+            context.contentResolver.update(
+                token.uri,
+                ContentValues().apply {
+                    token.displayName?.let { put(MediaStore.MediaColumns.DISPLAY_NAME, it) }
+                    token.mimeType?.let { put(MediaStore.MediaColumns.MIME_TYPE, it) }
+                },
+                null,
+                null
+            )
+        }.getOrDefault(0)
+        if (updated <= 0) {
+            android.util.Log.w("OutputStore", "could not revert the retype of ${token.uri}")
             return false
         }
         return true

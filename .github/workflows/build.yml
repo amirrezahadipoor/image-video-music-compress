@@ -2,7 +2,10 @@ name: Build & Test Bazaar APK
 
 on:
   push:
-    branches: [main]
+    # CI-ON-BRANCH: `push` was limited to main, so a long-lived fix branch was
+    # never built until it landed — the opposite of what a build gate is for.
+    # fix/** is the prefix this repo uses for audit branches.
+    branches: [main, 'fix/**']
   pull_request:
   workflow_dispatch:
 
@@ -35,6 +38,9 @@ env:
   COMPRESSLY_KEYSTORE_PASSWORD: ${{ secrets.COMPRESSLY_KEYSTORE_PASSWORD }}
   COMPRESSLY_KEY_ALIAS: ${{ secrets.COMPRESSLY_KEY_ALIAS }}
   COMPRESSLY_KEY_PASSWORD: ${{ secrets.COMPRESSLY_KEY_PASSWORD }}
+  # KI#13 (CERT-PIN): optional pin of the signing certificate's SHA-256.
+  # Verified when set, warned about (not silently ignored) when not.
+  COMPRESSLY_CERT_SHA256: ${{ secrets.COMPRESSLY_CERT_SHA256 }}
 
 jobs:
   # ── Bazaar build only ─────────────────────────────────────────────────
@@ -101,9 +107,12 @@ jobs:
 
       # i18n key parity: every FA key has an EN counterpart and vice versa,
       # no blanks, no duplicate keys (static check on the real source files).
-      # NOTE: I18nSanityTest also exists, but it is an *instrumented* test and
-      # CI has no emulator job, so this static gate is the only i18n check that
-      # actually runs on a push.
+      # NOTE: I18nSanityTest also exists and now runs in the device-tests job,
+      # but this static gate is the one that runs on every push (no emulator).
+      # G2 (FORMAT-GATE): parity alone is not enough — a `%1$d%` or a `٪` in a
+      # format string parses fine, keeps its key, and throws
+      # UnknownFormatConversionException at runtime. tools/string_format_check.py
+      # tokenises every format string; it is also the script that proved the fix.
       - name: i18n key parity (fa <-> en)
         run: |
           python3 - <<'PY'
@@ -126,31 +135,91 @@ jobs:
           print(f"i18n parity OK: {len(fa)} keys in both languages")
           PY
 
+      # G2: every %-conversion in every string must be valid for Java's Formatter.
+      - name: i18n format strings (Android Formatter)
+        run: python3 tools/string_format_check.py app/src/main/res
+
       # ── 2. Materialise the signing keystore (from the base64 secret) so the
       #       release APK can be signed. The keystore + credentials are never in
       #       git; they come only from repo secrets. If the secret is missing the
       #       release build fails loudly (no fallback).
-      - name: Materialise signing keystore
+      # E1 (FAIL-LOUD-SIGNING): this used to print a warning and carry on, so a
+      # missing secret produced an UNSIGNED artifact that only failed later, in
+      # the "Collect APK" step, with an unrelated message. A release build
+      # without a key is not a release build.
+      #
+      # SIGNING-MODES: "any missing secret = red build" made every fork, every
+      # contributor PR and every repo without secrets permanently red, which
+      # teaches people to ignore CI. The real hazard is a *silently unsigned
+      # release artifact*, so the check is all-or-nothing and the fallback is
+      # explicit instead of accidental:
+      #   all four secrets -> signed bazaar release (what a release needs)
+      #   none of them     -> debug APK only, and the job says so
+      #   some of them     -> hard failure (half a keystore is a bug)
+      - name: Check signing secrets
         run: |
-          if [ -z "$COMPRESSLY_KEYSTORE_BASE64" ]; then
-            echo "::warning::COMPRESSLY_KEYSTORE_BASE64 secret is empty — the release APK will be unsigned/skip signing."
+          set -euo pipefail
+          present=0
+          for v in COMPRESSLY_KEYSTORE_BASE64 COMPRESSLY_KEYSTORE_PASSWORD \
+                   COMPRESSLY_KEY_ALIAS COMPRESSLY_KEY_PASSWORD; do
+            if [ -n "${!v:-}" ]; then present=$((present + 1)); fi
+          done
+          if [ "$present" -eq 4 ]; then
+            echo "SIGNING_ENABLED=true" >> "$GITHUB_ENV"
+            echo "signing: all four secrets present — building a signed release"
+          elif [ "$present" -eq 0 ]; then
+            echo "SIGNING_ENABLED=false" >> "$GITHUB_ENV"
+            echo "::notice::No signing secrets configured: this run produces a DEBUG APK only and must not be published."
           else
-            mkdir -p "$HOME/.gradle/compressly"
-            echo "$COMPRESSLY_KEYSTORE_BASE64" | base64 -d > "$HOME/.gradle/compressly/hajmino-signing.jks"
-            echo "COMPRESSLY_KEYSTORE_FILE=$HOME/.gradle/compressly/hajmino-signing.jks" >> "$GITHUB_ENV"
-            echo "signing keystore materialised: $(stat -c%s "$HOME/.gradle/compressly/hajmino-signing.jks") bytes"
+            echo "::error::$present of 4 signing secrets are set — a partially configured keystore is always a mistake (one empty variable makes the signature fall back silently)."
+            exit 1
           fi
 
+      # ── 2b. Materialise the keystore (signed mode only) ────────────────
+      - name: Materialise signing keystore
+        if: env.SIGNING_ENABLED == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.gradle/compressly"
+          echo "$COMPRESSLY_KEYSTORE_BASE64" | base64 -d > "$HOME/.gradle/compressly/hajmino-signing.jks"
+          echo "COMPRESSLY_KEYSTORE_FILE=$HOME/.gradle/compressly/hajmino-signing.jks" >> "$GITHUB_ENV"
+          echo "signing keystore materialised: $(stat -c%s "$HOME/.gradle/compressly/hajmino-signing.jks") bytes"
+
       # ── 3. Build the Bazaar release APK ────────────────────────────────
+      # E8 (ORPHAN-MODULES): :baselineprofile and :benchmark are part of the
+      # build but no CI job ever touched them, so they could rot silently while
+      # app/build.gradle.kts claimed a dedicated CI job existed. Configuring them
+      # is cheap and catches a broken module immediately; generating the actual
+      # profile still needs an emulator (see the device job below).
+      - name: Configure baseline-profile and benchmark modules
+        run: |
+          ./gradlew \
+            :baselineprofile:tasks \
+            :benchmark:tasks \
+            --all --no-daemon --quiet > /dev/null
+
       - name: Build Bazaar release APK
+        if: env.SIGNING_ENABLED == 'true'
         run: |
           ./gradlew \
             :app:assembleBazaarRelease \
             --no-daemon \
             --stacktrace
 
+      # SIGNING-MODES fallback: there is no key material in this run, so nothing
+      # here may be called a release. The debug APK is still built and uploaded
+      # because it is what the device jobs install.
+      - name: Build Bazaar debug APK (signing not configured)
+        if: env.SIGNING_ENABLED != 'true'
+        run: |
+          ./gradlew \
+            :app:assembleBazaarDebug \
+            --no-daemon \
+            --stacktrace
+
       # ── 3. Verify signature + warn if the RSA key secret is missing ────
       - name: Verify APK signature
+        if: env.SIGNING_ENABLED == 'true'
         run: |
           set -euo pipefail
           APK="app/build/outputs/apk/bazaar/release/app-bazaar-release.apk"
@@ -169,6 +238,28 @@ jobs:
           fi
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
           grep -q "^Verifies" /tmp/apksigner.txt
+
+          # KI#13 (CERT-PIN): verifying that the APK is signed says nothing about
+          # WHO signed it. If the keystore secret were ever replaced (or a fork
+          # built with its own key), this step used to pass happily. The
+          # fingerprint is compared with a pinned value when that secret exists;
+          # without it the run says so instead of pretending to have checked.
+          if [ -n "${COMPRESSLY_CERT_SHA256:-}" ]; then
+            ACTUAL=$(grep -oE 'certificate SHA-256 digest: [0-9a-fA-F]+' /tmp/apksigner.txt \
+                     | head -1 | awk '{print $NF}' | tr 'A-F' 'a-f')
+            EXPECTED=$(printf '%s' "$COMPRESSLY_CERT_SHA256" | tr -d ':' | tr 'A-F' 'a-f')
+            if [ -z "$ACTUAL" ]; then
+              echo "::error::apksigner printed no certificate digest — cannot pin."
+              exit 1
+            fi
+            if [ "$ACTUAL" != "$EXPECTED" ]; then
+              echo "::error::APK is signed by $ACTUAL, but COMPRESSLY_CERT_SHA256 pins $EXPECTED."
+              exit 1
+            fi
+            echo "certificate fingerprint matches the pinned COMPRESSLY_CERT_SHA256"
+          else
+            echo "::warning::COMPRESSLY_CERT_SHA256 is unset — signature verified, but not pinned to an expected key."
+          fi
           if [ -z "${BAZAAR_RSA_KEY:-}" ]; then
             echo "::warning::BAZAAR_RSA_KEY secret is empty — Poolakey will refuse purchases at runtime (by design)."
           fi
@@ -188,8 +279,14 @@ jobs:
           VERSION="1.0.${VERSION_CODE:-0}"
           BUILD_NUM="${{ github.run_number }}"
           mkdir -p dist
-          cp app/build/outputs/apk/bazaar/release/app-bazaar-release.apk \
-             "dist/Hajmino-${VERSION}-build${BUILD_NUM}-bazaar.apk"
+          if [ "${SIGNING_ENABLED:-false}" = "true" ]; then
+            cp app/build/outputs/apk/bazaar/release/app-bazaar-release.apk \
+               "dist/Hajmino-${VERSION}-build${BUILD_NUM}-bazaar.apk"
+          else
+            cp app/build/outputs/apk/bazaar/debug/app-bazaar-debug.apk \
+               "dist/Hajmino-${VERSION}-build${BUILD_NUM}-bazaar-DEBUG-unsigned.apk"
+            echo "::warning::Artifact is a DEBUG build: no signing secrets are configured for this repository."
+          fi
           ls -lh dist/
           sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
 
@@ -202,6 +299,160 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+
+  # ── Device smoke tests (emulator) ───────────────────────────────────
+  # E4 (DEVICE-JOB): app/src/androidTest held six instrumented suites that NO
+  # workflow ever ran — the accessibility scan, the screenshot regression, the
+  # i18n resource check and the real MediaCodec/MediaStore smoke paths were all
+  # written, committed and dead. G3 closed the last part of that: the
+  # accessibility scan and the screenshot regression are in the class list below
+  # and the screenshot test captures the frames itself (UiDevice.takeScreenshot)
+  # instead of waiting for a host loop that never existed. H2 added the API 28
+  # leg so the legacy WRITE_EXTERNAL_STORAGE publish path is exercised too.
+  #
+  # continue-on-error is TRUE on purpose, and the honest reason is recorded
+  # here: the UI-driving suites (MainFlowE2E, AccessibilityScan, Screenshot)
+  # depend on emulator timing, and turning flaky red into a blocked release
+  # would push people to skip the gate entirely. The suite runs, reports, and
+  # uploads its results; flip this to false once it has been green for a few
+  # runs (tracked in docs/KNOWN_ISSUES.md #11).
+  device-tests:
+    name: Device tests (API ${{ matrix.api-level }} emulator)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 50
+    # H2 (test gap): the transcoder / MediaStore / replace-in-place paths are the
+    # riskiest code in the app and only a real runtime can execute them. Two API
+    # levels on purpose: 28 is the last release where the legacy
+    # WRITE_EXTERNAL_STORAGE path (publish into EXTERNAL_CONTENT_URI) runs at all,
+    # 33 is where the scoped-storage + consent path runs. A break on either is a
+    # different bug, and only a matrix can tell them apart.
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [33, 28]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Run instrumented tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          # Extra storage: MediaStore test rows need room on the primary volume.
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            ./gradlew :app:connectedBazaarDebugAndroidTest \
+              -Pandroid.testInstrumentationRunnerArguments.class=\
+              com.compressly.PhotoAudioSmokeTest,\
+              com.compressly.VideoTranscodeSmokeTest,\
+              com.compressly.MediaStorePublishTest,\
+              com.compressly.I18nSanityTest,\
+              com.compressly.ComposeAccessibilityScanTest,\
+              com.compressly.ScreenshotRegressionTest \
+              --no-daemon --stacktrace
+
+      # G3: the accessibility and screenshot suites now actually run, so their
+      # evidence has to survive the job — a failing a11y scan is only useful if
+      # the tree it complained about is readable.
+      - name: Collect UI evidence
+        if: always()
+        run: |
+          adb shell run-as ir.siliksama.hajmino.debug ls 2>/dev/null || true
+          adb pull /sdcard/Android/data/ir.siliksama.hajmino.debug/files/screenshots \
+            ./screenshots || true
+          # The debug applicationId carries the -debug suffix (E7), and older
+          # installs used the unsuffixed id.
+          adb pull /sdcard/Android/data/ir.siliksama.hajmino/files/screenshots \
+            ./screenshots-legacy || true
+
+      - name: Upload device test reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: device-test-reports-api${{ matrix.api-level }}
+          path: |
+            app/build/reports/androidTests/
+            screenshots/
+            screenshots-legacy/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ── H3: the performance harness must not rot ─────────────────────────
+  # docs/BENCHMARK.md says it plainly: the publishable TTID numbers have to come
+  # from a physical device, so this job does NOT gate a release on a number. What
+  # it does gate is the harness itself — the macrobenchmark module had never been
+  # executed anywhere, so a rename or a broken selector could sit in the repo for
+  # months unnoticed.
+  benchmark:
+    name: Macrobenchmark harness (emulator, non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Run startup benchmarks
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: |
+            ./gradlew :benchmark:connectedBazaarBenchmarkAndroidTest \
+              --no-daemon --stacktrace
+
+      - name: Upload benchmark output
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: benchmark-output
+          path: |
+            benchmark/build/outputs/
+            benchmark/build/reports/
+          if-no-files-found: ignore
+          retention-days: 14
 
   # ── Security audit (HARD gate now) ──────────────────────────────────
   # The signing keystore + password were previously committed/public and are
@@ -229,12 +480,20 @@ jobs:
           echo "== tracked keystore =="
           K=$(git ls-files | grep -Ei '\.(jks|keystore|p12|pfx)$' || true)
           if [ -n "$K" ]; then echo "::error::A signing keystore is tracked in git: $K"; FAIL=1; else echo "OK: no keystore tracked"; fi
+          # E2 (GATE-FIX): the old expression combined grep -R with a file
+          # argument and required `getenv(...) ?: "literal"` on ONE line filtered
+          # by another grep — it could not match the real file shape, so the gate
+          # was decorative. These two patterns are the actual failure modes:
+          #  · any `getenv(...) ?: "literal"` default, whatever the variable name
+          #  · a quoted literal assigned to a signing credential
           echo "== hardcoded signing password =="
-          if grep -RniE 'system\.getenv\([^)]*\)\s*\?:\s*"[^"]+"' app/build.gradle.kts | grep -qiE 'password|pass|key'; then
-            echo "::error::Hardcoded signing password fallback present"; FAIL=1
-          else
-            echo "OK: no hardcoded password fallback"
+          if grep -nE 'getenv\([^)]*\)[[:space:]]*\?:[[:space:]]*"[^"]+"' app/build.gradle.kts; then
+            echo "::error::Environment credential with a hardcoded literal fallback"; FAIL=1
           fi
+          if grep -nEi '(storePassword|keyPassword|storePass|keyPass)[[:space:]]*=[[:space:]]*"' app/build.gradle.kts; then
+            echo "::error::Hardcoded signing credential"; FAIL=1
+          fi
+          if [ "$FAIL" -eq 0 ]; then echo "OK: no hardcoded password or fallback"; fi
           echo "== private-key literals =="
           if git grep -lEI 'BEGIN (RSA|EC|OPENSSH|PGP) PRIVATE KEY' ; then echo "::error::A private-key literal was found"; FAIL=1; else echo "OK: no private-key literals"; fi
           echo "== large tracked blobs (>500 KB) =="
@@ -304,8 +563,18 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
+      # E3 (LINT-COVERAGE): only one variant was linted, so a problem that shows
+      # up in the play flavor (or in a release-only res/proguard configuration)
+      # could reach the store unseen. Both flavors are linted now; the release
+      # variant additionally checks the R8/ProGuard setup.
       - name: Run lint (bazaar debug)
         run: ./gradlew :app:lintBazaarDebug --no-daemon --stacktrace
+
+      - name: Run lint (play debug)
+        run: ./gradlew :app:lintPlayDebug --no-daemon --stacktrace
+
+      - name: Run lint (bazaar release) — proguard/R8 configuration
+        run: ./gradlew :app:lintBazaarRelease --no-daemon --stacktrace
 
       - name: Upload lint report
         if: always()

@@ -58,8 +58,13 @@ object JobTotals {
 
     fun of(rows: List<HistoryEntry>): Totals {
         val done = rows.filter { it.status == HistoryEntry.STATUS_DONE }
-        val before = done.sumOf { it.inputSize }
-        val after = done.sumOf { it.outputSize }
+        // A6 (SIZE-UNKNOWN-FIX): a row whose output size could not be measured
+        // was stored as 0 bytes, so a batch of unknowable files reported a
+        // 100 % saving that never happened. Only rows with BOTH sizes known
+        // feed the byte maths; they still count as done.
+        val measured = done.filter { it.inputSize > 0 && it.outputSize > 0 }
+        val before = measured.sumOf { it.inputSize }
+        val after = measured.sumOf { it.outputSize }
         return Totals(
             done = done.size,
             total = rows.size,

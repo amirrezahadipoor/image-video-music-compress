@@ -17,7 +17,9 @@ class FormatsTest {
 
     @Test
     fun humanSize_neverNegative() {
-        assertEquals("0 B", Formats.humanSize(-5))
+        // Negative means "unknown" and must not read as a zero-byte file.
+        assertEquals("—", Formats.humanSize(-5))
+        assertEquals("0 B", Formats.humanSize(0))
     }
 
     @Test

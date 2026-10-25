@@ -62,6 +62,7 @@ import com.compressly.ui.components.AdSlot
 import com.compressly.ui.components.EmptyState
 import com.compressly.ui.viewmodels.HistoryViewModel
 import androidx.compose.material3.Checkbox
+import android.widget.Toast
 
 @Composable
 fun HistoryScreen(
@@ -72,8 +73,10 @@ fun HistoryScreen(
     val context = LocalContext.current
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     var showClearDialog by remember { mutableStateOf(false) }
+    var deleteOutputsToo by remember { mutableStateOf(false) }
     var showBulkDeleteDialog by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf<MediaType?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
 
     // Multi-select (bulk delete) mode: long-press a row to enter, tap rows to
@@ -238,17 +241,47 @@ fun HistoryScreen(
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
             title = { Text(stringResource(R.string.history_clear_confirm_title)) },
-            text = { Text(stringResource(R.string.history_clear_confirm_msg)) },
+            // C12 (CLEAR-OUTPUTS): the old dialog always kept the compressed
+            // files and there was no bulk way to remove them. The choice is
+            // explicit now, and the real number removed is reported afterwards.
+            text = {
+                Column {
+                    Text(stringResource(R.string.history_clear_confirm_msg))
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = deleteOutputsToo,
+                            onCheckedChange = { deleteOutputsToo = it }
+                        )
+                        Text(stringResource(R.string.history_also_delete_files))
+                    }
+                }
+            },
             confirmButton = {
                 TextButton(onClick = {
                     showClearDialog = false
-                    viewModel.clear()
+                    if (deleteOutputsToo) {
+                        scope.launch {
+                            val (rows, files) = viewModel.clearAndDeleteOutputs(context)
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.history_cleared_with_files, files, rows),
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    } else {
+                        viewModel.clear()
+                    }
+                    deleteOutputsToo = false
                 }) {
                     Text(stringResource(R.string.history_clear_confirm_yes))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showClearDialog = false }) {
+                TextButton(onClick = {
+                    showClearDialog = false
+                    deleteOutputsToo = false
+                }) {
                     Text(stringResource(R.string.action_cancel))
                 }
             }

@@ -22,6 +22,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.compressly.core.util.Formats
 import androidx.compose.ui.unit.sp
 
 @Composable
@@ -70,7 +71,9 @@ fun ProgressRing(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             if (showPercent) {
                 Text(
-                    text = "${(animated * 100).toInt()}%",
+                    // D12: 42% used Latin digits and no bidi isolation inside an
+                    // RTL progress ring.
+                    text = com.compressly.core.util.Bidi.isolate(Formats.percent(animated.toDouble())),
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Bold,
                     color = onSurface

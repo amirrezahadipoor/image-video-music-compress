@@ -304,7 +304,8 @@ private fun SingleResultContent(
 
         Spacer(Modifier.height(18.dp))
 
-        val reduction = if (entry.inputSize > 0) {
+        // A6: an unmeasured output size is not a 100 % saving.
+        val reduction = if (entry.inputSize > 0 && entry.outputSizeKnown) {
             (1.0 - entry.outputSize.toDouble() / entry.inputSize).coerceIn(0.0, 1.0)
         } else 0.0
         // Count-up: the headline number ticks from 0 to the real saving instead

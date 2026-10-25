@@ -237,7 +237,10 @@ fun HomeScreen(
     }
 
     // ── Folder / album picker (SAF tree) ─────────────────────────────────
-    var folderSnapshot by remember { mutableStateOf<FolderMediaScanner.Snapshot?>(null) }
+    // C8: ViewModel-scoped, so a rotation no longer discards a finished scan
+    // while its confirmation sheet is still open.
+    val folderSnapshot by viewModel.folderSnapshot.collectAsStateWithLifecycle()
+    fun setFolderSnapshot(snapshot: FolderMediaScanner.Snapshot?) = viewModel.setFolderSnapshot(snapshot)
     val folderPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
     ) { tree ->
@@ -268,7 +271,7 @@ fun HomeScreen(
                 if (snap.total == 0) {
                     Toast.makeText(context, msgFolderEmpty, Toast.LENGTH_LONG).show()
                 } else {
-                    folderSnapshot = snap
+                    setFolderSnapshot(snap)
                 }
             }
         }
@@ -276,7 +279,10 @@ fun HomeScreen(
 
     fun pick(type: MediaType) {
         val mimes = when (type) {
-            MediaType.PHOTO -> arrayOf("image/jpeg", "image/png", "image/webp", "image/heic", "image/heif")
+            // D10: the folder scanner also accepts GIFs (they become MP4), so
+            // the picker must offer them too -- otherwise the two entry points
+            // disagreed about what the app can compress.
+            MediaType.PHOTO -> arrayOf("image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/gif")
             MediaType.VIDEO -> arrayOf("video/mp4", "video/quicktime", "video/x-matroska", "video/webm", "video/3gpp")
             MediaType.AUDIO -> arrayOf("audio/mpeg", "audio/wav", "audio/x-wav", "audio/flac", "audio/aac", "audio/mp4", "audio/ogg", "audio/x-m4a")
         }
@@ -399,7 +405,7 @@ fun HomeScreen(
             // Folder scan result: choose what to compress.
             folderSnapshot?.let { snap ->
                 AlertDialog(
-                    onDismissRequest = { folderSnapshot = null },
+                    onDismissRequest = { setFolderSnapshot(null) },
                     title = { Text(stringResource(R.string.folder_title)) },
                     text = {
                         Column {
@@ -422,21 +428,21 @@ fun HomeScreen(
                             if (snap.photos.isNotEmpty()) {
                                 TextButton(onClick = {
                                     val uris = snap.photos.map { it.uri }
-                                    folderSnapshot = null
+                                    setFolderSnapshot(null)
                                     acceptPicked(MediaType.PHOTO, uris)
                                 }) { Text(stringResource(R.string.folder_photos, snap.photos.size)) }
                             }
                             if (snap.videos.isNotEmpty()) {
                                 TextButton(onClick = {
                                     val uris = snap.videos.map { it.uri }
-                                    folderSnapshot = null
+                                    setFolderSnapshot(null)
                                     acceptPicked(MediaType.VIDEO, uris)
                                 }) { Text(stringResource(R.string.folder_videos, snap.videos.size)) }
                             }
                             if (snap.audios.isNotEmpty()) {
                                 TextButton(onClick = {
                                     val uris = snap.audios.map { it.uri }
-                                    folderSnapshot = null
+                                    setFolderSnapshot(null)
                                     acceptPicked(MediaType.AUDIO, uris)
                                 }) { Text(stringResource(R.string.folder_audios, snap.audios.size)) }
                             }
@@ -461,13 +467,13 @@ fun HomeScreen(
                                 val type = if (chosen === snap.videos) MediaType.VIDEO
                                 else if (chosen === snap.audios) MediaType.AUDIO
                                 else MediaType.PHOTO
-                                folderSnapshot = null
+                                setFolderSnapshot(null)
                                 acceptPicked(type, uris)
                             }
                         ) { Text(stringResource(R.string.folder_start)) }
                     },
                     dismissButton = {
-                        TextButton(onClick = { folderSnapshot = null }) {
+                        TextButton(onClick = { setFolderSnapshot(null) }) {
                             Text(stringResource(R.string.action_cancel))
                         }
                     }

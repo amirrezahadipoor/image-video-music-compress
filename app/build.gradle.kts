@@ -158,6 +158,10 @@ android {
             // test down.
             isMinifyEnabled = false
             applicationIdSuffix = ".debug"
+            // E7: a debug install looked identical to the store build (same
+            // versionName), so crash reports and "about" could not tell them
+            // apart.
+            versionNameSuffix = "-debug"
         }
     }
 
@@ -185,9 +189,18 @@ android {
 
     packaging {
         resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-            excludes += "/META-INF/DEPENDENCIES"
-            excludes += "META-INF/LICENSE*"
+            // F3 (LICENCE-IN-APK): META-INF/LICENSE*, AL2.0 and LGPL2.1 used to be
+            // stripped from the APK, which flatly contradicts the LGPL promise the
+            // project makes for jump3r/jaudiotagger ("the licence text is
+            // available"). They are shipped now. Duplicate paths still have to be
+            // resolved, so the first one wins instead of failing the merge.
+            pickFirsts += listOf(
+                "META-INF/LICENSE*",
+                "META-INF/NOTICE*",
+                "/META-INF/AL2.0",
+                "/META-INF/LGPL2.1",
+                "/META-INF/DEPENDENCIES"
+            )
             excludes += "/META-INF/versions/**"
             excludes += "META-INF/*.kotlin_module"
         }

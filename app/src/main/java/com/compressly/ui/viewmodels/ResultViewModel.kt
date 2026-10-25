@@ -84,7 +84,13 @@ class ResultViewModel(container: AppContainer, private val entryId: Long) : View
             .distinct()
         if (uris.isEmpty()) return
         if (uris.size == 1) {
-            share(context, siblings.first { it.status == HistoryEntry.STATUS_DONE })
+            // D7: share the row that OWNS this uri, not merely the first DONE
+            // row (with a failed-then-retried item those are different files).
+            val only = uris.first()
+            val owner = siblings.firstOrNull {
+                it.status == HistoryEntry.STATUS_DONE && it.outputUri == only.toString()
+            } ?: siblings.first { it.status == HistoryEntry.STATUS_DONE }
+            share(context, owner)
             return
         }
         val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
@@ -188,7 +194,11 @@ class ResultViewModel(container: AppContainer, private val entryId: Long) : View
             targets.filter { OutputStore.delete(context, Uri.parse(it.inputUri)) }
         }
         // A row that is really gone must not keep shouting "original retained".
-        removed.forEach { e -> runCatching { repository.update(e.copy(error = null)) } }
+        // D8: only clear the marker when the row actually carries it, so a real
+        // error key is never wiped by a cleanup pass.
+        removed.forEach { e ->
+            if (e.originalRetained) runCatching { repository.update(e.copy(error = null)) }
+        }
         return removed.size
     }
 
@@ -202,6 +212,7 @@ class ResultViewModel(container: AppContainer, private val entryId: Long) : View
             entries.filter { it.originalRetained }.forEach { e ->
                 val uri = runCatching { Uri.parse(e.inputUri) }.getOrNull() ?: return@forEach
                 if (!com.compressly.core.util.Uris.exists(context, uri)) {
+                    // D8: keep a real failure reason; clear only the marker.
                     runCatching { repository.update(e.copy(error = null)) }
                 }
             }

@@ -413,7 +413,7 @@
     <string name="folder_pick_desc">Choose a whole album or folder — every photo, video or audio file inside is compressed in one batch.</string>
     <string name="folder_title">What should be compressed?</string>
     <string name="folder_found">%1$d compressible files found.</string>
-    <string name="folder_truncated">The folder holds more files than can be compressed at once — the largest group was kept (up to 10,000 photos, 10 videos or 50 audio files).</string>
+    <string name="folder_truncated">The folder holds more files than can be compressed at once — the largest group was kept (up to 10,000 photos, 200 videos or 500 audio files).</string>
     <string name="folder_empty">No supported files found in this folder.</string>
     <string name="folder_photos">Photos (%1$d)</string>
     <string name="folder_videos">Videos (%1$d)</string>
@@ -423,4 +423,22 @@
     <string name="share_mixed_skipped">%1$d file(s) of a different media type were skipped — share one type of media at a time.</string>
     <string name="privacy_oss_title">Open-source license notices</string>
     <string name="perm_storage_denied">Without storage permission the compressed file cannot be saved on this Android version. Try again and allow the permission.</string>
+    <string name="error_permission_denied">Access to this file was refused. Grant access and try again.</string>
+    <string name="share_unreadable_skipped">The type of %1$d shared file(s) could not be read and they were skipped.</string>
+    <string name="folder_permission_error">This folder did not grant permanent write access. Pick another folder or keep the default output location.</string>
+    <string name="history_clear_and_delete_files">History + delete compressed files</string>
+    <string name="history_cleared_with_files">%1$d of %2$d compressed files were deleted; the rest could not be removed without a system grant and are still on your device.</string>
+    <string name="progress_cancel_confirm">Stop compressing? Files already finished stay in your history.</string>
+    <string name="history_also_delete_files">Also delete the compressed files</string>
+    <plurals name="result_items_failed">
+        <item quantity="one">%1$d file failed.</item>
+        <item quantity="other">%1$d files failed.</item>
+    </plurals>
+    <string name="notif_timeout_title">Compression hit Android's time limit</string>
+    <string name="notif_timeout_text">Android stops long-running foreground work after six hours in 24. The unfinished job was cancelled — you can start it again.</string>
+    <string name="photo_gif_note">An animated GIF is converted to MP4 and the original is never modified; "replace original" and the no-gain guard do not apply to it.</string>
+    <string name="start_service_failed">Android refused to start the compression service (usually because the app was in the background). Keep the app open and try again.</string>
+    <string name="settings_empty_title">Nothing is selected</string>
+    <string name="settings_empty_body">If Android closed the app in the background, the file selection is gone. Pick the files again from the home screen.</string>
+    <string name="action_go_home">Back to home</string>
 </resources>

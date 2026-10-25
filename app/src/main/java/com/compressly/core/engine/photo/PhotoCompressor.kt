@@ -92,29 +92,34 @@ class PhotoCompressor(private val context: Context) {
             // skies, skin and gradients — so Smart always decodes ARGB_8888 and
             // only explicit manual qualities below 90 may use 565.
             val use565 = lossy && !mayHaveAlpha && !settings.smart && settings.quality < 90
+            // B3 (ORIENTATION-FIX): all eight EXIF orientations get a real
+            // transform. The old code only knew 90/180/270, so a mirrored
+            // source (front camera, scanner) was saved sideways/mirrored while
+            // its EXIF was rewritten to NORMAL -- the original orientation was
+            // gone for good.
+            val transform = exifMatrix(tempSource)
             var bitmap = decodeSampled(tempSource, targetW, targetH, use565, bounds)
 
-            try {
-                if (rotation != 0) {
-                    val m = Matrix().apply { postRotate(rotation.toFloat()) }
-                    val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, m, true)
-                    if (rotated != bitmap) bitmap.recycle()
-                    bitmap = rotated
-                }
-                val finalW = minOf(targetW, bitmap.width)
-                val finalH = minOf(targetH, bitmap.height)
-                if (bitmap.width != finalW || bitmap.height != finalH) {
-                    val scaled = Bitmap.createScaledBitmap(bitmap, finalW, finalH, true)
-                    if (scaled != bitmap) bitmap.recycle()
-                    bitmap = scaled
-                }
-            } catch (e: OutOfMemoryError) {
+            // B2 (OOM-RETRY-FIX): the low-memory path must run the SAME steps as
+            // the happy path. It used to re-decode at half size and then skip
+            // BOTH the orientation and the final clamp, so an OOM device stored
+            // a sideways, half-size photo over the user's file. One helper does
+            // decode -> transform -> clamp for both attempts.
+            bitmap = try {
+                applyTransform(bitmap, transform, targetW, targetH)
+            } catch (oom: OutOfMemoryError) {
                 bitmap.recycle()
-                try {
-                    bitmap = decodeSampled(tempSource, targetW / 2, targetH / 2, use565)
+                val halfW = (targetW / 2).coerceAtLeast(1)
+                val halfH = (targetH / 2).coerceAtLeast(1)
+                // 565 as well: the retry exists because ARGB_8888 did not fit,
+                // and Smart mode used to keep ARGB_8888 here, so the retry did
+                // not actually need less memory.
+                val halved = try {
+                    decodeSampled(tempSource, halfW, halfH, true)
                 } catch (oom2: OutOfMemoryError) {
-                    throw e
+                    throw oom
                 }
+                applyTransform(halved, transform, halfW, halfH)
             }
 
             // JPEG and lossy WebP have no alpha channel, and Android's encoder
@@ -159,7 +164,10 @@ class PhotoCompressor(private val context: Context) {
                 }
                 val effectiveSmart = settings.smart && !isPng
 
-                var encoded = false
+                // B5: an empty ladder would otherwise encode nothing and still
+                // report success; the old `if (!encoded)` guard sat after a loop
+                // that always ran at least once, so it was dead code.
+                if (qualities.isEmpty()) throw PhotoCompressionException(KEY_ENCODE)
                 // PROGRESS-MONOTONIC-FIX: each ladder rung restarts its own
                 // 0..1 encode progress, so without a clamp the bar would jump
                 // backwards (0.90 -> 0.15) on every re-encode. Carry the
@@ -181,12 +189,13 @@ class PhotoCompressor(private val context: Context) {
                             throw PhotoCompressionException(KEY_ENCODE)
                         }
                     }
-                    encoded = true
-                    lastQualityUsed = q
+                    // B5 (QUALITY-REPORT-FIX): PNG's only rung is 0 (lossless),
+                    // and storing that made the summary fall through to a
+                    // meaningless "0% quality" style claim.
+                    if (q > 0) lastQualityUsed = q
                     if (!effectiveSmart) break
                     if (tempOut.length() <= targetBytes) break
                 }
-                if (!encoded) throw PhotoCompressionException(KEY_ENCODE)
 
                 // 7. Metadata.
                 if (settings.preserveMetadata) {
@@ -327,14 +336,58 @@ class PhotoCompressor(private val context: Context) {
 
     // ── EXIF ─────────────────────────────────────────────────────────────────
 
-    private fun exifRotation(file: File): Int {
-        val exif = runCatching { ExifInterface(file.absolutePath) }.getOrNull() ?: return 0
-        return when (exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)) {
-            ExifInterface.ORIENTATION_ROTATE_90  -> 90
-            ExifInterface.ORIENTATION_ROTATE_180 -> 180
-            ExifInterface.ORIENTATION_ROTATE_270 -> 270
-            else -> 0
+    private fun exifOrientation(file: File): Int {
+        val exif = runCatching { ExifInterface(file.absolutePath) }.getOrNull() ?: return ExifInterface.ORIENTATION_NORMAL
+        return exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+    }
+
+    /** Quarter-turn needed for the dimension maths (mirroring never swaps W/H). */
+    private fun exifRotation(file: File): Int = when (exifOrientation(file)) {
+        ExifInterface.ORIENTATION_ROTATE_90  -> 90
+        ExifInterface.ORIENTATION_ROTATE_180 -> 180
+        ExifInterface.ORIENTATION_ROTATE_270 -> 270
+        else -> 0
+    }
+
+    /**
+     * B3 (ORIENTATION-FIX): the full transform for all eight EXIF orientations,
+     * including the four mirrored ones that the old rotation-only code could
+     * not express (FLIP_H/FLIP_V/TRANSPOSE/TRANSVERSE).
+     */
+    private fun exifMatrix(file: File): Matrix = Matrix().apply {
+        when (exifOrientation(file)) {
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> postScale(-1f, 1f)
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> postScale(1f, -1f)
+            // TRANSPOSE = flip along the main diagonal = rotate 90 then mirror.
+            ExifInterface.ORIENTATION_TRANSPOSE -> {
+                postRotate(90f); postScale(-1f, 1f)
+            }
+            // TRANSVERSE = flip along the anti-diagonal = rotate 270 then mirror.
+            ExifInterface.ORIENTATION_TRANSVERSE -> {
+                postRotate(270f); postScale(-1f, 1f)
+            }
+            ExifInterface.ORIENTATION_ROTATE_90 -> postRotate(90f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> postRotate(180f)
+            ExifInterface.ORIENTATION_ROTATE_270 -> postRotate(270f)
         }
+    }
+
+    /** Applies [transform] and clamps to [maxW]x[maxH]; recycles intermediates. */
+    private fun applyTransform(source: Bitmap, transform: Matrix, maxW: Int, maxH: Int): Bitmap {
+        var out = source
+        if (!transform.isIdentity) {
+            val transformed = Bitmap.createBitmap(out, 0, 0, out.width, out.height, transform, true)
+            if (transformed != out) out.recycle()
+            out = transformed
+        }
+        val finalW = minOf(maxW, out.width).coerceAtLeast(1)
+        val finalH = minOf(maxH, out.height).coerceAtLeast(1)
+        if (out.width != finalW || out.height != finalH) {
+            val scaled = Bitmap.createScaledBitmap(out, finalW, finalH, true)
+            if (scaled != out) out.recycle()
+            out = scaled
+        }
+        return out
     }
 
 

@@ -13,7 +13,15 @@ import com.adivery.sdk.AdiveryAdListener
 import ir.siliksama.hajmino.BuildConfig
 
 class AdiveryAdsProvider : AdsProvider {
-    override fun isAvailable(): Boolean = true
+
+    /**
+     * D3: this used to be a hardcoded `true`, so AdSlot always took the
+     * "real banner" branch and rendered an empty AndroidView (no placeholder,
+     * no ad) whenever the ids were not configured. Availability now means the
+     * SDK has ids to work with.
+     */
+    override fun isAvailable(): Boolean =
+        BuildConfig.ADIVERY_APP_ID.isNotBlank() && BuildConfig.ADIVERY_BANNER_ID.isNotBlank()
 
     override fun initialize(app: Application) {
         try {
@@ -37,10 +45,17 @@ class AdiveryAdsProvider : AdsProvider {
         // through the listener below.
         val bannerId = BuildConfig.ADIVERY_BANNER_ID
         if (bannerId.isBlank()) return
+        // D4: the banner view kept its listener/loader alive after the slot left
+        // the composition. Destroy it so a recycled screen does not leak it.
+        val banner = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<AdiveryBannerAdView?>(null) }
+        androidx.compose.runtime.DisposableEffect(Unit) {
+            onDispose { runCatching { banner.value?.destroy() }; banner.value = null }
+        }
         AndroidView(
             modifier = modifier.fillMaxWidth().wrapContentHeight(),
             factory = { context ->
                 AdiveryBannerAdView(context).apply {
+                    banner.value = this
                     setBannerAdListener(object : AdiveryAdListener() {
                         // Override present for interface compatibility; no
                         // logging on the hot path (the old Log.d fired on

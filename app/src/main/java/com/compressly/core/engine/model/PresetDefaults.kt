@@ -138,13 +138,21 @@ object PresetDefaults {
             resolution = d.resolution,
             customWidth = keepFrom?.customWidth ?: 1280,
             customHeight = keepFrom?.customHeight ?: 720,
+            // The level owns the rate; a manual bitrate would override it.
             bitrate = null,
             frameRate = d.frameRate,
             codec = keepFrom?.codec ?: VideoCodec.H264,
             audioMode = d.audioMode,
             trimEnabled = keepFrom?.trimEnabled ?: false,
             trimStartMs = keepFrom?.trimStartMs ?: 0L,
-            trimEndMs = keepFrom?.trimEndMs ?: 0L
+            trimEndMs = keepFrom?.trimEndMs ?: 0L,
+            // B1 (TIER-SWITCH-FIX): the size target and the HDR choice are USER
+            // decisions, not properties of the level. Leaving them out of this
+            // constructor reset them to their defaults on every level change:
+            // a "max 50 MB" target silently disappeared and "do not keep HDR"
+            // silently came back on.
+            sizeTargetMb = keepFrom?.sizeTargetMb,
+            preserveHdr = keepFrom?.preserveHdr ?: true
         )
     }
 

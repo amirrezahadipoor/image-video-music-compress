@@ -52,8 +52,10 @@ object MediaStoreConsent {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return Plan(emptyList(), emptyList())
         val foreign = uris.filter { uri -> isMediaStoreRow(uri) && !isOwned(context, uri) }
         if (foreign.isEmpty()) return Plan(emptyList(), emptyList())
-        val (overwritable, replaceable) = foreign.partition { inPlacePossible(it) }
-        return Plan(write = overwritable, delete = replaceable.distinct())
+        // H1: the split rule now lives in ConsentGate, where a JVM test can
+        // assert it without an Android Uri.
+        val split = ConsentGate.split(foreign) { inPlacePossible(it) }
+        return Plan(write = split.write, delete = split.delete)
     }
 
     /** The rows in [uris] this app may not write to on its own. */

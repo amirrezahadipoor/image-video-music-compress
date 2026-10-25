@@ -6,7 +6,9 @@ import java.util.Locale
 object Formats {
 
     fun humanSize(bytes: Long): String {
-        if (bytes < 0) return "0 B"
+        // D6: a NEGATIVE size means "could not be measured" (the engine stores
+        // -1 for that). Printing "0 B" claimed the file weighs nothing.
+        if (bytes < 0) return "—"
         val value = bytes.toDouble()
         val kb = 1024.0
         val mb = kb * 1024

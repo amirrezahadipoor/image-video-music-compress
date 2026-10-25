@@ -18,13 +18,14 @@ import com.compressly.core.engine.model.MediaType
 object FolderMediaScanner {
 
     /**
-     * Per-type capacity the user asked for in one folder pass: up to 10 videos,
-     * 50 audio files and 10,000 photos. Beyond a type's cap the folder is
-     * reported as truncated (nothing is dropped silently).
+     * Per-type capacity for one folder pass. D9: ten videos (and fifty audio
+     * files) is not what "compress this whole album" means — a phone album
+     * routinely holds dozens of clips. The caps exist to keep a scan bounded,
+     * not to trim a normal library, so they now sit far above one.
      */
-    private const val MAX_PHOTOS = 10_000
-    private const val MAX_VIDEOS = 10
-    private const val MAX_AUDIO = 50
+    const val MAX_PHOTOS = 10_000
+    const val MAX_VIDEOS = 200
+    const val MAX_AUDIO = 500
     private const val MAX_DEPTH = 3
 
     data class Snapshot(

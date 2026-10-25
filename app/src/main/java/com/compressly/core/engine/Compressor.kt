@@ -155,7 +155,12 @@ class Compressor(private val context: Context) {
                 MediaType.AUDIO -> AudioCompressionException(AudioCompressor.KEY_ENCODE)
             }
         }
-        if (item.sizeBytes > 0 && encoded >= (item.sizeBytes * 0.95).toLong()) {
+        // B4 (SIZE-GUARD-FIX): the video path re-measured its input, but photo
+        // and audio kept trusting item.sizeBytes. When that is unknown (a
+        // shared file, a SAF document) the guard switched itself off and an
+        // output BIGGER than the source was published as "compressed".
+        val sourceBytes = item.sizeBytes.takeIf { it > 0 } ?: sizeOf(item.uri)
+        if (sourceBytes > 0 && encoded >= (sourceBytes * 0.95).toLong()) {
             Storage.deleteQuietly(temp)
             return keepOriginal(item, mediaType, onProgress)
         }
@@ -189,12 +194,22 @@ class Compressor(private val context: Context) {
                 // delete grant is needed anywhere. Only when the provider refuses
                 // that does the batch fall back to publish + delete (which the
                 // result screen reports honestly when the delete is refused too).
-                InPlace.RETYPE_THEN_OVERWRITE ->
-                    if (OutputStore.retypeMediaRow(context, item.uri, mime)) {
-                        OutputStore.replaceInPlace(context, item.uri, temp)?.let { replaced ->
+                InPlace.RETYPE_THEN_OVERWRITE -> {
+                    // A2 (RETYPE-ROLLBACK): the row is retyped BEFORE the bytes
+                    // are written. If the write then fails (no space, a
+                    // provider that refuses, a half-granted permission) the
+                    // source would keep a .jpg name over HEIC/PNG bytes -- a
+                    // file the gallery can no longer open. Undo the identity
+                    // change before falling through to publish.
+                    val token = OutputStore.retypeMediaRow(context, item.uri, mime)
+                    if (token != null) {
+                        val replaced = OutputStore.replaceInPlace(context, item.uri, temp)
+                        if (replaced != null) {
                             return EngineOutput(replaced, sizeOf(replaced, encoded), summary, replacedInPlace = true)
                         }
+                        OutputStore.revertRetype(context, token)
                     }
+                }
                 InPlace.PUBLISH -> Unit
             }
         }
@@ -251,7 +266,13 @@ class Compressor(private val context: Context) {
                 "${outMime.removePrefix("image/").uppercase()} (lossless)"
             else -> "$realQuality% quality, ${outMime.removePrefix("image/").uppercase()}"
         }
-        return publishOrKeepOriginal(item, MediaType.PHOTO, temp, outMime, summary, location, outputFolder, replaceOriginal, onProgress)
+        // B10: the video path has always had this try/finally; photo and audio
+        // leaked their temp file whenever publishing threw.
+        try {
+            return publishOrKeepOriginal(item, MediaType.PHOTO, temp, outMime, summary, location, outputFolder, replaceOriginal, onProgress)
+        } finally {
+            Storage.deleteQuietly(temp)
+        }
     }
 
     private suspend fun compressVideo(
@@ -305,7 +326,12 @@ class Compressor(private val context: Context) {
             // Use humanDuration for a proper "0:XX" display for short clips.
             val durationLabel = com.compressly.core.util.Formats.humanDuration(stats.durationMs)
             val summary = "$codecName, $durationLabel"
-            return publishOrKeepOriginal(item, MediaType.VIDEO, temp, "video/mp4", summary, location, outputFolder, replaceOriginal, onProgress)
+            // B7 (CONTAINER-MATCH-FIX): the no-op path copies the source bytes
+            // verbatim, so those bytes are only MP4 when the source was. Naming
+            // an MKV/WebM an .mp4 produced a file the gallery could not open.
+            val outMime = context.contentResolver.getType(item.uri)
+                ?.takeIf { it.startsWith("video/") } ?: "video/mp4"
+            return publishOrKeepOriginal(item, MediaType.VIDEO, temp, outMime, summary, location, outputFolder, replaceOriginal, onProgress)
         } finally {
             Storage.deleteQuietly(temp)
         }
@@ -393,7 +419,11 @@ class Compressor(private val context: Context) {
         val usedKbps = com.compressly.core.engine.audio.AudioPlanner
             .targetBitrateKbps(settings.bitrate, info.audioBitrate)
         val summary = "$formatName $usedKbps kbps"
-        return publishOrKeepOriginal(item, MediaType.AUDIO, temp, outMime, summary, location, outputFolder, replaceOriginal, onProgress)
+        try {
+            return publishOrKeepOriginal(item, MediaType.AUDIO, temp, outMime, summary, location, outputFolder, replaceOriginal, onProgress)
+        } finally {
+            Storage.deleteQuietly(temp)
+        }
     }
 
     private fun sizeOf(uri: Uri): Long =
@@ -408,7 +438,7 @@ class Compressor(private val context: Context) {
     private fun sizeOf(uri: Uri, known: Long): Long =
         if (known > 0) known else runCatching {
             context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length }
-        }.getOrNull() ?: 0L
+        }.getOrNull()?.takeIf { it > 0 } ?: -1L // A6: -1 = unknown, never 0
 }
 
 /**
@@ -422,6 +452,15 @@ class Compressor(private val context: Context) {
  * which is worse than a duplicate the user can still delete.
  */
 internal enum class InPlace { OVERWRITE, RETYPE_THEN_OVERWRITE, PUBLISH }
+
+/**
+ * C1: the OS refused to start the foreground service (Android 12+ background
+ * start restriction, or an OEM policy). Enqueue throws this so the caller tells
+ * the user, instead of leaving a RUNNING job that never runs (C13).
+ */
+class ForegroundServiceUnavailableException : IllegalStateException(
+    "foreground service could not be started"
+)
 
 internal fun decideInPlace(srcMime: String?, outMime: String): InPlace = when {
     srcMime == null -> InPlace.PUBLISH
@@ -437,9 +476,29 @@ fun errorKeyOf(t: Throwable): String = when (t) {
     is VideoCompressionException -> t.key
     is AudioCompressionException -> t.key
     is FileNotFoundException -> "file_not_found"
-    is SecurityException -> "file_not_found"
+    // A5 (ERROR-MAP-FIX): a refused grant is not a missing file. Reporting it
+    // as one sent users looking for a file that was right where they left it.
+    is SecurityException -> "permission_denied"
     is android.media.MediaCodec.CodecException -> "encode_failed"
     is IllegalStateException -> "encode_failed"
-    is IOException -> "output"
+    // A5: a full volume used to surface as a generic write error. The engine
+    // already had a dedicated "no_space" string that nothing ever produced.
+    is IOException -> if (isOutOfSpace(t)) "no_space" else "output"
     else -> "generic"
+}
+
+/** True when [t] (or any cause) is the platform reporting a full volume. */
+private fun isOutOfSpace(t: Throwable): Boolean {
+    var cur: Throwable? = t
+    var depth = 0
+    while (cur != null && depth < 8) {
+        val message = cur.message?.lowercase()
+        if (!message.isNullOrBlank() &&
+            ("enospc" in message || "no space" in message || "space left" in message ||
+                "disk full" in message)
+        ) return true
+        cur = cur.cause
+        depth++
+    }
+    return false
 }

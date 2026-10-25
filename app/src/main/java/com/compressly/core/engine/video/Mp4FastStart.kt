@@ -40,6 +40,18 @@ object Mp4FastStart {
     }
 
     /**
+     * B12 (FASTSTART-NOCOPY): true when [src] already has `moov` before `mdat`,
+     * i.e. remux would only copy the whole file onto itself. The caller used to
+     * pay a full extra copy for every already-streamable video.
+     */
+    fun isAlreadyFastStart(src: File): Boolean = try {
+        val boxes = walk(src)
+        boxes.isNotEmpty() && isFastStart(boxes)
+    } catch (_: Exception) {
+        false
+    }
+
+    /**
      * Rewrites [src] into [dst] with `moov` placed before `mdat`.
      *
      * @return `true` when [dst] is a valid fast-start MP4 (or [src] was already

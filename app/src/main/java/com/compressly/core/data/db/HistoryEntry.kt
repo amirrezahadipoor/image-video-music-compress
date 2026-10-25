@@ -21,7 +21,12 @@ data class HistoryEntry(
     val durationMs: Long
 ) {
     val savedBytes: Long
-        get() = if (status == STATUS_DONE) (inputSize - outputSize).coerceAtLeast(0L) else 0L
+        get() = if (status == STATUS_DONE && inputSize > 0 && outputSize > 0) {
+            (inputSize - outputSize).coerceAtLeast(0L)
+        } else 0L
+
+    /** True when the output size could not be measured (A6: stored as -1). */
+    val outputSizeKnown: Boolean get() = outputSize > 0
 
     /**
      * Not a failure: the file WAS compressed, but the original could not be

@@ -198,7 +198,7 @@ fun AppSettingsScreen(
 
                 Spacer(Modifier.height(24.dp))
 
-                // ---- About ----
+                // ---- Output location (the About text was under this header) ----
                 SectionHeader(stringResource(R.string.settings_section_output))
                 androidx.compose.material3.Surface(
                     modifier = Modifier

@@ -38,6 +38,35 @@ class Mp3WriterTest {
     }
 
     @Test
+    fun vbr_writesAXingHeaderOverFrameZero() {
+        // B6 regression: a VBR file without the LAME/Xing tag decodes with a
+        // wrong duration and cannot seek. The encoder must patch the header in.
+        val dir = java.nio.file.Files.createTempDirectory("mp3tag").toFile()
+        val file = java.io.File(dir, "vbr.mp3")
+        java.io.FileOutputStream(file).use { fos ->
+            val writer = Mp3Writer(
+                sampleRate = 44100,
+                channels = 1,
+                bitrateKbps = 192,
+                vbr = true,
+                out = fos,
+                control = JobControl(),
+                targetFile = file
+            )
+            val pcm = sinePcm(44100, 1.0)
+            runBlocking { writer.writePcm(pcm, pcm.size) }
+            writer.finish()
+            writer.close()
+        }
+        val head = file.readBytes().take(2048).toByteArray()
+        val text = String(head, Charsets.ISO_8859_1)
+        assertTrue("VBR header missing: ${text.take(200)}", text.contains("Xing") || text.contains("Info"))
+        assertTrue("LAME tag missing", text.contains("LAME"))
+        file.delete()
+        dir.delete()
+    }
+
+    @Test
     fun cbr_128kbps_encodesValidMp3() {
         val out = ByteArrayOutputStream()
         val writer = Mp3Writer(

@@ -66,6 +66,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.compressly.CompresslyApp
+import com.compressly.core.data.ConsentGate
 import com.compressly.core.data.MediaStoreConsent
 import com.compressly.core.engine.video.VideoPlanner
 import ir.siliksama.hajmino.R
@@ -136,8 +137,26 @@ fun CompressionSettingsScreen(
         )
     }
 
-    LaunchedEffect(state.ready) {
-        if (!state.ready) onBack()
+    // C7 (NO-AUTO-BACK): a missing selection is not "this screen is finished", it
+    // is "there is nothing to configure" — and it used to be reached on purpose,
+    // because the ViewModel emptied the selection holder the moment it was
+    // created. Silently calling onBack() then looked like the app throwing the
+    // user out mid-flow (and after a process death, straight back to Home with no
+    // explanation). Show a card with an explicit way back instead. The delay only
+    // exists because the selection is read synchronously on init: it stops a
+    // one-frame flash of the empty state during normal navigation.
+    var showEmptyState by remember { mutableStateOf(false) }
+    LaunchedEffect(state.ready, state.items.isEmpty()) {
+        if (state.ready || state.items.isNotEmpty()) {
+            showEmptyState = false
+            return@LaunchedEffect
+        }
+        kotlinx.coroutines.delay(1_500)
+        if (!state.ready && state.items.isEmpty()) showEmptyState = true
+    }
+    if (showEmptyState) {
+        NoSelection(onBack = onBack)
+        return
     }
 
     // Notification permission explainer (Android 13+).
@@ -244,6 +263,9 @@ fun CompressionSettingsScreen(
         // straight to startCompression() and so skipped the replace-consent gate
         // for every job started before notifications were granted -- which, on a
         // fresh install, is the first job.
+        // Answered (granted or refused) -- the job continues either way, and
+        // the question is never asked twice on this screen.
+        notificationPromptAnswered = true
         permissionTick += 1
     }
 
@@ -265,6 +287,13 @@ fun CompressionSettingsScreen(
         }
     }
 
+    // A1 (CONSENT-GATE): once the notification question has been answered --
+    // whichever way -- the flow must never jump straight to startCompression(),
+    // because that skipped the legacy-storage grant and the MediaStore replace
+    // consent. A flag (not a lambda parameter) keeps the state machine stable
+    // across recomposition.
+    var notificationPromptAnswered by remember { mutableStateOf(false) }
+
     fun requestCompression() {
         // Same door for every start path (compress / "compress anyway" /
         // notification-permission return): the legacy grant comes first because
@@ -277,7 +306,7 @@ fun CompressionSettingsScreen(
             legacyStorageLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             return
         }
-        if (Build.VERSION.SDK_INT >= 33 &&
+        if (!notificationPromptAnswered && Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
             showPermissionDialog = true
@@ -303,10 +332,12 @@ fun CompressionSettingsScreen(
             }
             consentWrite = plan.write
             consentDelete = plan.delete
-            when {
-                plan.write.isNotEmpty() -> showConsentDialog = true
-                plan.delete.isNotEmpty() -> launchConsent(ConsentStage.DELETE, plan.delete)
-                else -> finishAfterConsent()
+            // A1/H1: the ordering is decided by ConsentGate (unit-tested), not
+            // by a `when` buried in a Compose lambda.
+            when (ConsentGate.firstStep(plan.write.size, plan.delete.size)) {
+                ConsentGate.Step.WRITE -> showConsentDialog = true
+                ConsentGate.Step.DELETE -> launchConsent(ConsentStage.DELETE, plan.delete)
+                ConsentGate.Step.NONE -> finishAfterConsent()
             }
         }
     }
@@ -318,8 +349,11 @@ fun CompressionSettingsScreen(
         if (consentTick == 0) return@LaunchedEffect
         when (consentOutcome) {
             ConsentStage.WRITE ->
-                if (consentDelete.isEmpty()) finishAfterConsent()
-                else launchConsent(ConsentStage.DELETE, consentDelete)
+                if (ConsentGate.afterWrite(consentDelete.size) == ConsentGate.Step.DELETE) {
+                    launchConsent(ConsentStage.DELETE, consentDelete)
+                } else {
+                    finishAfterConsent()
+                }
             else -> finishAfterConsent()
         }
     }
@@ -617,6 +651,14 @@ fun CompressionSettingsScreen(
         )
     }
 
+    // ---- C1: the foreground service refused to start ----
+    LaunchedEffect(state.serviceStartFailed) {
+        if (state.serviceStartFailed) {
+            Toast.makeText(context, R.string.start_service_failed, Toast.LENGTH_LONG).show()
+            viewModel.dismissServiceStartFailure()
+        }
+    }
+
     // ---- Notification permission explainer ----
     if (showPermissionDialog) {
         AlertDialog(
@@ -634,9 +676,13 @@ fun CompressionSettingsScreen(
             dismissButton = {
                 TextButton(onClick = {
                     showPermissionDialog = false
-                    // Start compression anyway — notification permission is
-                    // optional; the job runs without a visible notification.
-                    startCompression()
+                    // A1 (CONSENT-GATE): "not now" must only skip the
+                    // notification question. It used to call startCompression()
+                    // directly, which bypassed the legacy WRITE grant (a hard
+                    // failure on Android 8/9) and the MediaStore replace
+                    // consent (originals silently kept).
+                    notificationPromptAnswered = true
+                    requestCompression()
                 }) {
                     Text(stringResource(R.string.action_not_now))
                 }
@@ -646,6 +692,35 @@ fun CompressionSettingsScreen(
 }
 
 // ---------------------------------------------------------------------
+
+/**
+ * C7: what the settings screen shows when there is nothing selected (process
+ * death, or any entry point that arrives without a selection). It says what
+ * happened and gives one button; it never navigates on its own.
+ */
+@Composable
+private fun NoSelection(onBack: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = stringResource(R.string.settings_empty_title),
+            style = MaterialTheme.typography.titleMedium
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = stringResource(R.string.settings_empty_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(20.dp))
+        Button(onClick = onBack) { Text(stringResource(R.string.action_go_home)) }
+    }
+}
 
 @Composable
 private fun PhotoPreviewCard(
@@ -981,10 +1056,24 @@ private fun VideoAdvanced(
             color = MaterialTheme.colorScheme.error
         )
     }
-    // h265FellBack: the requested codec was swapped to H.264 at build time
-    // because this device has no encoder for it — tell the user plainly
-    // instead of letting them assume their H.265/AV1 choice was honoured.
-    if (state.h265FellBack) {
+    // The requested codec is swapped to H.264 at build time when this device has
+    // no encoder for it — the warning below says so plainly (C5).
+    // B13: animated GIFs take the GIF->MP4 path, which never modifies the
+    // source and deliberately skips the "no gain" guard. Say it instead of
+    // letting the replace-original switch look broken.
+    if (state.hasGif) {
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = stringResource(R.string.photo_gif_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+    // C5: derived, so it can never stay stuck on after the user switches to an
+    // encoder this device really has.
+    val codecWillFallBack = (state.video.codec == VideoCodec.H265 && !state.h265Available) ||
+        (state.video.codec == VideoCodec.AV1 && !state.av1Available)
+    if (codecWillFallBack) {
         Spacer(Modifier.height(6.dp))
         Text(
             text = stringResource(R.string.video_codec_fell_back),
@@ -1217,22 +1306,29 @@ private fun OutputLocationSelector(
     viewModel: SettingsViewModel
 ) {
     val context = LocalContext.current
-    var folderName by remember { mutableStateOf<String?>(null) }
+    val folderName = state.outputFolderName
     val folderPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
     ) { tree ->
         if (tree != null) {
-            runCatching {
+            // A8 (PERSIST-RESULT): the result of takePersistableUriPermission
+            // was thrown away. A provider that grants nothing leaves the folder
+            // usable for THIS job only -- the next job silently fell back to the
+            // default folder. Ask again instead of pretending it worked.
+            val persisted = runCatching {
                 context.contentResolver.takePersistableUriPermission(
                     tree,
                     android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
                         android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 )
+                true
+            }.getOrDefault(false)
+            if (!persisted) {
+                Toast.makeText(context, R.string.folder_permission_error, Toast.LENGTH_LONG).show()
+                return@rememberLauncherForActivityResult
             }
-            val name = runCatching {
-                androidx.documentfile.provider.DocumentFile.fromTreeUri(context, tree)?.name
-            }.getOrNull()
-            folderName = name
+            // D2: the display name is derived from the tree URI (kept in state)
+            // instead of a composable-local remember that died on rotation.
             viewModel.setOutputFolder(tree.toString())
         }
     }
@@ -1254,7 +1350,19 @@ private fun OutputLocationSelector(
                 }
             )
         },
-        onSelect = { loc -> viewModel.setOutputLocation(loc) }
+        onSelect = { loc ->
+            // D1 (CUSTOM-NEEDS-FOLDER): picking "custom folder" without a tree
+            // left the job writing to the default folder while the chip said
+            // otherwise. Ask for the folder right away; the location only moves
+            // to CUSTOM once a tree is actually granted.
+            if (loc == com.compressly.core.engine.model.OutputLocation.CUSTOM &&
+                state.outputFolder == null
+            ) {
+                folderPicker.launch(null)
+            } else {
+                viewModel.setOutputLocation(loc)
+            }
+        }
     )
     if (location != com.compressly.core.engine.model.OutputLocation.DEFAULT) {
         Spacer(Modifier.height(8.dp))

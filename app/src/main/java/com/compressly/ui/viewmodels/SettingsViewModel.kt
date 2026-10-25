@@ -63,7 +63,6 @@ class SettingsViewModel(private val container: AppContainer, private val context
         val estimatedSize: Long = 0L,
         val h265Available: Boolean = true,
         val av1Available: Boolean = false,
-        val h265FellBack: Boolean = false,
         val preview: PreviewState = PreviewState.Idle,
         val waveform: List<Float> = emptyList(),
         val ready: Boolean = false,
@@ -78,7 +77,24 @@ class SettingsViewModel(private val container: AppContainer, private val context
         val outputLocation: com.compressly.core.engine.model.OutputLocation =
             com.compressly.core.engine.model.OutputLocation.DEFAULT,
         /** Per-job custom folder (SAF tree URI) used when outputLocation == CUSTOM. */
-        val outputFolder: String? = null
+        val outputFolder: String? = null,
+        /**
+         * D2: the folder's display name, derived once from [outputFolder] and
+         * kept in state. It used to live in a `remember` inside the composable,
+         * so a rotation (or any recreation) lost the name while the folder
+         * itself stayed selected.
+         */
+        val outputFolderName: String? = null,
+        /** C6: the user picked SMART explicitly; analysis must not override it. */
+        val userChoseSmart: Boolean = false,
+        /**
+         * B13: the selection contains an animated GIF. GIFs are converted to
+         * MP4 on a dedicated path that never touches the source and ignores the
+         * "no gain" guard, so the replace-original switch does not apply to them.
+         */
+        val hasGif: Boolean = false,
+        /** C1: the OS refused to start the foreground service; the job never ran. */
+        val serviceStartFailed: Boolean = false
     )
 
     sealed class PreviewState {
@@ -92,7 +108,18 @@ class SettingsViewModel(private val container: AppContainer, private val context
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     private var previewJob: Job? = null
+    /**
+     * B8: the photo engine runs under its OWN [JobControl], so cancelling the
+     * coroutine never stopped it — an obsolete decode kept running to the end and
+     * then overwrote the preview with a picture of the PREVIOUS settings.
+     */
+    private var previewControl: JobControl? = null
     private var lastPreviewFile: File? = null
+    /**
+     * D13: source MIME per item, resolved once on IO. refreshEstimate used to
+     * call contentResolver.getType() on the main thread for every slider tick.
+     */
+    private var mimeByItem: Map<Long, String?> = emptyMap()
     /**
      * BATCH-ESTIMATE-FIX: probed info for the first up-to-three files of the
      * batch (in item order). The headline batch estimate is the AVERAGE of
@@ -106,11 +133,12 @@ class SettingsViewModel(private val container: AppContainer, private val context
 
     init {
         // Atomically consume the selection to avoid losing it on fast config changes.
-        var selection: Selection? = null
-        container.selection.selection.value?.let { sel ->
-            selection = sel
-            container.selection.set(null)
-        }
+        // C7 (SELECTION-LIFETIME): the holder was emptied the moment this
+        // ViewModel was created, so a process death while the user was still
+        // choosing settings came back to an empty screen (and Home). The
+        // selection is now cleared only when a job really starts, which also
+        // keeps rotation/process recreation working.
+        val selection: Selection? = container.selection.selection.value
         if (selection != null) {
             val sel = selection!!
             _state.update { it.copy(mediaType = sel.mediaType, items = sel.items, ready = true) }
@@ -146,6 +174,11 @@ class SettingsViewModel(private val container: AppContainer, private val context
             }
             val originalSize = first.sizeBytes.takeIf { it > 0 }
                 ?: withContext(Dispatchers.IO) { Uris.sizeOf(context, first.uri) }
+            // D13/B13: one IO pass over the selection resolves MIME types (the
+            // estimator needs one per file and GIFs need a warning in the UI).
+            mimeByItem = withContext(Dispatchers.IO) {
+                s.items.associate { it.itemId to runCatching { context.contentResolver.getType(it.uri) }.getOrNull() }
+            }
             // Probe the next two files too (still on IO) for the batch
             // average. The first file stays the one the grade advice and the
             // per-grade picker prices.
@@ -163,7 +196,11 @@ class SettingsViewModel(private val container: AppContainer, private val context
                     info = info,
                     originalSize = originalSize,
                     h265Available = CodecSupport.hasEncoder("video/hevc"),
-                    av1Available = CodecSupport.hasEncoder("video/av01")
+                    av1Available = CodecSupport.hasEncoder("video/av01"),
+                    // B13: a GIF is converted to MP4 on a different path where
+                    // "replace original" and the no-gain guard deliberately do
+                    // not apply — the screen says so.
+                    hasGif = mimeByItem.values.any { it == "image/gif" }
                 )
             }
             // ANALYSIS-FIX: videos get a content probe before the numbers are
@@ -218,6 +255,9 @@ class SettingsViewModel(private val container: AppContainer, private val context
 
     fun selectPreset(preset: CompressionPreset) {
         userPickedGrade = true
+        // C6: an explicit Smart pick is a decision, not the default — the
+        // content analysis must not overwrite it with a fixed tier afterwards.
+        _state.update { it.copy(userChoseSmart = preset == CompressionPreset.SMART) }
         applyPreset(preset)
     }
 
@@ -341,7 +381,11 @@ class SettingsViewModel(private val container: AppContainer, private val context
         }
         val mime = runCatching { context.contentResolver.getType(uri) }.getOrNull()
         val snap = GradeAdvisor.advise(_state.value.mediaType, info, originalSize, mime)
-        val shouldSuggest = !userPickedGrade && _state.value.preset == CompressionPreset.SMART
+        // C6 (SMART-CHOICE-FIX): Smart is the DEFAULT, so "preset == SMART" was
+        // read as "the user has not decided yet" and the analysis silently
+        // replaced a deliberate Smart choice with a fixed tier.
+        val shouldSuggest = !userPickedGrade && !_state.value.userChoseSmart &&
+            _state.value.preset == CompressionPreset.SMART
         _state.update {
             it.copy(
                 analyzing = false,
@@ -364,7 +408,9 @@ class SettingsViewModel(private val container: AppContainer, private val context
             else item.sizeBytes.takeIf { it > 0 } ?: return null
             return when (s.mediaType) {
                 MediaType.PHOTO -> SizeEstimator.estimatePhoto(
-                    context.contentResolver.getType(item.uri),
+                    // D13: resolved on IO in loadMetadata, never a binder call
+                    // from the slider's main-thread path.
+                    mimeByItem[item.itemId],
                     fileInfo.effectiveWidth, fileInfo.effectiveHeight, size, s.photo
                 )
                 MediaType.VIDEO -> SizeEstimator.estimateVideo(fileInfo, s.video, s.preset)
@@ -393,12 +439,15 @@ class SettingsViewModel(private val container: AppContainer, private val context
         val s = _state.value
         if (s.mediaType != MediaType.PHOTO || s.items.size != 1) return
         previewJob?.cancel()
+        // B8: cancel the ENGINE too, not just the coroutine that waits for it.
+        previewControl?.cancel()
+        previewControl = null
         val item = s.items.first()
         val settings = s.photo
         previewJob = viewModelScope.launch {
             _state.update { it.copy(preview = PreviewState.Generating) }
             delay(300) // debounce slider/setting changes
-            val control = JobControl()
+            val control = JobControl().also { previewControl = it }
             try {
                 // Preview renders at a capped size for speed; quality/format
                 // settings still apply, so the visual trade-off is faithful.
@@ -409,6 +458,13 @@ class SettingsViewModel(private val container: AppContainer, private val context
                 val mime = context.contentResolver.getType(item.uri)
                 val beforeUri = item.uri
                 val file = PhotoCompressor(context).compress(beforeUri, mime, previewSettings, control) { }
+                // B8: if a newer preview started while this one was encoding,
+                // this result belongs to settings the user has already moved on
+                // from — drop it instead of showing a stale picture.
+                if (!isActive) {
+                    runCatching { file.delete() }
+                    return@launch
+                }
                 lastPreviewFile?.delete()
                 lastPreviewFile = file
                 _state.update {
@@ -454,10 +510,26 @@ class SettingsViewModel(private val container: AppContainer, private val context
         // with its nav entry (a new selection starts unlocked).
         _state.update { it.copy(startingJob = true) }
         val jobId = runCatching { container.jobCoordinator.enqueue(s.mediaType, s.items, settings) }
-            .onFailure { android.util.Log.e("SettingsViewModel", "enqueue failed", it) }
+            .onFailure { error ->
+                android.util.Log.e("SettingsViewModel", "enqueue failed", error)
+                // C1: a foreground service the OS refused to start used to look
+                // exactly like a dead button. Tell the screen so it can say so.
+                if (error is com.compressly.core.engine.ForegroundServiceUnavailableException) {
+                    _state.update { it.copy(serviceStartFailed = true) }
+                }
+            }
             .getOrNull()
-        if (jobId == null) _state.update { it.copy(startingJob = false) }
+        if (jobId == null) {
+            _state.update { it.copy(startingJob = false) }
+        } else {
+            // C7: the files are now owned by the job — nothing left to restore.
+            container.selection.set(null)
+        }
         return jobId
+    }
+
+    fun dismissServiceStartFailure() {
+        _state.update { it.copy(serviceStartFailed = false) }
     }
 
     fun dismissLowSpaceWarning() {
@@ -472,9 +544,20 @@ class SettingsViewModel(private val container: AppContainer, private val context
         val settings = buildSettings(s)
         _state.update { it.copy(startingJob = true) }
         val jobId = runCatching { container.jobCoordinator.enqueue(s.mediaType, s.items, settings) }
-            .onFailure { android.util.Log.e("SettingsViewModel", "enqueue failed", it) }
+            .onFailure { error ->
+                android.util.Log.e("SettingsViewModel", "enqueue failed", error)
+                // C1: a foreground service the OS refused to start used to look
+                // exactly like a dead button. Tell the screen so it can say so.
+                if (error is com.compressly.core.engine.ForegroundServiceUnavailableException) {
+                    _state.update { it.copy(serviceStartFailed = true) }
+                }
+            }
             .getOrNull()
-        if (jobId == null) _state.update { it.copy(startingJob = false) }
+        if (jobId == null) {
+            _state.update { it.copy(startingJob = false) }
+        } else {
+            container.selection.set(null)
+        }
         return jobId
     }
 
@@ -491,19 +574,17 @@ class SettingsViewModel(private val container: AppContainer, private val context
             // to H.264 rather than failing the whole job. h265FellBack is set so
             // the UI can tell the user the requested H.265 was not used — it was
             // a dead state field before.
+            // C5 (FELLBACK-MSG-FIX): this decision used to *write state* while
+            // building settings, and nothing ever cleared the flag when the user
+            // picked an encoder the device does have. It is a pure choice now;
+            // the screen derives the warning from the requested codec.
+            val requested = s.video.codec
             val codec = when {
-                !s.h265Available && s.video.codec == com.compressly.core.engine.model.VideoCodec.H265 -> {
-                    _state.update { it.copy(h265FellBack = true) }
+                !s.h265Available && requested == com.compressly.core.engine.model.VideoCodec.H265 ->
                     com.compressly.core.engine.model.VideoCodec.H264
-                }
-                !s.av1Available && s.video.codec == com.compressly.core.engine.model.VideoCodec.AV1 -> {
-                    _state.update { it.copy(h265FellBack = true) }
+                !s.av1Available && requested == com.compressly.core.engine.model.VideoCodec.AV1 ->
                     com.compressly.core.engine.model.VideoCodec.H264
-                }
-                else -> {
-                    _state.update { it.copy(h265FellBack = false) }
-                    s.video.codec
-                }
+                else -> requested
             }
             CompressionSettings.Video(
                 s.video.copy(codec = codec),
@@ -543,11 +624,29 @@ class SettingsViewModel(private val container: AppContainer, private val context
 
     /** OUTPUT-LOCATION: set the per-job custom folder (SAF tree URI). */
     fun setOutputFolder(uri: String?) {
-        _state.update { it.copy(outputFolder = uri, outputLocation = com.compressly.core.engine.model.OutputLocation.CUSTOM) }
+        _state.update {
+            it.copy(
+                outputFolder = uri,
+                outputFolderName = null,
+                outputLocation = com.compressly.core.engine.model.OutputLocation.CUSTOM
+            )
+        }
+        if (uri == null) return
+        // Deriving the name opens the SAF provider — pure I/O, never on main.
+        viewModelScope.launch {
+            val name = withContext(Dispatchers.IO) {
+                runCatching {
+                    androidx.documentfile.provider.DocumentFile
+                        .fromTreeUri(context, android.net.Uri.parse(uri))?.name
+                }.getOrNull()?.takeIf { it.isNotBlank() }
+            }
+            _state.update { if (it.outputFolder == uri) it.copy(outputFolderName = name) else it }
+        }
     }
 
     override fun onCleared() {
         previewJob?.cancel()
+        previewControl?.cancel()
         lastPreviewFile?.delete()
         super.onCleared()
     }

@@ -61,7 +61,7 @@
     <string name="settings_original_size">حجم اصلی</string>
     <string name="settings_output_format">فرمت خروجی</string>
     <string name="settings_quality">کیفیت</string>
-    <string name="settings_quality_value">%1$d٪</string>
+    <string name="settings_quality_value">%1$d%%</string>
     <string name="settings_metadata">متادیتا (EXIF / ID3)</string>
     <string name="settings_metadata_preserve_desc">اطلاعات دوربین، برچسب‌ها، جهت و مختصات GPS عکس حفظ می‌شود — برای فایلی که قصد ارسالش را دارید، حذف را انتخاب کنید.</string>
     <string name="settings_metadata_strip_desc">جزئیات مکان و دوربین حذف می‌شود. فایل سبک‌تر.</string>
@@ -131,9 +131,9 @@
     <string name="video_codec_h264">H.264 (AVC)</string>
     <string name="video_codec_h264_desc">روی همه دستگاه‌ها پخش می‌شود. حجم بیشتر.</string>
     <string name="video_codec_h265">H.265 (HEVC)</string>
-    <string name="video_codec_h265_desc">تا ۴۰٪ کوچک‌تر با کیفیت یکسان. فقط دستگاه‌های جدیدتر.</string>
+    <string name="video_codec_h265_desc" formatted="false">تا ۴۰% کوچک‌تر با کیفیت یکسان. فقط دستگاه‌های جدیدتر.</string>
     <string name="video_codec_av1">AV1</string>
-    <string name="video_codec_av1_desc">مقرون‌به‌صرفه‌ترین کدک؛ تا ~۵۰٪ کوچک‌تر از H.264. پشتیبانی محدودتر.</string>
+    <string name="video_codec_av1_desc" formatted="false">مقرون‌به‌صرفه‌ترین کدک؛ تا ~۵۰% کوچک‌تر از H.264. پشتیبانی محدودتر.</string>
     <string name="video_codec_unavailable">رمزگذار H.265 روی این دستگاه موجود نیست. از H.264 استفاده می‌شود.</string>
     <string name="video_codec_av1_unavailable">رمزگذار AV1 روی این دستگاه موجود نیست. از H.264 استفاده می‌شود.</string>
     <string name="video_codec_fell_back">کدک انتخابی در این دستگاه موجود نبود و به H.264 برگردانده شد.</string>
@@ -183,7 +183,7 @@
     <string name="progress_elapsed">گذشت %1$s</string>
     <string name="progress_stopped_by_user">لغو شد</string>
     <string name="progress_will_keep_running">فشرده‌سازی در پس‌زمینه ادامه می‌یابد و می‌توانید این صفحه را ترک کنید؛ اما اگر فشرده‌سازی را از لیست برنامه‌های اخیر حذف کنید یا برنامه را به‌طور کامل ببندید، عملیات متوقف می‌شود.</string>
-    <string name="progress_percent">%1$d٪</string>
+    <string name="progress_percent">%1$d%%</string>
 
     <!-- Result -->
     <string name="result_title_success">انجام شد!</string>
@@ -256,7 +256,7 @@
     <string name="default_metadata">روش برخورد با متادیتا</string>
     <string name="default_metadata_desc">برای عکس‌ها و فایل‌های صوتی اعمال می‌شود.</string>
     <string name="settings_section_about">درباره</string>
-    <string name="about_offline_title">۱۰۰٪ آفلاین</string>
+    <string name="about_offline_title" formatted="false">۱۰۰% آفلاین</string>
     <string name="about_offline_desc">همه فشرده‌سازی‌ها روی دستگاه شما انجام می‌شود. بدون حساب کاربری، بدون آپلود، بدون نیاز به اینترنت.</string>
     <string name="about_version">نسخه %1$s</string>
     <string name="about_build">ساخته‌شده با کاتلین و جت‌پک کامپوز</string>
@@ -355,7 +355,7 @@
     <string name="onboard_title_3">فشرده‌سازی صدا</string>
     <string name="onboard_body_3">MP3، AAC، FLAC، OGG و WAV پشتیبانی می‌شود. برچسب‌های ID3 و کاور آلبوم حفظ می‌شود.</string>
     <string name="onboard_title_4">حالت هوشمند</string>
-    <string name="onboard_body_4">حالت هوشمند به طور خودکار بهترین تعادل کیفیت و حجم را انتخاب می‌کند — همیشه بیش از ۷۰٪ کیفیت حفظ می‌شود.</string>
+    <string name="onboard_body_4" formatted="false">حالت هوشمند به طور خودکار بهترین تعادل کیفیت و حجم را انتخاب می‌کند — همیشه بیش از ۷۰% کیفیت حفظ می‌شود.</string>
     <string name="onboard_next">بعدی</string>
     <string name="onboard_start">شروع کنید!</string>
 
@@ -419,7 +419,7 @@
     <string name="folder_pick_desc">کل یک آلبوم یا پوشه را انتخاب کنید؛ همهی عکسها، ویدیوها یا صداهای داخل آن یکجا فشرده میشوند.</string>
     <string name="folder_title">چه چیزی فشرده شود؟</string>
     <string name="folder_found">%1$d فایل قابل فشردهسازی پیدا شد.</string>
-    <string name="folder_truncated">تعداد فایلها بیشتر از حد فشردهسازی همزمان بود؛ بزرگترین گروه حفظ شد (تا ۱۰٬۰۰۰ عکس، ۱۰ ویدیو یا ۵۰ فایل صوتی).</string>
+    <string name="folder_truncated">تعداد فایلها بیشتر از حد فشردهسازی همزمان بود؛ بزرگترین گروه حفظ شد (تا ۱۰٬۰۰۰ عکس، ۲۰۰ ویدیو یا ۵۰۰ فایل صوتی).</string>
     <string name="folder_empty">در این پوشه فایل پشتیبانیپذیری پیدا نشد.</string>
     <string name="folder_photos">عکسها (%1$d)</string>
     <string name="folder_videos">ویدیوها (%1$d)</string>
@@ -428,4 +428,22 @@
     <string name="share_mixed_skipped">‏%1$d فایل از نوع رسانهٔ دیگری نادیده گرفته شد؛ هر بار فقط یک نوع رسانه را بفرستید.</string>
     <string name="privacy_oss_title">پروانه‌های مؤلفان اجزای متن‌باز</string>
     <string name="perm_storage_denied">‏بدون اجازهٔ نوشتن در حافظه، فایل فشرده‌شده روی این نسخهٔ اندروید قابل ذخیره نیست. دوباره تلاش کنید و اجازه را تأیید کنید.</string>
+    <string name="error_permission_denied">دسترسی به این فایل داده نشد. لطفاً اجازهٔ دسترسی را تأیید کنید و دوباره تلاش کنید.</string>
+    <string name="share_unreadable_skipped">نوع %1$d فایل از فایل‌های اشتراک‌گذاشته‌شده خوانده نشد و نادیده گرفته شد.</string>
+    <string name="folder_permission_error">این پوشه اجازهٔ دائمی برای نوشتن نداد. پوشهٔ دیگری انتخاب کنید یا خروجی را در محل پیش‌فرض نگه دارید.</string>
+    <string name="history_clear_and_delete_files">تاریخچه + حذف فایل‌های ساخته‌شده</string>
+    <string name="history_cleared_with_files">%1$d فایل از %2$d ردیف حذف شد؛ بقیه بدون اجازهٔ سیستم قابل حذف نبودند و روی دستگاه ماندند.</string>
+    <string name="progress_cancel_confirm">فشرده‌سازی متوقف شود؟ فایل‌های تمام‌شده در تاریخچه می‌مانند.</string>
+    <string name="history_also_delete_files">فایل‌های فشرده‌شدهٔ ساخته‌شده هم حذف شوند</string>
+    <plurals name="result_items_failed">
+        <item quantity="one">%1$d فایل ناموفق بود.</item>
+        <item quantity="other">%1$d فایل ناموفق بود.</item>
+    </plurals>
+    <string name="notif_timeout_title">فشرده‌سازی به سقف زمانی اندروید رسید</string>
+    <string name="notif_timeout_text">اندروید اجرای کارهای طولانی را پس از ۶ ساعت در ۲۴ ساعت متوقف می‌کند. کار نیمه‌کاره لغو شد؛ می‌توانید دوباره شروع کنید.</string>
+    <string name="photo_gif_note">GIF متحرک به MP4 تبدیل می‌شود و فایل اصلی هرگز تغییر نمی‌کند؛ «جایگزینی اصلی» و گارد «بدون سود» برای آن اعمال نمی‌شود.</string>
+    <string name="start_service_failed">اندروید اجازهٔ شروع سرویس فشرده‌سازی را نداد (معمولاً وقتی برنامه در پس‌زمینه است). برنامه را باز نگه دارید و دوباره تلاش کنید.</string>
+    <string name="settings_empty_title">فایلی انتخاب نشده است</string>
+    <string name="settings_empty_body">اگر برنامه توسط اندروید بسته شده بود، انتخاب فایل‌ها از دست رفته است. فایل‌ها را دوباره از صفحهٔ اصلی انتخاب کنید.</string>
+    <string name="action_go_home">بازگشت به خانه</string>
 </resources>

@@ -5,20 +5,30 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 
 /**
- * Scheduling policy for parallel photo batches.
+ * Scheduling policy for photo batches.
  *
- * The parallel engine runs up to [MAX_PHOTOS_IN_FLIGHT] photos at once, but
- * two huge decodes must never be in flight together: PhotoCompressor clamps
- * a single decode at 4096 px (~67 MB ARGB_8888), and with its rotation copy
- * one item peaks at ~134 MB — two of them at ~270 MB, which can exceed the
- * heap of the 2 GB / 256 MB class still common on Android 8-9. Sources that
- * are big enough to hit that clamp (or that cannot be probed) therefore run
- * one at a time; ordinary 12 MP photos keep the requested 2-way parallelism.
+ * The engine processes up to [MAX_PHOTOS_IN_FLIGHT] files at once (the product
+ * target; the budget itself lives in `EngineGate` so that two jobs cannot each
+ * take a full share). Five *ordinary* photos are safe: a 12 MP decode is a few
+ * MB of pixels once sampled down.
+ *
+ * What is not safe is five *huge* decodes. PhotoCompressor clamps a single
+ * decode at 4096 px (~67 MB ARGB_8888), and with its rotation copy one item
+ * peaks at ~134 MB — five of those would be ~670 MB. A source that can hit
+ * that clamp (or that cannot be probed at all) therefore asks for the WHOLE
+ * budget and runs alone, and the 2 GB / 192 MB heap class drops ordinary
+ * batches to two at a time.
  */
 object PhotoBatch {
 
-    /** Ordinary photos (e.g. 12 MP) stay fully parallel. */
-    const val MAX_PHOTOS_IN_FLIGHT = 2
+    /** How many ordinary photos run at once (== the global budget). */
+    const val MAX_PHOTOS_IN_FLIGHT = com.compressly.core.service.EngineGate.MAX_CONCURRENT_ITEMS
+
+    /** Slope taken by one heavy decode: the whole budget, i.e. run alone. */
+    const val HEAVY_WEIGHT = com.compressly.core.service.EngineGate.MAX_CONCURRENT_ITEMS
+
+    /** On a low-memory phone with a big batch: at most two at a time. */
+    const val LOW_MEMORY_WEIGHT = 2
 
     /**
      * A source larger than ~16 MP will decode at the 4096 px clamp and should
@@ -27,25 +37,28 @@ object PhotoBatch {
     const val MAX_PIXELS_FOR_PARALLEL = 16_000_000L
 
     /**
-     * Slot count for a photo batch. `null` counts (unprobeable source) are
-     * treated conservatively as "too big" — correct is preferred over fast.
+     * How much of the global budget ONE photo takes.
      *
-     * MEM-BOUND-FIX: on the 2 GB / 192 MB heap class still common on Android
-     * 8-9, a big batch (>= [LARGE_BATCH_ITEMS] photos) runs one at a time:
-     * two 4096 px decodes with their rotation copies peak ~270 MB of native
-     * bitmap memory, and a 200-photo batch also accumulates ImageLoader/Coil
-     * caches and history writes. Dropping to one slot keeps peak memory flat
-     * and provably inside the budget; ordinary batches keep 2-way parallelism.
+     * `null` pixel counts (unprobeable source) are treated conservatively as
+     * "too big" — correct is preferred over fast.
      */
-    fun concurrencyFor(
-        pixelCounts: List<Long?>,
-        memoryClassMb: Int? = null,
-        batchSize: Int = pixelCounts.size
-    ): Int {
-        if (pixelCounts.any { it == null || it >= MAX_PIXELS_FOR_PARALLEL }) return 1
-        if (memoryClassMb != null && memoryClassMb <= LOW_MEMORY_CLASS_MB && batchSize >= LARGE_BATCH_ITEMS) return 1
-        return MAX_PHOTOS_IN_FLIGHT
+    fun weightFor(pixelCount: Long?, lowMemoryLargeBatch: Boolean = false): Int = when {
+        pixelCount == null || pixelCount >= MAX_PIXELS_FOR_PARALLEL -> HEAVY_WEIGHT
+        lowMemoryLargeBatch -> LOW_MEMORY_WEIGHT
+        else -> 1
     }
+
+    /**
+     * MEM-BOUND: on the 2 GB / 192 MB heap class still common on Android 8-9, a
+     * big batch (>= [LARGE_BATCH_ITEMS] photos) also accumulates ImageLoader/Coil
+     * caches and history writes on top of the bitmaps, so it runs two at a time.
+     */
+    fun isLowMemoryLargeBatch(memoryClassMb: Int?, batchSize: Int): Boolean =
+        memoryClassMb != null && memoryClassMb <= LOW_MEMORY_CLASS_MB && batchSize >= LARGE_BATCH_ITEMS
+
+    /** How many items a weight lets through at once (for docs and tests). */
+    fun activeAtOnce(weight: Int): Int =
+        (MAX_PHOTOS_IN_FLIGHT / weight.coerceAtLeast(1)).coerceAtLeast(1)
 
     /** Heap class (ActivityManager.getMemoryClass) at or below this value is "low memory". */
     const val LOW_MEMORY_CLASS_MB = 192
@@ -54,10 +67,10 @@ object PhotoBatch {
     const val LARGE_BATCH_ITEMS = 100
 
     /**
-     * Heaviest first, stable: the two long-running photos land in the
-     * parallel slots at the start instead of queueing behind small ones, so
-     * the batch drains smoothly instead of stalling on a huge tail. Ties keep
-     * their original order.
+     * Heaviest first, stable: the long-running files land in the parallel slots
+     * at the start instead of queueing behind small ones, so the batch drains
+     * smoothly instead of stalling on a huge tail. Ties keep their original
+     * order.
      */
     fun <T> heaviestFirst(items: List<T>, sizeOf: (T) -> Long): List<T> {
         if (items.size < 2) return items

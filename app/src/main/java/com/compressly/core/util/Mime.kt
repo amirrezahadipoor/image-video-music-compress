@@ -106,10 +106,23 @@ object Uris {
      * convinces the UI that a user's file has been deleted.
      */
     fun exists(context: Context, uri: Uri): Boolean = runCatching {
-        context.contentResolver
-            .query(uri, arrayOf(MediaStore.MediaColumns._ID), null, null, null)
-            ?.use { it.moveToFirst() }
-    }.getOrDefault(true) == true
+        // A4 (EXISTS-NULL-FIX): a provider that answers with a NULL cursor is
+        // not evidence that the file is gone -- only a cursor that reports no
+        // rows is. The rule itself lives in [presenceOf] so it is unit-tested
+        // (H1) instead of only reachable through a ContentResolver.
+        presenceOf(
+            context.contentResolver
+                .query(uri, arrayOf(MediaStore.MediaColumns._ID), null, null, null)
+                ?.use { it.moveToFirst() }
+        )
+    }.getOrDefault(true)
+
+    /**
+     * A4: `null` means "the provider did not answer" (a failed query, a
+     * provider that returns no cursor) and must count as PRESENT; only an
+     * answered cursor with no rows means the file is gone.
+     */
+    fun presenceOf(hasRow: Boolean?): Boolean = hasRow ?: true
 
     fun sizeOf(context: Context, uri: Uri): Long {
         return runCatching {

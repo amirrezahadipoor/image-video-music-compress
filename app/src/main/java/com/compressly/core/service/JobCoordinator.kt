@@ -31,8 +31,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -91,7 +90,18 @@ class JobCoordinator(
         // controls[jobId] == null and was silently dropped, so the job
         // started anyway and the UI showed a dead cancel button.
         controls[jobId] = JobControl()
-        startService()
+        // C1/C13 (SERVICE-GUARD-FIX): startForegroundService throws
+        // ForegroundServiceStartNotAllowedException on Android 12+ when the app
+        // is in the background, and a SecurityException if the OEM locked the
+        // FGS type down. The exception is what the caller's runCatching turned
+        // into "the button did nothing" -- while this map kept a RUNNING row
+        // that no coroutine would ever finish. Fail the enqueue cleanly instead
+        // so nothing is left behind and the caller can tell the user.
+        if (!startService()) {
+            _jobs.update { it - jobId }
+            controls.remove(jobId)
+            throw ForegroundServiceUnavailableException()
+        }
         appScope.launch { runJob(jobId, items, settings) }
         return jobId
     }
@@ -276,61 +286,32 @@ class JobCoordinator(
         }
 
         try {
-            // PARALLEL-PHOTO-FIX: photos are CPU-bound and independent, so a
-            // batch of >=2 runs two at a time (roughly half the wall time on
-            // multi-core devices, which is practically every phone since 2017).
-            // The order of completion still yields identical results/history
-            // — only throughput changes.
-            // AUDIO-PARALLEL-FIX: MP3 output is encoded by the embedded pure-
-            // Java LAME port — CPU-bound and fully independent per file, so a
-            // multi-file MP3 batch gets the same 2-way treatment as photos.
-            // AAC output uses the hardware encoder, where two encodes on one
-            // SoC only fight each other, so AAC batches stay sequential.
-            val parallelPhotos = settings is CompressionSettings.Photo && items.size >= 2
-            val parallelAudioMp3 = settings is CompressionSettings.Audio &&
-                settings.settings.format == AudioFormat.MP3 && items.size >= 2
-            if (parallelPhotos || parallelAudioMp3) {
-                // BATCH-SCHED-FIX: heaviest first — the two long-running
-                // items land in the parallel slots at the start instead of
-                // queueing behind small ones. For photos, memory-aware
-                // concurrency: a source big enough to hit the 4096 px decode
-                // clamp (or one that cannot be probed) never shares its slot
-                // with another heavy decode. Ordinary photos keep 2-way.
+            // PARALLELISM (CONCURRENCY-5): a batch of two or more runs several
+            // files at once instead of one after another. The budget is global
+            // (EngineGate: five files across the whole app) and each item asks
+            // for as many slots as it is heavy, so:
+            //   · ordinary photo / MP3  -> one slot  (five files at a time)
+            //   · a >= 16 MP photo      -> the whole budget (runs alone)
+            //   · a big photo batch on a low-memory phone -> two at a time
+            //   · AAC (hardware encoder) -> two at a time
+            //   · video -> as many as the device's codecs actually allow
+            // The order of completion still yields identical results/history —
+            // only throughput changes.
+            if (items.size >= 2) {
+                // BATCH-SCHED-FIX: heaviest first — the long-running items land
+                // in the slots at the start instead of queueing behind small
+                // ones, so the batch drains smoothly instead of stalling on a
+                // huge tail.
                 val ordered = PhotoBatch.heaviestFirst(items) { it.sizeBytes }
-                val permits = if (parallelPhotos) {
-                    // PIXEL-IO-FIX: pixelCountOf opens and bounds-probes every
-                    // source file — pure I/O that used to run on this coroutine's
-                    // Default dispatcher, parking CPU threads at the start of a
-                    // big photo batch. Probe on IO; only the permit decision
-                    // stays on the compute pool.
-                    val pixelCounts = kotlinx.coroutines.withContext(Dispatchers.IO) {
-                        ordered.map { PhotoBatch.pixelCountOf(context, it.uri) }
-                    }
-                    PhotoBatch.concurrencyFor(
-                        pixelCounts,
-                        // MEM-BOUND-FIX: on the 3 GB phone class still common
-                        // in the Bazaar market a big photo batch (>= 100
-                        // files) falls back to one slot, keeping peak native
-                        // bitmap memory flat for a whole 200-photo folder job.
-                        memoryClassMb = runCatching {
-                            (context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).memoryClass
-                        }.getOrNull(),
-                        batchSize = ordered.size
-                    )
-                } else {
-                    PhotoBatch.MAX_PHOTOS_IN_FLIGHT // MP3: pure-CPU LAME
-                }
-                val gate = Semaphore(permits)
+                val weights = slotWeightsFor(settings, ordered)
                 coroutineScope {
-                    ordered.map { item ->
+                    ordered.mapIndexed { index, item ->
                         launch(Dispatchers.Default) {
-                            gate.withPermit {
-                                // CANCEL-RACE-FIX: unconditional — processOne's
-                                // pre-check handles a cancelled job (and,
-                                // unlike the old else-branch, it also finalizes
-                                // the RUNNING history row created above).
-                                processOne(item)
-                            }
+                            // CANCEL-RACE-FIX: unconditional — processOne's
+                            // pre-check handles a cancelled job (and, unlike the
+                            // old else-branch, it also finalizes the RUNNING
+                            // history row created above).
+                            EngineGate.withSlots(weights[index]) { processOne(item) }
                         }
                     }.joinAll()
                 }
@@ -340,9 +321,16 @@ class JobCoordinator(
                 // instead of queueing behind the small ones: the user sees
                 // real progress at once and the batch drains smoothly.
                 val ordered = PhotoBatch.heaviestFirst(items) { it.sizeBytes }
-                for (item in ordered) {
+                // B9 (GLOBAL-BUDGET): a single-file job used to run OUTSIDE the
+                // gate, so two separate one-file jobs (the most common way to
+                // hit B9: pick a video, start, go back, pick another) could take
+                // two hardware codecs at once with no budget at all. Every item
+                // in the app now asks the process-wide gate, whichever job it
+                // belongs to.
+                val weights = slotWeightsFor(settings, ordered)
+                for ((index, item) in ordered.withIndex()) {
                     if (jobCancelled.get()) break
-                    processOne(item)
+                    EngineGate.withSlots(weights[index]) { processOne(item) }
                 }
             }
             if (jobCancelled.get()) {
@@ -498,12 +486,52 @@ class JobCoordinator(
         }
     }
 
-    private fun startService() {
+    /** @return false when the OS refused to start the foreground service. */
+    private fun startService(): Boolean = runCatching {
         ContextCompat.startForegroundService(
             context,
             Intent(context, CompressionJobService::class.java)
                 .setAction(CompressionJobService.ACTION_START)
         )
+    }.onFailure {
+        android.util.Log.e("JobCoordinator", "foreground service refused to start", it)
+    }.isSuccess
+
+    /**
+     * CONCURRENCY-5: how much of the global budget each item of [ordered] takes.
+     *
+     * Photos are probed for their pixel count on IO (opening every source is
+     * pure I/O), videos ask the device how many codec instances it advertises,
+     * and audio splits by encoder (LAME is pure CPU, AAC is a shared hardware
+     * block).
+     */
+    private suspend fun slotWeightsFor(
+        settings: CompressionSettings,
+        ordered: List<InputItem>
+    ): List<Int> = when (settings) {
+        is CompressionSettings.Photo -> {
+            val pixelCounts = withContext(Dispatchers.IO) {
+                ordered.map { PhotoBatch.pixelCountOf(context, it.uri) }
+            }
+            val lowMemoryLargeBatch = PhotoBatch.isLowMemoryLargeBatch(
+                memoryClassMb = runCatching {
+                    (context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).memoryClass
+                }.getOrNull(),
+                batchSize = ordered.size
+            )
+            pixelCounts.map { PhotoBatch.weightFor(it, lowMemoryLargeBatch) }
+        }
+        is CompressionSettings.Video -> {
+            val slots = com.compressly.core.engine.video.VideoConcurrency.slotsFor(settings.settings.codec)
+            List(ordered.size) { com.compressly.core.engine.video.VideoConcurrency.weightFor(slots) }
+        }
+        is CompressionSettings.Audio -> {
+            // MP3 is the embedded pure-Java LAME port (independent CPU jobs);
+            // AAC uses one shared hardware encoder, so two at a time is the
+            // most that helps.
+            val weight = if (settings.settings.format == AudioFormat.MP3) 1 else 3
+            List(ordered.size) { weight }
+        }
     }
 
     private fun stopServiceIfIdle() {
