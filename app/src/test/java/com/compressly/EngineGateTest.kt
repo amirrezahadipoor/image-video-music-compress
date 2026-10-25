@@ -1,10 +1,13 @@
 package com.compressly
 
 import com.compressly.core.service.EngineGate
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -13,38 +16,48 @@ import org.junit.Test
 /**
  * The global five-slot budget (audit items B9 + CONCURRENCY-5).
  *
- * `ConcurrencyBudgetTest` covers the arithmetic of the weights; this class
+ * [ConcurrencyBudgetTest] covers the arithmetic of the weights; this class
  * covers the gate itself, because it is hand-written: kotlinx's `Semaphore`
  * takes one permit at a time and a heavy item needs the whole budget, so the
  * accounting is a FIFO of waiters under a mutex. That is exactly the kind of
- * code that deadlocks or leaks a slot without anyone noticing, so it is tested
- * with real coroutines on a real dispatcher.
+ * code that deadlocks or leaks a slot without anyone noticing, so it is
+ * exercised with real coroutines.
+ *
+ * Bodies run on [Dispatchers.IO] on purpose: `Dispatchers.Default` is sized to
+ * the number of cores (2 on a CI runner), and a test that measures how many
+ * items run *at once* would then only ever see the core count, not the gate.
  */
 class EngineGateTest {
 
-    /** Tracks how many bodies are inside the gate at the same time. */
+    /** Counts how many bodies are inside the gate at the same time. */
     private class Probe {
-        private val now = AtomicInteger(0)
+        private val inside = AtomicInteger(0)
         val peak = AtomicInteger(0)
         private val finished = AtomicInteger(0)
 
+        val running: Int get() = inside.get()
+        val completed: Int get() = finished.get()
+
         fun enter() {
-            val running = now.incrementAndGet()
-            peak.updateAndGet { maxOf(it, running) }
+            val now = inside.incrementAndGet()
+            peak.updateAndGet { maxOf(it, now) }
         }
 
         fun exit() {
-            now.decrementAndGet()
+            inside.decrementAndGet()
             finished.incrementAndGet()
         }
-
-        val completed: Int get() = finished.get()
     }
 
-    private fun runAll(weights: List<Int>, bodyMillis: Long = 60): Probe = runBlocking {
+    private fun runAll(
+        weights: List<Int>,
+        bodyMillis: Long = 120,
+        beforeStart: (Int) -> Unit = {}
+    ): Probe = runBlocking {
         val probe = Probe()
-        weights.map { weight ->
-            async(Dispatchers.Default) {
+        weights.mapIndexed { index, weight ->
+            async(Dispatchers.IO) {
+                beforeStart(index)
                 EngineGate.withSlots(weight) {
                     probe.enter()
                     try {
@@ -66,66 +79,115 @@ class EngineGateTest {
     }
 
     @Test
-    fun aHeavyItemNeverSharesTheBudget() {
-        // One heavy item (5 slots) plus a queue of light ones: while the heavy
-        // body runs nothing else may be inside.
-        val probe = runAll(listOf(5, 1, 1, 1, 1, 1, 1), bodyMillis = 40)
-        assertEquals(7, probe.completed)
-        assertEquals("a heavy item must run alone", 1, probe.peak.get())
+    fun aHeavyItemNeverSharesTheBudget() = runBlocking {
+        // Deterministic: start the heavy item and wait until it is INSIDE, then
+        // release six light ones. During that window nothing else may enter.
+        val heavyInside = CompletableDeferred<Unit>()
+        val heavyDone = AtomicBoolean(false)
+        val otherSawHeavyRunning = AtomicBoolean(false)
+        val probe = Probe()
+
+        val heavy = async(Dispatchers.IO) {
+            EngineGate.withSlots(EngineGate.MAX_CONCURRENT_ITEMS) {
+                probe.enter()
+                try {
+                    heavyInside.complete(Unit)
+                    Thread.sleep(200)
+                } finally {
+                    probe.exit()
+                    heavyDone.set(true)
+                }
+            }
+        }
+        heavyInside.await()
+
+        val lights = (1..6).map {
+            async(Dispatchers.IO) {
+                if (!heavyDone.get() && probe.running > 0) {
+                    // Entering while the heavy item holds everything would mean
+                    // the gate handed out a slot that was not free.
+                    otherSawHeavyRunning.compareAndSet(false, probe.running > 1)
+                }
+                EngineGate.withSlots(1) {
+                    probe.enter()
+                    try { Thread.sleep(40) } finally { probe.exit() }
+                }
+            }
+        }
+        heavy.await()
+        lights.awaitAll()
+
+        assertEquals("the heavy item must run alone", 1, probe.peak.get())
+        assertTrue("a light item entered while the heavy one was running", !otherSawHeavyRunning.get())
     }
 
     @Test
-    fun twoItemsThatEachNeedThreeSlotsRunAsAPair() {
-        val probe = runAll(List(6) { 3 }, bodyMillis = 50)
+    fun twoItemsThatEachNeedTwoSlotsRunAsAPair() {
+        val probe = runAll(List(6) { 2 }, bodyMillis = 100)
         assertEquals(6, probe.completed)
-        assertEquals("3 + 3 > 5, so exactly two", 2, probe.peak.get())
+        assertEquals("2 + 2 = 4 fits, 2 + 2 + 2 does not", 2, probe.peak.get())
     }
 
     @Test
     fun slotsAreReleasedEvenWhenTheBodyThrows() = runBlocking {
         repeat(EngineGate.MAX_CONCURRENT_ITEMS) {
-            runCatching {
-                EngineGate.withSlots(1) { error("boom") }
-            }
+            runCatching { EngineGate.withSlots(1) { error("boom") } }
         }
-        // Every slot must be back: five ordinary items still fit.
         val probe = Probe()
         (1..EngineGate.MAX_CONCURRENT_ITEMS).map {
-            async(Dispatchers.Default) {
+            async(Dispatchers.IO) {
                 EngineGate.withSlots(1) {
-                    probe.enter(); try { Thread.sleep(60) } finally { probe.exit() }
+                    probe.enter()
+                    try { Thread.sleep(120) } finally { probe.exit() }
                 }
             }
         }.awaitAll()
-        assertEquals(EngineGate.MAX_CONCURRENT_ITEMS, probe.peak.get())
+        assertEquals(
+            "a throwing body must give its slots back",
+            EngineGate.MAX_CONCURRENT_ITEMS,
+            probe.peak.get()
+        )
     }
 
     @Test
-    fun aQueuedItemIsNotLostWhenTheGateIsBusy() = runBlocking {
-        // Fill the budget, queue a heavy one behind it, then let everything
-        // drain: if the FIFO wake-up were wrong this would hang (the test times
-        // out) instead of failing an assertion.
-        val probes = List(EngineGate.MAX_CONCURRENT_ITEMS) { Probe() }
-        val light = probes.mapIndexed { index, probe ->
-            async(Dispatchers.Default) {
-                EngineGate.withSlots(1) {
-                    probe.enter(); try { Thread.sleep(80) } finally { probe.exit() }
-                }
-                index
+    fun aQueuedHeavyItemIsWokenUpAfterTheLightsDrain() = runBlocking {
+        // Fill the budget, queue a heavy one behind it, then drain: if the FIFO
+        // wake-up were wrong this hangs (the test times out) instead of failing
+        // an assertion.
+        val lights = (1..EngineGate.MAX_CONCURRENT_ITEMS).map {
+            async(Dispatchers.IO) {
+                EngineGate.withSlots(1) { Thread.sleep(80) }
+                "light"
             }
         }
-        val heavy = async(Dispatchers.Default) {
-            EngineGate.withSlots(EngineGate.MAX_CONCURRENT_ITEMS) { 99 }
+        val heavy = async(Dispatchers.IO) {
+            EngineGate.withSlots(EngineGate.MAX_CONCURRENT_ITEMS) { "heavy" }
         }
-        val results = light.awaitAll() + heavy.await()
+        val results = lights.awaitAll() + heavy.await()
         assertEquals(EngineGate.MAX_CONCURRENT_ITEMS + 1, results.size)
-        assertTrue("the heavy item must have run", 99 in results)
+        assertTrue("the queued heavy item must have run", "heavy" in results)
     }
 
     @Test
     fun weightsOutsideTheBudgetAreClampedInsteadOfCrashing() {
-        val probe = runAll(listOf(0, -4, 99), bodyMillis = 20)
+        val probe = runAll(listOf(0, -4, 99), bodyMillis = 40)
         assertEquals(3, probe.completed)
-        assertTrue("clamped weights stay inside the gate", probe.peak.get() in 1..EngineGate.MAX_CONCURRENT_ITEMS)
+        assertTrue(
+            "clamped weights stay inside the gate",
+            probe.peak.get() in 1..EngineGate.MAX_CONCURRENT_ITEMS
+        )
+    }
+
+    @Test
+    fun manyItemsDoNotLeakSlots() = runBlocking {
+        // 100 items over a budget of five: if a release were ever missed, the
+        // tail would never run and this would hang.
+        val done = AtomicInteger(0)
+        (1..100).map {
+            launch(Dispatchers.IO) {
+                EngineGate.withSlots(1) { done.incrementAndGet() }
+            }
+        }.forEach { it.join() }
+        assertEquals(100, done.get())
     }
 }

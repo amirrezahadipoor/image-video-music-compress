@@ -60,11 +60,22 @@ object EngineGate {
         }
     }
 
-    /** Slots a single item needs when [activeAtOnce] of them may run together. */
+    /**
+     * Slots a single item needs when [activeAtOnce] of them may run together.
+     *
+     * The budget is five slots and five is prime, so an exact "N at a time" only
+     * exists for N = 1, 2 and 5. The mapping therefore never exceeds the request
+     * and rounds *down*: asking for three or four at a time (where two is the
+     * closest safe arrangement) costs two slots, i.e. exactly two run.
+     *
+     *   1 -> 5 (alone)  2..4 -> 2 (pairs)  5 -> 1 (all five)
+     */
     fun weightForSlots(activeAtOnce: Int): Int {
         val atOnce = activeAtOnce.coerceIn(1, MAX_CONCURRENT_ITEMS)
-        // ceil(MAX / atOnce): 1 -> 5, 2 -> 3 (two at most), 3 -> 2, 5 -> 1.
-        return (MAX_CONCURRENT_ITEMS + atOnce - 1) / atOnce
+        if (atOnce >= MAX_CONCURRENT_ITEMS) return 1
+        if (atOnce <= 1) return MAX_CONCURRENT_ITEMS
+        return MAX_CONCURRENT_ITEMS / atOnce   // 5/2 = 2, 5/3 = 1 -> clamped to 2
+            .coerceAtLeast(2)
     }
 
     private suspend fun acquire(want: Int) {

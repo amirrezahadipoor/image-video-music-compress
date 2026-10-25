@@ -20,10 +20,19 @@ class ConcurrencyBudgetTest {
     }
 
     @Test
-    fun `two at a time costs three slots`() {
-        // 3 + 3 > 5, so a third item can never start: exactly two run.
-        assertEquals(3, EngineGate.weightForSlots(2))
+    fun `two at a time costs two slots`() {
+        // 2 + 2 = 4 <= 5 and 2 + 2 + 2 = 6 > 5, so exactly two run.
+        assertEquals(2, EngineGate.weightForSlots(2))
         assertEquals(2, EngineGate.MAX_CONCURRENT_ITEMS / EngineGate.weightForSlots(2))
+    }
+
+    @Test
+    fun `three or four at a time round down to a safe pair`() {
+        // Five slots cannot express "three at a time"; the closest safe
+        // arrangement is a pair, and it must never run more than asked.
+        assertEquals(2, EngineGate.weightForSlots(3))
+        assertEquals(2, EngineGate.weightForSlots(4))
+        assertEquals(2, EngineGate.MAX_CONCURRENT_ITEMS / EngineGate.weightForSlots(3))
     }
 
     @Test
@@ -50,7 +59,7 @@ class ConcurrencyBudgetTest {
     @Test
     fun `a device advertising four instances runs two at a time`() {
         assertEquals(2, VideoConcurrency.slotsForReportedInstances(4))
-        assertEquals(3, VideoConcurrency.weightFor(2))
+        assertEquals(2, VideoConcurrency.weightFor(2))
     }
 
     @Test
