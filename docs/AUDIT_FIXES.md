@@ -124,8 +124,8 @@
 | # | چه بود | وضعیت | گیت |
 |---|---|---|---|
 | H1 | شکاف‌های تست در ناحیه‌های پرریسک | ✅ `ConcurrencyBudgetTest`، `EngineGateTest`، `Mp3WriterTest`، `ConsentGate`/`Uris`/`ErrorKey` تست شدند | ~۲۹۰ تست JVM |
-| H2 | هیچ تست دستگاهی (MediaCodec/MediaStore/API 26–28) | ⚠️ جاب emulator اضافه شد (غیرمسدودکننده تا پایدار شدن) | جاب `device-tests` |
-| H3 | `benchmark/` و `baselineprofile/` کامپایل هم نمی‌شدند | ⚠️ جاب `build` الان کانفیگ می‌کند؛ اندازه‌گیری واقعی نیازمند دستگاه | جاب `build` |
+| H2 | هیچ تست دستگاهی (MediaCodec/MediaStore/API 26–28) | ✅ ماتریس API 33 و 28 سبز شد (ران `40243026628`)؛ جاب حالا مسدودکننده است | جاب `device-tests` |
+| H3 | `benchmark/` و `baselineprofile/` کامپایل هم نمی‌شدند | ✅ جاب `benchmark` هارنس را می‌سازد و هر دو تست startup را روی امولاتور پاس می‌کند (همان ران) | جاب `benchmark` |
 
 ## چه چیزی عمداً رفع نشد (و چرا)
 
@@ -135,5 +135,13 @@
 2. **D5** — خواندن کل گالری روی Android 13+ مجوز `READ_MEDIA_IMAGES/VIDEO` را
    می‌خواهد. این اپ با مجوز صفر کار می‌کند و این رفتار یک انتخاب محصول است، نه
    باگ؛ فقط کوئری باند و پیام «مجوز ندارید» اضافه شد.
-4. **F2, F10** — پاک‌سازی تاریخچهٔ git (force-push) و تصمیم حقوقی/چرخش کلید
-   امضا، هر دو خارج از توان یک عامل خودکار و روی حساب مالک مخزن است.
+4. **F2** — پاک‌سازی تاریخچهٔ git (force-push) و چرخش کلید امضا فقط از حساب
+   مالک مخزن ممکن است؛ روال اجرایی در `SECURITY.md` است. (F10 با بررسی مجوز
+   واقعی بسته شد: Poolakey = Apache-2.0 و jaudiotagger = LGPL.)
+
+## وضعیت نهایی CI
+
+ران [`40243026628`](https://github.com/amirrezahadipoor/image-video-music-compress/actions/runs/40243026628)
+روی `fix/audit-full-sweep`: هر شش جاب سبز — Test+Build (۲۵۱ تست JVM، R8،
+امضا)، Lint (سه variant)، Security، Device tests روی API 33 و API 28، و
+Macrobenchmark (هر دو تست startup).
