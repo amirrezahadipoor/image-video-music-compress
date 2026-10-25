@@ -1,6 +1,5 @@
 package ir.siliksama.hajmino.benchmark
 
-import android.content.Context
 import androidx.benchmark.macro.CompilationMode
 import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.StartupTimingMetric
@@ -37,14 +36,18 @@ class StartupBenchmarks {
     @get:Rule
     val benchmarkRule = MacrobenchmarkRule()
 
-    // targetContext is the app under test (a separate test APK instruments the
-    // installed benchmark build), so its package name is the measured app's —
-    // suffix included when a debug variant is installed
-    // (ir.siliksama.hajmino.debug); a hardcoded base id made CI fail with
-    // "is it installed?". The flavor/applicationId of the benchmark variant is
-    // the real id, so this resolves to the app that was actually installed.
-    private val context: Context =
-        InstrumentationRegistry.getInstrumentation().targetContext
+    // The harness is self-instrumenting (macrobenchmark 1.5.x requires it), so
+    // the instrumentation's own package is ir.siliksama.hajmino.benchmark — NOT
+    // the app under test. Using targetContext.packageName measured the harness
+    // itself and the run died in startActivityAndWait().
+    //
+    // The measured id is the app's bazaar applicationId (the benchmark build
+    // type adds no suffix). Override it if the id ever changes:
+    //   -Pandroid.testInstrumentationRunnerArguments.compressly.benchmark.targetPackage=<id>
+    private val appPackage: String =
+        InstrumentationRegistry.getInstrumentation().arguments
+            ?.getString("compressly.benchmark.targetPackage")
+            ?: "ir.siliksama.hajmino"
 
     @Test
     fun startupWithoutProfile() = measure(
@@ -59,7 +62,8 @@ class StartupBenchmarks {
     )
 
     private fun measure(label: String, compilationMode: CompilationMode) {
-        val packageName = context.packageName
+        val packageName = appPackage
+        println("benchmark target package: $packageName")
         benchmarkRule.measureRepeated(
             packageName = packageName,
             metrics = listOf(StartupTimingMetric()),
