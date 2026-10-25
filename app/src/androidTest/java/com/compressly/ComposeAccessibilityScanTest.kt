@@ -37,6 +37,12 @@ class ComposeAccessibilityScanTest {
     // locale (en-US on CI) — so every UI assertion must read the string in
     // the FA configuration or it searches for "Next" while the screen
     // shows "بعدی".
+    private companion object {
+        /** The window may be replaced under us; three tries is plenty. */
+        const val SUBSCAN_ATTEMPTS = 3
+        const val SCAN_RETRY_MS = 500L
+    }
+
     private fun faString(id: Int): String {
         val cfg = android.content.res.Configuration(context.resources.configuration).apply {
             setLocale(java.util.Locale("fa"))
@@ -93,17 +99,33 @@ class ComposeAccessibilityScanTest {
         throw AssertionError("a11y: control \"$text\" never became clickable")
     }
 
-    /** Topmost node of the app (window root or its child). */
+    /**
+     * Topmost node of the app (window root or its child).
+     *
+     * Walking up the tree re-resolves every parent, and on a slow API 28
+     * emulator the window can be replaced mid-walk (a stale node throws
+     * StaleObjectException). Retry instead of failing the audit: a window that
+     * really never settles is reported as such.
+     */
     private fun appRoot(): UiObject2 {
-        val first = waitForNode(By.pkg(appPackage), 15)
-            ?: throw AssertionError("a11y: app UI never appeared")
-        var node = first
-        while (true) {
-            val parent = node.parent ?: break
-            if (parent.applicationPackage != appPackage) break
-            node = parent
+        var last: Throwable? = null
+        repeat(SUBSCAN_ATTEMPTS) {
+            try {
+                val first = waitForNode(By.pkg(appPackage), 15)
+                    ?: throw AssertionError("a11y: app UI never appeared")
+                var node = first
+                while (true) {
+                    val parent = node.parent ?: break
+                    if (parent.applicationPackage != appPackage) break
+                    node = parent
+                }
+                return node
+            } catch (e: androidx.test.uiautomator.StaleObjectException) {
+                last = e
+                android.os.SystemClock.sleep(SCAN_RETRY_MS)
+            }
         }
-        return node
+        throw AssertionError("a11y: the app's window kept disappearing while scanning", last)
     }
 
     /**
@@ -145,6 +167,23 @@ class ComposeAccessibilityScanTest {
         return violations
     }
 
+    /**
+     * Run the walk, retrying when the accessibility tree goes stale (the screen
+     * is still animating). Real violations are returned, not retried away.
+     */
+    private fun scanWithRetry(screen: String): List<String> {
+        var last: Throwable? = null
+        repeat(SUBSCAN_ATTEMPTS) {
+            try {
+                return unlabeledClickables()
+            } catch (e: androidx.test.uiautomator.StaleObjectException) {
+                last = e
+                android.os.SystemClock.sleep(SCAN_RETRY_MS)
+            }
+        }
+        throw AssertionError("a11y: could not read the \"$screen\" window", last)
+    }
+
     /** Labels a screen reader would read from this node's descendants. */
     private fun subtreeLabels(root: UiObject2): List<String> {
         val out = mutableListOf<String>()
@@ -163,7 +202,7 @@ class ComposeAccessibilityScanTest {
     }
 
     private fun assertLabeled(screen: String) {
-        val violations = unlabeledClickables()
+        val violations = scanWithRetry(screen)
         org.junit.Assert.assertTrue(
             "accessibility violations on \"$screen\":\n" + violations.joinToString("\n") { "  - $it" },
             violations.isEmpty()

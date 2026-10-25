@@ -41,7 +41,11 @@ android {
     // describe what users install.
     buildTypes {
         create("benchmark") {
-            isDebuggable = true
+            // Self-instrumenting: this module's classes are merged into the APK
+            // built for the app's own `benchmark` build type, and a debuggable
+            // test module made that merged APK debuggable — macrobenchmark then
+            // refuses to report ("ERRORS (not suppressed): EMULATOR DEBUGGABLE").
+            isDebuggable = false
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
         }

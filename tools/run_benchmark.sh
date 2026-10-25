@@ -21,4 +21,9 @@ if [ -z "$TASK" ]; then
 fi
 
 echo "running :benchmark:$TASK"
-./gradlew ":benchmark:$TASK" --no-daemon --stacktrace
+# EMULATOR is a *warning* in macrobenchmark's own error list, but it is only
+# downgraded to a warning when it is explicitly suppressed; the harness runs on
+# an emulator by design here, so say so. DEBUGGABLE is deliberately NOT
+# suppressed: a debuggable APK must keep failing the job.
+./gradlew ":benchmark:$TASK" --no-daemon --stacktrace \
+  -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.suppressErrors=EMULATOR
