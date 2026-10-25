@@ -9,3 +9,10 @@
 -keep class androidx.benchmark.** { *; }
 -keep class androidx.test.uiautomator.** { *; }
 -keepattributes *Annotation*, Signature, Exceptions, InnerClasses
+
+# The harness APK only has to be shrink-compatible with the app APK (AGP's
+# checkTestedAppObfuscation requires both sides to be shrunk). It pulls in
+# androidx.lifecycle/test leftovers whose optional desktop-only classes are
+# absent from the test classpath (e.g. ArchTaskExecutor) — missing classes in a
+# *test* APK are harmless, they are never loaded on-device.
+-dontwarn **
