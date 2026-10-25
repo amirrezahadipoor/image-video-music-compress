@@ -59,6 +59,24 @@ fun AppSettingsScreen(
     val language by viewModel.language.collectAsStateWithLifecycle()
     val soundEnabled by viewModel.soundEnabled.collectAsStateWithLifecycle()
     val outputTreeUri by viewModel.outputTreeUri.collectAsStateWithLifecycle()
+
+    // D11 (MAIN-THREAD-IO): the folder's display name was resolved with
+    // DocumentFile.fromTreeUri() *during composition*, i.e. a ContentResolver
+    // round-trip on the main thread every recomposition. Resolve it once per
+    // URI, off the main thread, and cache it.
+    val outputTreeName by androidx.compose.runtime.produceState<String?>(
+        initialValue = null,
+        outputTreeUri
+    ) {
+        value = outputTreeUri?.let { uri ->
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    androidx.documentfile.provider.DocumentFile
+                        .fromTreeUri(context, android.net.Uri.parse(uri))?.name
+                }.getOrNull()
+            }
+        }
+    }
     val context = androidx.compose.ui.platform.LocalContext.current
     val treePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
@@ -216,10 +234,7 @@ fun AppSettingsScreen(
                         Spacer(Modifier.height(8.dp))
                         Text(
                             text = outputTreeUri?.let { uri ->
-                                runCatching {
-                                    androidx.documentfile.provider.DocumentFile
-                                        .fromTreeUri(context, android.net.Uri.parse(uri))?.name
-                                }.getOrNull()?.takeIf { it.isNotBlank() }
+                                outputTreeName?.takeIf { it.isNotBlank() }
                                     ?: uri.substringAfterLast(':').substringAfterLast('/')
                             } ?: stringResource(R.string.settings_output_default),
                             style = MaterialTheme.typography.titleSmall,

@@ -103,9 +103,17 @@ class ScreenshotRegressionTest {
     private fun snap(name: String) {
         device.waitForIdle()
         val file = File(outputDir, name)
-        val bmp = device.takeScreenshot(file) ?: run {
+        // UiDevice.takeScreenshot(File) only reports success, so capture the
+        // bitmap and write it ourselves (the file is the artifact that the CI
+        // job collects when a baseline is missing).
+        val bmp = runCatching { device.takeScreenshot() }.getOrNull() ?: run {
             println("SCREENSHOT $name SKIPPED (device refused to capture)")
             return
+        }
+        runCatching {
+            java.io.FileOutputStream(file).use { out ->
+                bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
+            }
         }
         println("SCREENSHOT $name -> ${file.absolutePath} (${bmp.width}x${bmp.height})")
 

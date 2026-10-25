@@ -1,51 +1,41 @@
-# Contributing — حجمینو / Compressly
+# مشارکت در حجمینو / Compressly
 
-Thanks for taking the time to help. This project has one hard rule and a few
-practical ones.
+ممنون که وقت می‌گذارید. این فایل کوتاه است چون مخزن **مجوز بازتوزیع ندارد**
+(`LICENSE`: همهٔ حقوق محفوظ) و هدفش بیشتر «شفافیت و بازبینی» است تا پذیرش
+پچ‌های عمومی. اگر می‌خواهید تغییری بدهید، مسیر پیشنهادی این است:
 
-## The hard rule: it must work offline
+1. یک Issue باز کنید و **مسئله** را توضیح دهید (نسخه، دستگاه، مسیر بازتولید).
+   گزارش امنیتی را هرگز در Issue عمومی نگذارید — `SECURITY.md`.
+2. برای تغییر کد، Fork + Branch با پیشوند روشن (`fix/…`، `feat/…`، `docs/…`).
+3. PR را کوچک نگه دارید: یک مسئله در هر PR.
 
-The app compresses media with the Android platform APIs only (`MediaCodec`,
-`MediaMuxer`, `BitmapFactory`, `ExifInterface`, …). A change that needs a
-network call, an analytics SDK, or a server-side service will not be accepted in
-the `play` flavor. The `bazaar` flavor is the only one allowed to touch the
-network (advertising + Café Bazaar billing).
+## چیزهایی که CI بررسی می‌کند (و PR شما باید سبز باشد)
 
-## Practical rules
+| گیت | دستور محلی | چه چیزی را رد می‌کند |
+|---|---|---|
+| تست‌های JVM | `./gradlew :app:testBazaarDebugUnitTest` | شکست منطق خالص |
+| گرامر/تعادل Kotlin | `python3 tools/kt_grammar_check.py` | بلوک بسته‌نشده، ارجاع `R.*` ناموجود |
+| فرمت رشته‌های i18n | `python3 tools/string_format_check.py app/src/main/res` | `%1$d%`، `٪`، آپاستروف escape‌نشده |
+| lint | `./gradlew :app:lintBazaarDebug` | خطاهای lint (warningها فعلاً بلاک نمی‌کنند) |
+| امنیت | جاب `security` در CI | کی‌ستور/رمز/کلید خصوصی در گیت |
+| تست دستگاه | `./gradlew :app:connectedBazaarDebugAndroidTest` | رگرسیون MediaCodec/MediaStore/UI |
 
-1. **Read `docs/KNOWN_ISSUES.md` first.** It lists the open items with their
-   exact scope; several "obvious" fixes there need device verification, not more
-   code.
-2. **Every bug fix comes with a test.** The JVM suite (`app/src/test`) is the
-   gate that runs on every push. Pure logic belongs there — planners,
-   estimators, totals, policy objects. Anything that needs `MediaCodec` or
-   `MediaStore` belongs in `app/src/androidTest` and is expected to be honest
-   about needing a device.
-3. **No new `!!` in production code.** The few that exist are on paths where a
-   null is structurally impossible; keep it that way.
-4. **Strings live in both `res/values/strings.xml` (fa, default) and
-   `res/values-en/strings.xml`.** CI fails on any key that exists in only one of
-   them, and on double `%` mistakes (`%1$d%%`, not `%1$d%`).
-5. **File-and-line comments explain WHY.** The codebase is dense with
-   `SOMETHING-FIX:` notes that record the bug a block prevents. If you remove
-   such a block, remove the note with it — and say which regression test covers
-   the behaviour now.
-6. **Locale/RTL:** the default layout direction is RTL and the default language
-   is Persian. New UI must be checked in both directions; wrap mixed-direction
-   values (file names, "−12%") in `Bidi.isolate`.
+## قاعده‌های سبک کد
 
-## Before opening a pull request
+- **بدون `!!`** جایی که می‌شود `?:`/`requireNotNull` نوشت؛ بدون `GlobalScope`؛
+  بدون `runBlocking` در کد اپ (تست‌ها استثناست)؛ بدون `printStackTrace`.
+- هر عملیاتی که فایل/MediaStore/ContentResolver می‌خواند **باید** روی
+  `Dispatchers.IO` باشد. مسیر اصلی thread اصلی، ممنوع.
+- رشتهٔ جدید = **هر دو** فایل `values/strings.xml` و `values-en/strings.xml`
+  (تست پریتی i18n در CI است). درصد را `%%` بنویسید و رشته‌های دارای `%` تنها
+  را `formatted="false"` کنید.
+- کامنت‌ها به فارسیِ روشن؛ هر باگ غیربدیهی که رفع می‌شود، شناسه‌اش (مثل `A1`,
+  `C6`) در کامنت بماند تا گزارش بازبینی و کد به هم وصل بمانند.
+- منطق خالص (بدون `android.*`) را در `core/` بگذارید تا تست JVM ممکن باشد؛
+  الگوی موجود: `PhotoBatch`، `ConsentGate`، `Mp4FastStart`، `JobTotals`.
 
-```bash
-python3 tools/kt_grammar_check.py     # lexer + R.* reference gate (1s)
-./gradlew :app:testPlayDebugUnitTest  # the JVM suite
-./gradlew :app:lintBazaarDebug        # lint (abortOnError=true)
-```
+## Commit
 
-CI runs all of those plus the signed release build; a red run blocks the
-artifact.
-
-## Commit messages
-
-`fix(area): what broke and what the fix does`, one area per commit. Reference the
-issue or the `docs/KNOWN_ISSUES.md` number when there is one.
+قالب پیام: `fix(scope): …` / `feat(scope): …` / `docs: …` / `ci: …`.
+در بدنه بگویید **چه چیزی خراب بود** و **چرا این تغییر درستش می‌کند**؛ اگر
+باگ از گزارش بازبینی است، شناسه‌اش را بیاورید.

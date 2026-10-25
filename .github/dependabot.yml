@@ -1,28 +1,43 @@
-# F8: dependency updates were entirely manual — the version catalog drifted
-# (kotlinx-coroutines-test sat a minor behind the runtime for months) and the
-# GitHub Actions pins aged without anyone noticing.
+# F8 (DEPENDENCY-HYGIENE): the repo pinned dependencies in a version catalog
+# but nothing ever proposed updates, so "latest androidx" was really "whatever
+# was current the day the catalog was written" — including the lifecycle lint
+# crash that AGP 8.8.2 fixed (docs/KNOWN_ISSUES.md #10).
 version: 2
+
 updates:
+  # ── Gradle dependencies ────────────────────────────────────────────────
+  # Weekly, grouped: an ungrouped bot opens a dozen PRs for what is one
+  # androidx BOM bump, and PR fatigue is how updates stop being merged.
   - package-ecosystem: "gradle"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
     open-pull-requests-limit: 5
+    labels: ["dependencies"]
+    commit-message:
+      prefix: "chore(deps)"
     groups:
       androidx:
-        patterns:
-          - "androidx.*"
+        patterns: ["androidx.*", "com.google.android.material"]
       kotlin:
-        patterns:
-          - "org.jetbrains.kotlin*"
-    labels:
-      - "dependencies"
+        patterns: ["org.jetbrains.kotlin*", "kotlin*"]
+      test:
+        patterns: ["junit*", "org.junit*", "androidx.test*", "com.google.truth*"]
+    ignore:
+      # AGP and Kotlin are upgraded deliberately: each jump changes the lint
+      # detector set and the Compose compiler contract, and both have to be
+      # validated against a green build before they land.
+      - dependency-name: "com.android.tools.build:gradle"
+      - dependency-name: "org.jetbrains.kotlin.android"
+      - dependency-name: "org.jetbrains.kotlin.plugin.compose"
 
+  # ── GitHub Actions ─────────────────────────────────────────────────────
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "ci"
+      day: "monday"
+    labels: ["dependencies", "ci"]
+    commit-message:
+      prefix: "chore(ci)"

@@ -1,24 +1,30 @@
-Copyright (c) 2026 Amirreza Hadipoor — حجمینو / Compressly. All rights reserved.
+Copyright (c) 2026 Amirreza Hadipoor — حجمینو / Compressly
+All rights reserved.
 
-This repository is published for transparency and review. No permission is
-granted to copy, modify, merge, publish, distribute, sublicense, or sell
-copies of this software, in whole or in part, without a written licence from
-the copyright holder.
+This source tree is published so that the app can be audited: what it does with
+your files, which libraries it links, and how it is built. Publishing it does
+not grant a licence.
 
-Third-party components keep their own licences and are NOT covered by the
-paragraph above. Their obligations (notice, source availability, and the right
-to relink an LGPL library) are documented in:
+No permission is granted to copy, modify, merge, publish, distribute,
+sublicense, or sell copies of this software, in whole or in part, without a
+written licence from the copyright holder.
+
+Third-party components are NOT covered by the paragraph above; each keeps its
+own licence. Their notices, and the LGPL obligations that apply to the compiled
+APK (notice, availability of source, ability to relink an LGPL library) are in:
 
   · NOTICE
   · docs/THIRD_PARTY_NOTICES.md
+  · docs/licenses/lgpl-2.1.txt, docs/licenses/apache-2.0.txt
 
-Summary of that file (verified 2026-10-25, sources cited there): two components
-(jump3r and jaudiotagger) are LGPL, and their licence texts ship inside this
-repository under docs/licenses/. Poolakey, which an earlier revision of this
-file flagged as GPL-3.0, is Apache-2.0 according to its own repository — there
-is no GPL component in the build. Adivery is proprietary and used under its own
-service terms (bazaar flavour only).
+If you would prefer a different licence for this project (MIT and Apache-2.0 are
+the usual choices for an app like this), replace this file — but read NOTICE
+first, because the LGPL components constrain what you may choose.
 
-If you would prefer an open-source licence instead (MIT/Apache-2.0 are the usual
-choices for an app like this), replace this file — but read the LGPL/GPL notes
-above first, because they constrain what you may choose.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
