@@ -45,8 +45,8 @@ class StartupBenchmarks {
     // type adds no suffix). Override it if the id ever changes:
     //   -Pandroid.testInstrumentationRunnerArguments.compressly.benchmark.targetPackage=<id>
     private val appPackage: String =
-        InstrumentationRegistry.getInstrumentation().arguments
-            ?.getString("compressly.benchmark.targetPackage")
+        InstrumentationRegistry.getArguments()
+            .getString("compressly.benchmark.targetPackage")
             ?: "ir.siliksama.hajmino"
 
     @Test
