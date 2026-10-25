@@ -51,6 +51,15 @@ android {
             // Test APK only: the *app* variant it measures is the app module's
             // `benchmark` build type (release-based, isDebuggable = false).
             isDebuggable = true
+            // The measured APK is minified with R8, and AGP refuses to run a test
+            // APK against a shrunk app unless the test plugin shrinks too
+            // ("Mapping file found in tested application"). The keep rules below
+            // protect the reflectively-loaded harness classes.
+            isMinifyEnabled = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
         }
