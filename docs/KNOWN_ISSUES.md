@@ -153,16 +153,19 @@ secret اختیاری `COMPRESSLY_CERT_SHA256` مقایسه می‌کند (نر�
 (یک signer، scheme v2 = true، v1/v3 = false؛ با minSdk ۲۶ فقط v2 کافی است و مشکلی
 برای نصب ایجاد نمی‌کند). هر APK دیگری با اثرانگشتِ متفاوت، از این پایپ‌لاین نیامده.
 
-## ۱۴) هارنس macrobenchmark: بیلد/نصب سبز، اندازه‌گیری نه — باز
+## ۱۴) هارنس macrobenchmark — رفع شد (۲۰۲۶-۱۰-۲۵)
 
-وضعیت ۲۰۲۶-۱۰-۲۵: جاب `benchmark` هارنس را می‌سازد، امضا می‌کند، روی امولاتور
-نصب می‌کند و تست‌ها **شروع** می‌شوند، اما پروسه در اولین اندازه‌گیری crash
-می‌کند. علت بنیادی: از `benchmark-macro-junit4` 1.5.0 به بعد، ماژول هارنس باید
-`self-instrumenting` باشد؛ در این حالت هارنس داخل همان APKی قرار می‌گیرد که
-`MacrobenchmarkRule` قبل از هر تکرار kill و دوباره start می‌کند — و این کار
-خودِ پروسهٔ تست را می‌کشد. لاگ logcat در همان step جاب بالا می‌آید.
+جاب `benchmark` حالا کامل و سبز اجرا می‌شود (ران `40243026628`): هارنس بیلد،
+امضا، نصب و هر دو تست `startupWithoutProfile` / `startupWithBaselineProfile`
+روی امولاتور API 33 پاس می‌شوند. چهار مانع پشت‌سرهم برداشته شد:
 
-تصمیم: جاب `continue-on-error: true` می‌ماند (اسمش هم همین است: non-blocking)
-و عدد منتشرشده از آن نمی‌آید؛ `docs/BENCHMARK.md` صریح گفته که اعداد باید از
-دستگاه فیزیکی با APK ریلیز بیاید. مسیر بستن این مورد اگر خواستید: اجرای هارنس
-روی دستگاه فیزیکی با `./gradlew :benchmark:connectedBazaarBenchmarkAndroidTest`.
+1. واریانت اشتباه (debug/debuggable) → build type اختصاصی `benchmark`.
+2. `checkTestedAppObfuscation` → واریانت `benchmark` اپ minify ندارد (release دست‌نخورده).
+3. `GrantPermissionRule.grant(WRITE_EXTERNAL_STORAGE)` در macrobenchmark 1.3.3 روی API 33 → ارتقا به 1.5.0.
+4. مهم‌ترین: در حالت self-instrumenting، `targetContext.packageName` نام **خود هارنس**
+   است، نه اپ؛ تست `ir.siliksama.hajmino.benchmark` را «اندازه می‌گرفت» و
+   `startActivityAndWait()` روی اپی که اکتیویتی ندارد می‌مرد. حالا شناسهٔ اپ صریح
+   داده می‌شود (قابل override با آرگومان instrumentation).
+
+توجه: عددهای این جاب **امولاتور** است و مرجع نیست؛ عدد منتشرشده در
+`docs/BENCHMARK.md` همچنان باید از دستگاه فیزیکی بیاید.

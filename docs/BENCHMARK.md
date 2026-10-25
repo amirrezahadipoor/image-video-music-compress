@@ -87,8 +87,9 @@ cp ./shots/*.png app/src/androidTest/assets/baselines/
 | اجرای `debug` (debuggable) به‌جای واریانت benchmark | رفع شد | build type به نام `benchmark` در ماژول هارنس؛ `isDebuggable = false` |
 | `checkTestedAppObfuscation` (اپ R8 شده، هارنس نشده) | رفع شد | واریانت `benchmark` اپ برای همین واریانت minify ندارد (release دست‌نخورده) |
 | `GrantPermissionRule.grant(WRITE_EXTERNAL_STORAGE)` در macrobenchmark 1.3.3 روی API 33 | رفع شد | ارتقا به dependency `benchmark-macro-junit4` **1.5.0** |
-| خودِ ران: پروسه در اولین اندازه‌گیری crash می‌کند | باز | self-instrumenting (الزام 1.5.x) هارنس را داخل همان APKی می‌گذارد که باید kill/شروع شود؛ logcat در لاگ جاب |
+| خودِ ران: پروسه در اولین اندازه‌گیری crash می‌کرد | رفع شد | در حالت self-instrumenting مقدار `targetContext.packageName` نام خودِ هارنس است؛ تست عملاً هارنس را «اندازه می‌گرفت». حالا شناسهٔ اپ صریح داده می‌شود. |
 
-یعنی وضعیت امروز: هارنس **بیلد و نصب می‌شود** (پس با تغییر API نمی‌پوسد)، ولی
-**عدد تولید نمی‌کند**؛ جاب `continue-on-error` است و ران را قرمز نمی‌کند.
-اعداد `docs/BENCHMARK.md` همچنان باید از دستگاه فیزیکی بیاید — همان قاعدهٔ قبلی.
+یعنی وضعیت امروز: جاب کامل سبز است (ران `40243026628`) و هر دو تست اجرا و پاس
+می‌شوند؛ جاب با `continue-on-error: true` می‌ماند تا نوسان امولاتور ران را قرمز
+نکند. اعداد منتشرشده در جدول بالا همچنان باید از دستگاه فیزیکی بیاید — همان
+قاعدهٔ قبلی.
