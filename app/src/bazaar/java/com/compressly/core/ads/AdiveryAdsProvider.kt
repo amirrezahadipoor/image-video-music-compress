@@ -42,6 +42,12 @@ class AdiveryAdsProvider : AdsProvider {
         }
     }
 
+    /** D4: a listener with no captured state, used when the banner is released. */
+    private object NoOpListener : AdiveryAdListener() {
+        override fun onAdLoaded() = Unit
+        override fun onError(reason: String) = Unit
+    }
+
     @Composable
     override fun AdBanner(modifier: Modifier) {
         // No debug logging on the hot composition path; errors are reported
@@ -59,7 +65,10 @@ class AdiveryAdsProvider : AdsProvider {
         DisposableEffect(Unit) {
             onDispose {
                 banner.value?.let { view ->
-                    runCatching { view.setBannerAdListener(null) }
+                    // setBannerAdListener takes a non-null listener, so the
+                    // equivalent of "detach" is replacing it with a stateless
+                    // one: no callback can reach the dead composition.
+                    runCatching { view.setBannerAdListener(NoOpListener) }
                     runCatching { (view.parent as? android.view.ViewGroup)?.removeView(view) }
                 }
                 banner.value = null
