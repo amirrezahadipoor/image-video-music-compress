@@ -78,6 +78,11 @@ fun HistoryScreen(
     var showBulkDeleteDialog by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf<MediaType?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // LINT (LocalContextGetResourceValueCall): resolving a string through
+    // LocalContext.current does not re-read on a configuration change. Read the
+    // template with stringResource here and format it where the numbers are
+    // known — same text, and the screen now follows a locale change.
+    val clearedWithFiles = stringResource(R.string.history_cleared_with_files)
     val haptic = LocalHapticFeedback.current
 
     // Multi-select (bulk delete) mode: long-press a row to enter, tap rows to
@@ -266,7 +271,7 @@ fun HistoryScreen(
                             val (rows, files) = viewModel.clearAndDeleteOutputs(context)
                             Toast.makeText(
                                 context,
-                                context.getString(R.string.history_cleared_with_files, files, rows),
+                                String.format(java.util.Locale.getDefault(), clearedWithFiles, files, rows),
                                 Toast.LENGTH_LONG
                             ).show()
                         }

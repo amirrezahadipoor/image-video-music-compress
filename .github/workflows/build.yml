@@ -362,16 +362,10 @@ jobs:
           disable-animations: true
           # Extra storage: MediaStore test rows need room on the primary volume.
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: |
-            ./gradlew :app:connectedBazaarDebugAndroidTest \
-              -Pandroid.testInstrumentationRunnerArguments.class=\
-              com.compressly.PhotoAudioSmokeTest,\
-              com.compressly.VideoTranscodeSmokeTest,\
-              com.compressly.MediaStorePublishTest,\
-              com.compressly.I18nSanityTest,\
-              com.compressly.ComposeAccessibilityScanTest,\
-              com.compressly.ScreenshotRegressionTest \
-              --no-daemon --stacktrace
+          # One line on purpose: the runner passes this string to `sh -c`, and
+          # a trailing backslash here produced a stray "\" argument
+          # ("Task '\' not found") instead of a line continuation.
+          script: ./gradlew :app:connectedBazaarDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.compressly.PhotoAudioSmokeTest,com.compressly.VideoTranscodeSmokeTest,com.compressly.MediaStorePublishTest,com.compressly.I18nSanityTest,com.compressly.ComposeAccessibilityScanTest,com.compressly.ScreenshotRegressionTest --no-daemon --stacktrace
 
       # G3: the accessibility and screenshot suites now actually run, so their
       # evidence has to survive the job — a failing a11y scan is only useful if
@@ -439,9 +433,15 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
+          # The module is a com.android.test module with app-matching flavors, so
+          # the connected task name depends on the variant it resolves
+          # (connectedBazaarDebugAndroidTest here, not ...BenchmarkAndroidTest).
+          # Ask Gradle instead of hardcoding a name that does not exist.
           script: |
-            ./gradlew :benchmark:connectedBazaarBenchmarkAndroidTest \
-              --no-daemon --stacktrace
+            TASK=$(./gradlew :benchmark:tasks --all --no-daemon --quiet | grep -Eo 'connected[A-Za-z]*AndroidTest' | head -1)
+            echo "benchmark connected task: $TASK"
+            test -n "$TASK"
+            ./gradlew ":benchmark:$TASK" --no-daemon --stacktrace
 
       - name: Upload benchmark output
         if: always()
