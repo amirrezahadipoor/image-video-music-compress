@@ -11,6 +11,13 @@ android {
         minSdk = 26
         targetSdk = 35
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // The harness runs on an emulator by design in CI. macrobenchmark treats
+        // a virtual device as an *error* unless it is suppressed here — and the
+        // DSL is the only place that does not break configuration caching
+        // (passing it with -P prints a warning and disables the cache).
+        // DEBUGGABLE is deliberately NOT suppressed: a debuggable APK under test
+        // must keep failing this job.
+        testInstrumentationRunnerArguments["androidx.benchmark.suppressErrors"] = "EMULATOR"
     }
 
     // The module this benchmark runs against.
@@ -41,18 +48,19 @@ android {
     // describe what users install.
     buildTypes {
         create("benchmark") {
-            // Self-instrumenting: this module's classes are merged into the APK
-            // built for the app's own `benchmark` build type, and a debuggable
-            // test module made that merged APK debuggable — macrobenchmark then
-            // refuses to report ("ERRORS (not suppressed): EMULATOR DEBUGGABLE").
-            isDebuggable = false
+            // Test APK only: the *app* variant it measures is the app module's
+            // `benchmark` build type (release-based, isDebuggable = false).
+            isDebuggable = true
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
         }
     }
 
-    // Run the measurements against the app APK under test (no separate runner).
-    experimentalProperties["android.experimental.self-instrumenting"] = true
+    // NOT self-instrumenting on purpose. With self-instrumenting the benchmark
+    // classes are merged into the app's (R8-minified) benchmark APK, and the
+    // instrumentation process crashed at startup. A separate test APK against
+    // the real, minified, non-debuggable app variant is both closer to what
+    // users install and stable.
 }
 
 dependencies {

@@ -37,10 +37,12 @@ class StartupBenchmarks {
     @get:Rule
     val benchmarkRule = MacrobenchmarkRule()
 
-    // Self-instrumenting module: the test runs IN the app under test, so its
-    // own package name is the measured app's — suffix included
-    // (debug builds install as ir.siliksama.hajmino.debug, and a hardcoded
-    // base id made every CI run fail with "is it installed?").
+    // targetContext is the app under test (a separate test APK instruments the
+    // installed benchmark build), so its package name is the measured app's —
+    // suffix included when a debug variant is installed
+    // (ir.siliksama.hajmino.debug); a hardcoded base id made CI fail with
+    // "is it installed?". The flavor/applicationId of the benchmark variant is
+    // the real id, so this resolves to the app that was actually installed.
     private val context: Context =
         InstrumentationRegistry.getInstrumentation().targetContext
 
